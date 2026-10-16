@@ -2,14 +2,15 @@ import uuid
 import json
 import os
 import re
+import ast
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .db import init_db, get_db_connection, log_llm_call
+from .db import init_db, get_db_connection, log_llm_call, create_user, authenticate_user, get_user_by_email
 from .runner import run_submission, run_custom_code
 from .tagger import detect_mistakes
 from .explain import explain_failure, get_progressive_hints, explain_custom_code_error
@@ -141,6 +142,39 @@ class CustomDebugResponse(BaseModel):
     stdout: str
     extracted_from_doc: bool = False
     cleaned_code: str
+
+
+class RegisterRequest(BaseModel):
+    name: Optional[str] = ""
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserProfile(BaseModel):
+    id: str
+    name: str
+    email: str
+    created_at: Optional[str] = None
+
+
+class AuthResponse(BaseModel):
+    success: bool
+    user: Optional[UserProfile] = None
+    message: str = ""
+
+
+class UploadDocResponse(BaseModel):
+    success: bool
+    is_python: bool
+    filename: str
+    code: Optional[str] = ""
+    message: str
+
 
 
 # --- Challenge Loader Helper ---
@@ -435,20 +469,207 @@ def get_learner(learner_id: str):
     )
 
 
-def extract_python_from_doc(doc_text: str) -> str:
-    """
-    Extracts Python code from document/text (e.g. markdown code blocks, snippets).
-    """
-    if not doc_text:
-        return ""
+# --- User Authentication Endpoints ---
 
-    # Check for markdown code fences ```python ... ``` or ``` ... ```
+@router.post("/auth/register", response_model=AuthResponse)
+def register_user(req: RegisterRequest):
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="A valid email address is required.")
+    if len(req.password) < 4:
+        raise HTTPException(status_code=400, detail="Password must be at least 4 characters long.")
+
+    existing = get_user_by_email(email)
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this email already exists. Please log in.")
+
+    user = create_user(name=req.name or email.split("@")[0], email=email, password=req.password)
+    return AuthResponse(
+        success=True,
+        user=UserProfile(id=user["id"], name=user["name"], email=user["email"]),
+        message="Registration successful! Welcome to Debug Dojo."
+    )
+
+
+@router.post("/auth/login", response_model=AuthResponse)
+def login_user(req: LoginRequest):
+    email = req.email.strip().lower()
+    user = authenticate_user(email=email, password=req.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password. Please try again.")
+
+    return AuthResponse(
+        success=True,
+        user=UserProfile(id=user["id"], name=user["name"], email=user["email"], created_at=user.get("created_at")),
+        message="Login successful."
+    )
+
+
+@router.get("/auth/me")
+def get_current_user(email: Optional[str] = None):
+    if not email:
+        return {"user": None}
+    user = get_user_by_email(email.strip().lower())
+    if not user:
+        return {"user": None}
+    return {"user": user}
+
+
+# --- Agentic Python Code & Document Verification ---
+
+def is_likely_python_code(text: str) -> bool:
+    """
+    Checks whether a text contains executable or near-executable Python statements,
+    functions, loops, conditionals, assignments, or standard imports.
+    """
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+
+    # 1. Check with AST parser
+    try:
+        tree = ast.parse(cleaned)
+        meaningful_nodes = 0
+        for node in ast.walk(tree):
+            if isinstance(node, (
+                ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+                ast.Return, ast.Yield, ast.YieldFrom,
+                ast.For, ast.While, ast.If, ast.With, ast.Try,
+                ast.Assign, ast.AugAssign, ast.AnnAssign,
+                ast.Import, ast.ImportFrom,
+                ast.Call, ast.BinOp, ast.Compare, ast.Assert
+            )):
+                meaningful_nodes += 1
+        if meaningful_nodes > 0:
+            return True
+        # If it parsed, but only as bare strings/identifiers with no programmatic structure
+        if len(tree.body) > 0 and all(isinstance(stmt, ast.Expr) and isinstance(stmt.value, (ast.Constant, ast.Name)) for stmt in tree.body):
+            return False
+    except SyntaxError:
+        pass
+
+    # 2. Heuristic check for buggy Python code (which fails AST parse due to syntax errors)
+    py_patterns = [
+        r"^\s*def\s+[a-zA-Z_]\w*\s*\(",
+        r"^\s*class\s+[a-zA-Z_]\w*",
+        r"^\s*import\s+[a-zA-Z_]\w*",
+        r"^\s*from\s+[a-zA-Z_]\w*\s+import",
+        r"^\s*return\b",
+        r"^\s*(for|while)\s+.*",
+        r"^\s*if\s+.*",
+        r"^\s*(elif|else):?",
+        r"^\s*(try|except|finally):?",
+        r"print\s*\(",
+        r"\b[a-zA-Z_]\w*\s*(=|\+=|-=|\*=|/=|%=)\s*",
+        r"range\s*\(",
+        r"len\s*\("
+    ]
+
+    lines = cleaned.split("\n")
+    code_matches = 0
+
+    for line in lines:
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        if any(re.search(pat, s) for pat in py_patterns):
+            code_matches += 1
+
+    # If code constructs or keywords are present, treat as Python code
+    return code_matches >= 1
+
+
+def verify_and_extract_python(text: str, filename: Optional[str] = None) -> Tuple[bool, str, str]:
+    """
+    Agentic Python code verification:
+    Inspects documents or text snippets to ensure they actually contain Python code.
+    Extracts code from markdown blocks or accepts raw Python files.
+    Rejects READMEs, documentation, or non-code files with a clear educational message.
+    """
+    if not text or not text.strip():
+        return False, "", "We need Python code to analyze! The uploaded document is empty."
+
+    raw = text.strip()
+
+    # 1. Check for markdown code fences ```python ... ``` or ``` ... ```
     pattern = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
-    matches = pattern.findall(doc_text)
+    matches = pattern.findall(raw)
     if matches:
-        return "\n\n".join(m.strip() for m in matches if m.strip())
+        extracted = "\n\n".join(m.strip() for m in matches if m.strip())
+        if is_likely_python_code(extracted):
+            return True, extracted, "Python code extracted from document code blocks."
 
-    return doc_text.strip()
+    # 2. Check if raw text is Python code
+    if is_likely_python_code(raw):
+        return True, raw, "Valid Python code detected."
+
+    # 3. Document does not contain Python code
+    return (
+        False,
+        "",
+        "We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code."
+    )
+
+
+def extract_python_from_doc(doc_text: str) -> str:
+    """Extracts Python code or returns empty string if no code is present."""
+    is_py, code, _ = verify_and_extract_python(doc_text)
+    return code if is_py else ""
+
+
+@router.post("/upload-document", response_model=UploadDocResponse)
+async def upload_document(file: UploadFile = File(...)):
+    """
+    Accepts only .pdf, .py, and .txt files.
+    Extracts text and runs Agentic AI Python verification to verify Python code presence.
+    """
+    filename = file.filename or "upload.txt"
+    ext = Path(filename).suffix.lower()
+    allowed_extensions = [".pdf", ".py", ".txt"]
+
+    if ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file format. Only .pdf, .py, and .txt files are allowed."
+        )
+
+    try:
+        content_bytes = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+
+    text = ""
+    if ext == ".pdf":
+        try:
+            import fitz
+            pdf_doc = fitz.open(stream=content_bytes, filetype="pdf")
+            text = "\n".join(page.get_text() for page in pdf_doc)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Could not extract text from PDF: {str(e)}")
+    else:
+        try:
+            text = content_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            text = content_bytes.decode("latin-1", errors="ignore")
+
+    is_python, extracted_code, message = verify_and_extract_python(text, filename=filename)
+
+    if not is_python:
+        return UploadDocResponse(
+            success=False,
+            is_python=False,
+            filename=filename,
+            code="",
+            message="We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code."
+        )
+
+    return UploadDocResponse(
+        success=True,
+        is_python=True,
+        filename=filename,
+        code=extracted_code,
+        message=f"Successfully extracted Python code from {filename}."
+    )
 
 
 @router.post("/analyze-custom", response_model=CustomDebugResponse)
@@ -461,7 +682,27 @@ def analyze_custom_code(req: CustomDebugRequest):
     extracted_from_doc = False
 
     if not raw_code.strip() and req.document_text:
-        raw_code = extract_python_from_doc(req.document_text)
+        is_py, extracted_code, _ = verify_and_extract_python(req.document_text)
+        if not is_py:
+            return CustomDebugResponse(
+                success=False,
+                outcome="not_python",
+                error_type="NonPythonDocumentError",
+                error_line=None,
+                error_msg="The provided document does not contain Python code.",
+                explanation="We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code.",
+                hints=[
+                    "Please upload a .py file or paste valid Python code.",
+                    "Ensure your document contains Python functions, loops, or statements.",
+                    "If you are submitting a markdown or text document, enclose Python code inside ```python and ``` blocks.",
+                    "Only .pdf, .py, and .txt files containing Python code are supported."
+                ],
+                mistake_tags=["non_python_document"],
+                stdout="",
+                extracted_from_doc=True,
+                cleaned_code=""
+            )
+        raw_code = extracted_code
         extracted_from_doc = True
 
     if not raw_code.strip():
@@ -475,10 +716,32 @@ def analyze_custom_code(req: CustomDebugRequest):
             hints=[
                 "Write or paste Python code into the editor.",
                 "Ensure your code has at least one executable statement or function.",
-                "You can also paste a markdown document containing code blocks.",
+                "You can also upload a .py, .pdf, or .txt file containing Python code.",
                 "Click 'Analyze & Run' to execute it safely in the sandbox."
             ],
             mistake_tags=["unhandled_short_input"],
+            stdout="",
+            extracted_from_doc=extracted_from_doc,
+            cleaned_code=raw_code
+        )
+
+    # Agentic verification on raw code: verify it's actual Python before running in sandbox
+    is_py, verified_code, non_py_msg = verify_and_extract_python(raw_code)
+    if not is_py:
+        return CustomDebugResponse(
+            success=False,
+            outcome="not_python",
+            error_type="NonPythonDocumentError",
+            error_line=None,
+            error_msg="The provided text does not contain Python code.",
+            explanation="We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code.",
+            hints=[
+                "Please upload a .py file or paste valid Python code.",
+                "Ensure your code contains Python functions, loops, or statements.",
+                "If you are uploading documentation, enclose code inside ```python and ``` blocks.",
+                "Only .pdf, .py, and .txt files containing Python code are supported."
+            ],
+            mistake_tags=["non_python_document"],
             stdout="",
             extracted_from_doc=extracted_from_doc,
             cleaned_code=raw_code
@@ -541,3 +804,4 @@ def analyze_custom_code(req: CustomDebugRequest):
 # Mount router at both root ("") and "/api" so rewrites with or without prefix work seamlessly
 app.include_router(router, prefix="")
 app.include_router(router, prefix="/api")
+

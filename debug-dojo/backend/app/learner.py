@@ -236,18 +236,59 @@ def get_learner_profile(learner_id: str) -> Dict[str, Any]:
     mastery = calculate_mastery(history, challenges_by_id)
     next_c, reason = recommend_next_challenge(history, mastery, recurring, all_challenges)
 
-    # Calculate challenges attempted / solved
-    distinct_attempted = len({s["challenge_id"] for s in history})
-    distinct_solved = len({s["challenge_id"] for s in history if s["passed"]})
+    # Calculate challenges attempted / solved / failed
+    distinct_attempted_set = {s["challenge_id"] for s in history}
+    distinct_solved_set = {s["challenge_id"] for s in history if s["passed"]}
+    distinct_attempted = len(distinct_attempted_set)
+    distinct_solved = len(distinct_solved_set)
+    distinct_failed = len(distinct_attempted_set - distinct_solved_set)
+    total_submissions = len(history)
+    passed_count = sum(1 for s in history if s["passed"])
+    failed_count = total_submissions - passed_count
+
+    # Fetch user details if registered
+    user_name = learner_id.split("@")[0] if "@" in learner_id else learner_id
+    user_email = learner_id if "@" in learner_id else None
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, email FROM users WHERE email = ? OR id = ?", (learner_id, learner_id))
+        user_row = cursor.fetchone()
+        if user_row:
+            user_name = user_row["name"]
+            user_email = user_row["email"]
+
+    # Build formatted submission history
+    submission_history = []
+    for s in reversed(history[-20:]):
+        cid = s["challenge_id"]
+        cdata = challenges_by_id.get(cid, {})
+        submission_history.append({
+            "id": s["id"],
+            "challenge_id": cid,
+            "title": cdata.get("title", cid.replace("-", " ").title()),
+            "difficulty": cdata.get("difficulty", "Easy"),
+            "passed": s["passed"],
+            "outcome": "Passed" if s["passed"] else "Failed",
+            "mistake_tags": s.get("mistake_tags", []),
+            "created_at": s.get("created_at")
+        })
 
     return {
         "learner_id": learner_id,
+        "user_name": user_name,
+        "user_email": user_email,
         "recurring_mistakes": recurring,
         "mastery_per_concept": mastery,
         "mastery": {k.lower(): round(v / 100.0, 2) for k, v in mastery.items()},
         "overall_mastery": round(sum(mastery.values()) / max(1, len(mastery))),
         "challenges_attempted": distinct_attempted,
         "challenges_solved": distinct_solved,
+        "challenges_failed": distinct_failed,
+        "total_submissions": total_submissions,
+        "passed_count": passed_count,
+        "failed_count": failed_count,
+        "history": submission_history,
         "next_challenge": {
             "id": next_c.get("id", "last-k-total"),
             "challenge_id": next_c.get("id", "last-k-total"),

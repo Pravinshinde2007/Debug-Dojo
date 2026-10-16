@@ -270,7 +270,51 @@ body>.wrap{position:relative;z-index:1}
     <a href="#how" data-r="how">How It Works</a>
     <a href="/docs" target="_blank" style="color:var(--violet)">Swagger API ↗</a>
   </nav>
+  <div id="auth-nav-area" style="display:flex;align-items:center;gap:8px;margin-left:auto"></div>
 </div></div>
+
+<!-- Auth Modal (Login & Registration) -->
+<div id="auth-modal" style="display:none;position:fixed;inset:0;background:rgba(10,7,15,.78);backdrop-filter:blur(8px);z-index:9999;place-items:center;padding:16px">
+  <div class="card tilt" style="max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.85);position:relative;border:1px solid var(--violet-d);background:var(--card)">
+    <button id="auth-modal-close" type="button" aria-label="Close" style="position:absolute;top:16px;right:18px;background:transparent;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--muted)">&times;</button>
+    <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--line);padding-bottom:12px">
+      <button type="button" class="chip on" id="auth-tab-login">Sign In</button>
+      <button type="button" class="chip" id="auth-tab-register">Create Account</button>
+    </div>
+
+    <!-- Login Form -->
+    <form id="form-login" style="display:grid;gap:14px">
+      <div>
+        <label for="login-email" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Email Address</label>
+        <input type="email" id="login-email" required class="search" style="width:100%" placeholder="learner@example.com" autocomplete="email">
+      </div>
+      <div>
+        <label for="login-password" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Password</label>
+        <input type="password" id="login-password" required class="search" style="width:100%" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div id="login-error" style="display:none;color:var(--coral);font-size:13px;background:rgba(255,136,120,.1);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,136,120,.3)"></div>
+      <button type="submit" class="btn primary" style="width:100%;margin-top:4px">Sign In to Debug Dojo</button>
+    </form>
+
+    <!-- Register Form -->
+    <form id="form-register" style="display:none;gap:14px">
+      <div>
+        <label for="reg-name" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Full Name</label>
+        <input type="text" id="reg-name" required class="search" style="width:100%" placeholder="Your Name" autocomplete="name">
+      </div>
+      <div>
+        <label for="reg-email" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Email Address</label>
+        <input type="email" id="reg-email" required class="search" style="width:100%" placeholder="learner@example.com" autocomplete="email">
+      </div>
+      <div>
+        <label for="reg-password" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Password (min 4 characters)</label>
+        <input type="password" id="reg-password" required minlength="4" class="search" style="width:100%" placeholder="••••••••" autocomplete="new-password">
+      </div>
+      <div id="reg-error" style="display:none;color:var(--coral);font-size:13px;background:rgba(255,136,120,.1);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,136,120,.3)"></div>
+      <button type="submit" class="btn primary" style="width:100%;margin-top:4px">Create Free Account</button>
+    </form>
+  </div>
+</div>
 
 <main class="wrap view" id="app"></main>
 <div class="wrap"><footer>
@@ -484,7 +528,19 @@ print(calculate_average([]))
   customMode:'code',
   customResult:null,
   customHintsShown:1,
-  customRunning:false
+  customRunning:false,
+  user:(function(){
+    try{
+      const u=localStorage.getItem('debug_dojo_user');
+      return u?JSON.parse(u):null;
+    }catch(e){return null;}
+  })(),
+  challenges_attempted:null,
+  challenges_solved:null,
+  challenges_failed:null,
+  total_submissions:null,
+  overall_mastery:null,
+  user_history:[]
 };
 
 const SAMPLES={
@@ -516,21 +572,28 @@ const chOf=id=>CH.find(c=>c.id===id)||CH[0];
 function getCode(id){ if(S.code[id]==null) S.code[id]=chOf(id).starter; return S.code[id]; }
 
 async function fetchProfile(){
+  const learnerId = (S.user && S.user.email) ? S.user.email : 'demo-learner';
   try{
-    const res = await fetch('/api/learner/demo-learner');
+    const res = await fetch(`/api/learner/${encodeURIComponent(learnerId)}`);
     if(res.ok){
       const data = await res.json();
       S.mastery = data.mastery_per_concept || S.mastery;
-      S.streak = data.streak_days || S.streak;
+      S.streak = data.streak_days || S.streak || 3;
       S.recurringList = data.recurring_mistakes || [];
-      S.recommendedChallenge = data.recommended_next_challenge || null;
-      S.recommendationReason = data.recommendation_reason || "";
-      if(data.recent_submissions && data.recent_submissions.length){
-        S.history = data.recent_submissions.map(s=>({
+      S.recommendedChallenge = data.recommended_next_challenge || data.next_challenge || null;
+      S.recommendationReason = data.recommendation_reason || data.reason || "";
+      S.challenges_attempted = data.challenges_attempted != null ? data.challenges_attempted : 0;
+      S.challenges_solved = data.challenges_solved != null ? data.challenges_solved : 0;
+      S.challenges_failed = data.challenges_failed != null ? data.challenges_failed : 0;
+      S.total_submissions = data.total_submissions != null ? data.total_submissions : 0;
+      S.overall_mastery = data.overall_mastery != null ? data.overall_mastery : 50;
+      S.user_history = data.history || [];
+      if(data.history && data.history.length){
+        S.history = data.history.map(s=>({
           ch: s.challenge_id,
           when: s.created_at ? s.created_at.split(' ')[1] || 'Today' : 'Today',
-          res: s.overall_outcome.replace(/^./, x=>x.toUpperCase()),
-          cls: OUT[s.overall_outcome] || 'passed'
+          res: s.outcome || (s.passed ? 'Passed' : 'Failed'),
+          cls: s.passed ? 'passed' : 'wrong'
         }));
       }
     }
@@ -540,6 +603,41 @@ async function fetchProfile(){
 }
 
 const overall=()=>Math.round(CONCEPTS.reduce((a,k)=>a+(S.mastery[k]||50),0)/CONCEPTS.length);
+
+function renderAuthNav(){
+  const el = $('#auth-nav-area');
+  if(!el) return;
+  if(S.user){
+    el.innerHTML = `
+      <span class="pill" style="color:var(--cyan);border-color:rgba(100,216,236,.3);max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${esc(S.user.email)}">
+        👤 ${esc(S.user.name || S.user.email.split('@')[0])}
+      </span>
+      <button class="btn sm" id="btn-logout" title="Sign out of ${esc(S.user.email)}">Sign Out</button>
+    `;
+    const logoutBtn = $('#btn-logout');
+    if(logoutBtn){
+      logoutBtn.addEventListener('click', ()=>{
+        localStorage.removeItem('debug_dojo_user');
+        S.user = null;
+        renderAuthNav();
+        fetchProfile();
+        toast('You have been signed out.');
+        route(true);
+      });
+    }
+  } else {
+    el.innerHTML = `
+      <button class="btn sm primary" id="btn-open-auth">Sign In / Register</button>
+    `;
+    const openBtn = $('#btn-open-auth');
+    if(openBtn){
+      openBtn.addEventListener('click', ()=>{
+        const m = $('#auth-modal');
+        if(m) m.style.display = 'grid';
+      });
+    }
+  }
+}
 
 /* ---------- router ---------- */
 const ROUTES=['home','challenges','workspace','results','dashboard','how','custom-debug'];
@@ -556,6 +654,7 @@ function route(force){
   if(changed){ app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter'); S.enterT=setTimeout(()=>app.classList.remove('enter'),900); window.scrollTo(0,0); }
   else { app.classList.remove('enter'); window.scrollTo(0,sy); }
   bind(r);
+  renderAuthNav();
   if(r==='home') GL.hero($('#stage'));
   if(r==='dashboard') GL.sky($('#sky'),CONCEPTS.map(k=>({name:k,val:S.mastery[k]||50})));
 }
@@ -791,22 +890,37 @@ function vResults(){
 }
 
 function vDashboard(){
- const att=Object.values(S.status).filter(s=>s!=='new').length, sol=Object.values(S.status).filter(s=>s==='solved').length;
+ const att=S.challenges_attempted != null ? S.challenges_attempted : Object.values(S.status).filter(s=>s!=='new').length;
+ const sol=S.challenges_solved != null ? S.challenges_solved : Object.values(S.status).filter(s=>s==='solved').length;
+ const failed=S.challenges_failed != null ? S.challenges_failed : Math.max(0, att - sol);
+ const totalRuns=S.total_submissions != null ? S.total_submissions : S.history.length;
  const recCh=S.recommendedChallenge || chOf('last-k-total');
  const recReason=S.recommendationReason || "Practice this foundational challenge to boost your core indexing and lists skills.";
  const rc=S.recurringList || [];
  const mcol=v=>v>=70?'var(--green)':v>=50?'var(--violet)':'var(--amber)';
+ const currentOverall=S.overall_mastery != null ? S.overall_mastery : overall();
+ const displayName=S.user ? (S.user.name || S.user.email) : 'demo-learner';
+ const displayEmail=S.user ? S.user.email : 'Guest Session · Register / Sign In to record your personal interactions &amp; history';
+
  return `
- <div class="page-head"><div><span class="eyebrow">Learner Profile</span><h1>demo-learner</h1></div><span class="live-pill"><i></i>Live Persistence &amp; Mastery Active</span></div>
+ <div class="page-head">
+  <div>
+    <span class="eyebrow">Learner Profile &amp; Interaction Tracking</span>
+    <h1>${esc(displayName)}</h1>
+    <p class="muted" style="margin-top:4px;font-size:14px">${esc(displayEmail)}</p>
+  </div>
+  <span class="live-pill"><i></i>Live Persistence &amp; Mastery Active</span>
+ </div>
  <div class="grid sumgrid" style="margin-bottom:16px">
-  <div class="card stat"><b>${att}</b><span>Challenges attempted</span></div>
-  <div class="card stat"><b>${sol}</b><span>Challenges solved</span></div>
-  <div class="card stat"><b>${S.streak} days</b><span>Current streak</span></div>
-  <div class="card stat"><b>${overall()}</b><span>Overall mastery</span><div class="bar" style="margin-top:8px"><i style="width:${overall()}%"></i></div></div>
+  <div class="card stat"><b>${sol}</b><span>Challenges Solved</span></div>
+  <div class="card stat"><b>${att}</b><span>Challenges Attempted</span></div>
+  <div class="card stat"><b>${failed}</b><span>Failed / Need Fix</span></div>
+  <div class="card stat"><b>${totalRuns}</b><span>Total Code Runs</span></div>
+  <div class="card stat"><b>${currentOverall}%</b><span>Overall Mastery</span><div class="bar" style="margin-top:8px"><i style="width:${currentOverall}%"></i></div></div>
  </div>
  <div class="grid two">
   <div class="grid" style="align-content:start">
-   <div class="card reco tilt" data-tilt="3"><span class="eyebrow">Recommended next challenge</span><h2 style="font-size:26px;margin:8px 0">${recCh.title}</h2>
+   <div class="card reco tilt" data-tilt="3"><span class="eyebrow">Recommended next challenge</span><h2 style="font-size:26px;margin:8px 0">${esc(recCh.title || 'Challenge')}</h2>
     <p style="line-height:1.65">${recReason}</p>
     <div class="row" style="margin-top:14px"><button class="btn primary" data-open="${recCh.challenge_id||recCh.id}">Start Challenge ${IC.arrow}</button><span class="pill ${recCh.difficulty?recCh.difficulty.toLowerCase():'easy'}">${recCh.difficulty||'Easy'}</span>${(recCh.concepts||[]).map(k=>`<span class="pill tag">${k}</span>`).join('')}</div>
    </div>
@@ -818,10 +932,35 @@ function vDashboard(){
   <div class="grid" style="align-content:start">
    <div class="card"><h3 style="font-size:18px;margin-bottom:6px">Recurring mistakes</h3>
     <p class="muted" style="font-size:13px;margin-bottom:8px">A mistake counts as recurring once it appears across at least 2 distinct challenges.</p>
-    ${rc.length?rc.map(r=>`<div class="rm"><div><span class="pill mistake">${r.mistake_tag}</span><div class="muted" style="font-size:13px;margin-top:4px">Appeared across ${r.challenges_involved.length} challenges: ${r.challenges_involved.join(', ')}</div></div><span class="mono">${r.occurrence_count}×</span></div>`).join(''):'<div class="muted" style="font-size:14px">No recurring mistakes yet. Keep solving!</div>'}
+    ${rc.length?rc.map(r=>`<div class="rm"><div><span class="pill mistake">${r.mistake_tag||r.tag}</span><div class="muted" style="font-size:13px;margin-top:4px">Appeared across ${(r.challenges_involved||r.challenges||[]).length} challenges: ${(r.challenges_involved||r.challenges||[]).join(', ')}</div></div><span class="mono">${r.occurrence_count||r.count}×</span></div>`).join(''):'<div class="muted" style="font-size:14px">No recurring mistakes yet. Keep solving!</div>'}
    </div>
-   <div class="card"><h3 style="font-size:18px;margin-bottom:6px">Recent Submissions</h3>
-    ${S.history.map(h=>`<div class="rm"><div>${chOf(h.ch).title}<div class="muted" style="font-size:12.5px">${h.when}</div></div><span class="o ${h.cls}">${h.res}</span></div>`).join('') || '<div class="muted" style="font-size:14px">No submissions yet.</div>'}
+   <div class="card"><h3 style="font-size:18px;margin-bottom:10px">Recent Submission History</h3>
+    ${(S.user_history && S.user_history.length) ? `
+      <div class="tbl" style="max-height:360px;overflow-y:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Challenge</th>
+              <th>Outcome</th>
+              <th>Mistake Tags</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${S.user_history.map(h => `
+              <tr>
+                <td><strong>${esc(h.title || h.challenge_id)}</strong> <span class="pill ${(h.difficulty||'easy').toLowerCase()}" style="font-size:11px">${esc(h.difficulty||'Easy')}</span></td>
+                <td><span class="o ${h.passed ? 'passed' : 'wrong'}">${h.outcome || (h.passed ? 'Passed' : 'Failed')}</span></td>
+                <td>${(h.mistake_tags && h.mistake_tags.length) ? h.mistake_tags.map(t => `<span class="pill mistake" style="font-size:10px">${esc(t)}</span>`).join(' ') : '<span class="muted">—</span>'}</td>
+                <td class="muted" style="font-size:11.5px">${esc(h.created_at || 'Recently')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    ` : (S.history && S.history.length) ? `
+      ${S.history.map(h=>`<div class="rm"><div>${chOf(h.ch).title}<div class="muted" style="font-size:12.5px">${h.when}</div></div><span class="o ${h.cls}">${h.res}</span></div>`).join('')}
+    ` : '<div class="muted" style="font-size:14px">No submissions recorded yet for this account. Run a challenge solution to track progress!</div>'}
    </div>
   </div>
  </div>`;
@@ -876,8 +1015,8 @@ function vCustomDebug(){
     </div>
     <span class="sp" style="flex:1"></span>
     <label class="btn sm" style="cursor:pointer">
-      📂 Upload File (.py, .md, .txt)
-      <input type="file" id="custom-file-input" accept=".py,.md,.txt,.markdown" style="display:none">
+      📂 Upload File (.pdf, .py, .txt)
+      <input type="file" id="custom-file-input" accept=".pdf,.py,.txt" style="display:none">
     </label>
   </div>
 
@@ -887,12 +1026,12 @@ function vCustomDebug(){
         <div class="panel-h">
           <span>${isDoc?'document_with_code.md':'debug_script.py'}</span>
           <span id="custom-status-pill" class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">
-            ${res ? (res.success ? '<span style="color:var(--green)">✓ Executing Cleanly</span>' : '<span style="color:var(--coral)">⚠ ' + esc(res.error_type || 'Error Detected') + '</span>') : 'Ready to Analyze'}
+            ${res ? (res.success ? '<span style="color:var(--green)">✓ Executing Cleanly</span>' : (res.outcome==='not_python' ? '<span style="color:var(--coral)">⚠ Non-Python Document</span>' : '<span style="color:var(--coral)">⚠ ' + esc(res.error_type || 'Error Detected') + '</span>')) : 'Ready to Analyze'}
           </span>
         </div>
         <div class="editor" style="height:380px">
           <div class="gutter" id="custom-gutter"></div>
-          <textarea id="custom-code" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste your Python code or markdown document here...">${esc(val)}</textarea>
+          <textarea id="custom-code" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste your Python code or document snippet here...">${esc(val)}</textarea>
         </div>
         <div id="custom-typing-bar" style="padding:9px 16px;background:rgba(255,255,255,.02);border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px">
           <span style="color:var(--cyan);font-weight:600">⚡ Live Assistant:</span>
@@ -922,7 +1061,7 @@ function vCustomDebug(){
     <section class="panel coach" aria-label="Debug Coach &amp; Progressive Guidance">
       <div class="panel-h">
         <span>Debug Coach</span>
-        <span class="mono" style="text-transform:none;letter-spacing:0">${res && !res.success ? 'Hint ' + shown + '/4' : ''}</span>
+        <span class="mono" style="text-transform:none;letter-spacing:0">${res && !res.success && res.outcome!=='not_python' ? 'Hint ' + shown + '/4' : ''}</span>
       </div>
       <div class="panel-b">
         ${renderCustomCoach(res, shown)}
@@ -957,6 +1096,28 @@ function renderCustomCoach(res, shown){
     </div>
     <div class="note">
       <strong>Educational Principle:</strong> Like ChatGPT or an encouraging mentor, Debug Dojo will never directly provide the corrected code. Read the progressive hints, think through the cause, and type the fix yourself.
+    </div>`;
+  }
+
+  if(res.outcome === 'not_python'){
+    return `
+    <div class="banner bad" style="padding:16px;background:rgba(255,136,120,.15);border:1px solid rgba(255,136,120,.4);font-size:14px;line-height:1.6">
+      <strong style="font-size:15px;color:var(--coral);display:block;margin-bottom:6px">⚠️ We need Python code to analyze!</strong>
+      The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code.
+    </div>
+    <div class="msg" style="margin-top:12px;background:var(--card2)">
+      <b>Agentic AI Verification Report:</b><br>
+      Our code verifier analyzed the file/text and determined that it is documentation or plain English prose without any executable Python statements.<br><br>
+      <b>Supported Formats:</b>
+      <ul style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:13.5px">
+        <li>Python source files (<code>.py</code>)</li>
+        <li>Text documents (<code>.txt</code>) containing Python functions or statements</li>
+        <li>PDF documents (<code>.pdf</code>) containing Python code</li>
+        <li>Markdown documents where code is enclosed in <code>\`\`\`python ... \`\`\`</code></li>
+      </ul>
+    </div>
+    <div class="note" style="margin-top:12px">
+      <strong>Next Step:</strong> Upload a <code>.py</code> file or paste a function above, then click <b>Analyze &amp; Run Code</b>.
     </div>`;
   }
 
@@ -1205,40 +1366,189 @@ function bind(r){
 
   const fileInput = $('#custom-file-input');
   if(fileInput){
-    fileInput.addEventListener('change', e=>{
+    fileInput.addEventListener('change', async e=>{
       const file = e.target.files[0];
       if(!file) return;
-      const reader = new FileReader();
-      reader.onload = ev=>{
-        const content = ev.target.result;
-        if(file.name.endsWith('.md') || file.name.endsWith('.txt')){
-          S.customMode = 'doc';
-          S.customDoc = content;
-        } else {
-          S.customMode = 'code';
-          S.customCode = content;
+
+      // Restrict upload to only .pdf, .py, and .txt files
+      if(!file.name.match(/\.(pdf|py|txt)$/i)){
+        toast("Invalid file format. Only .pdf, .py, and .txt files are allowed.");
+        fileInput.value = '';
+        return;
+      }
+
+      toast(`Inspecting ${file.name} with Agentic AI...`);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try{
+        const res = await fetch('/api/upload-document', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if(!res.ok || !data.is_python){
+          S.customResult = {
+            success: false,
+            outcome: 'not_python',
+            error_type: 'NonPythonDocumentError',
+            error_line: null,
+            error_msg: 'The uploaded file does not contain Python code.',
+            explanation: data.message || "We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code.",
+            hints: [
+              "Please upload a .py file or a document containing Python code.",
+              "Make sure your document includes Python functions, loops, or statements.",
+              "If uploading a README or markdown, wrap your Python code in ```python ... ``` blocks.",
+              "Only .pdf, .py, and .txt files containing Python code are supported."
+            ],
+            mistake_tags: ['non_python_document'],
+            stdout: '',
+            cleaned_code: ''
+          };
+          route();
+          toast("⚠️ Document contains no Python code!");
+          return;
         }
+
+        S.customMode = 'code';
+        S.customCode = data.code;
+        S.customDoc = data.code;
         S.customResult = null;
         S.customHintsShown = 1;
         route();
-        toast(`Loaded file: ${file.name}`);
-      };
-      reader.readAsText(file);
+        toast(`✓ Python code extracted from ${file.name}! Click "Analyze & Run Code" to test.`);
+      }catch(err){
+        toast("File upload failed: " + err.message);
+      }finally{
+        fileInput.value = '';
+      }
     });
   }
  }
+}
+
+function initAuthModal(){
+  const modal = $('#auth-modal');
+  const closeBtn = $('#auth-modal-close');
+  const tabLogin = $('#auth-tab-login');
+  const tabReg = $('#auth-tab-register');
+  const formLogin = $('#form-login');
+  const formReg = $('#form-register');
+  const loginErr = $('#login-error');
+  const regErr = $('#reg-error');
+
+  if(closeBtn && modal){
+    closeBtn.addEventListener('click', ()=> modal.style.display = 'none');
+    modal.addEventListener('click', e => {
+      if(e.target === modal) modal.style.display = 'none';
+    });
+  }
+
+  if(tabLogin && tabReg && formLogin && formReg){
+    tabLogin.addEventListener('click', ()=>{
+      tabLogin.classList.add('on');
+      tabReg.classList.remove('on');
+      formLogin.style.display = 'grid';
+      formReg.style.display = 'none';
+      if(loginErr) loginErr.style.display = 'none';
+    });
+    tabReg.addEventListener('click', ()=>{
+      tabReg.classList.add('on');
+      tabLogin.classList.remove('on');
+      formReg.style.display = 'grid';
+      formLogin.style.display = 'none';
+      if(regErr) regErr.style.display = 'none';
+    });
+  }
+
+  if(formLogin){
+    formLogin.addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = $('#login-email').value.trim();
+      const password = $('#login-password').value;
+      if(loginErr) loginErr.style.display = 'none';
+
+      try{
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if(!res.ok){
+          if(loginErr){
+            loginErr.textContent = data.detail || 'Login failed.';
+            loginErr.style.display = 'block';
+          }
+          return;
+        }
+        S.user = data.user;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+        if(modal) modal.style.display = 'none';
+        renderAuthNav();
+        await fetchProfile();
+        toast(`Welcome back, ${data.user.name || data.user.email}!`);
+        go('dashboard');
+      }catch(err){
+        if(loginErr){
+          loginErr.textContent = 'Network error: ' + err.message;
+          loginErr.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  if(formReg){
+    formReg.addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = $('#reg-name').value.trim();
+      const email = $('#reg-email').value.trim();
+      const password = $('#reg-password').value;
+      if(regErr) regErr.style.display = 'none';
+
+      try{
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json();
+        if(!res.ok){
+          if(regErr){
+            regErr.textContent = data.detail || 'Registration failed.';
+            regErr.style.display = 'block';
+          }
+          return;
+        }
+        S.user = data.user;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+        if(modal) modal.style.display = 'none';
+        renderAuthNav();
+        await fetchProfile();
+        toast(`Account created! Welcome to Debug Dojo, ${data.user.name || data.user.email}!`);
+        go('dashboard');
+      }catch(err){
+        if(regErr){
+          regErr.textContent = 'Network error: ' + err.message;
+          regErr.style.display = 'block';
+        }
+      }
+    });
+  }
 }
 
 async function runLive(){
  const c=chOf(S.cur), btn=$('#run'); const code=$('#code').value; S.code[c.id]=code;
  btn.disabled=true; btn.innerHTML='<span class="spin"></span> Running in Sandbox...';
 
+ const learnerId = (S.user && S.user.email) ? S.user.email : 'demo-learner';
  try{
    const res = await fetch('/api/submit', {
      method: 'POST',
      headers: {'Content-Type': 'application/json'},
      body: JSON.stringify({
-       learner_id: 'demo-learner',
+       learner_id: learnerId,
        challenge_id: c.id,
        code: code
      })
@@ -1295,7 +1605,7 @@ async function runLive(){
    S.history.unshift({ch:c.id, when:'Just now', res:overallOutcome.replace(/^./,x=>x.toUpperCase()), cls:sub.cls});
    S.tab = 'all';
 
-   fetchProfile();
+   await fetchProfile();
    route();
    toast(data.passed ? "All tests passed successfully!" : "Outcome: " + overallOutcome + (data.error_line ? ` (Line ${data.error_line})` : ''));
  }catch(err){
@@ -1353,8 +1663,9 @@ async function runCustomDebugLive(){
     btn.innerHTML = '<span class="spin"></span> Running in Sandbox...';
   }
 
+  const learnerId = (S.user && S.user.email) ? S.user.email : 'demo-learner';
   try{
-    const payload = isDoc ? { document_text: content } : { code: content };
+    const payload = isDoc ? { document_text: content, learner_id: learnerId } : { code: content, learner_id: learnerId };
     const res = await fetch('/api/analyze-custom', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1373,7 +1684,12 @@ async function runCustomDebugLive(){
       S.customCode = data.cleaned_code;
     }
 
-    toast(data.success ? "✓ Clean Run! No errors found." : "⚠ " + (data.error_type || "Error detected"));
+    if(data.outcome === 'not_python'){
+      toast("⚠️ Non-Python document detected. We need Python code to analyze!");
+    } else {
+      toast(data.success ? "✓ Clean Run! No errors found." : "⚠ " + (data.error_type || "Error detected"));
+    }
+    await fetchProfile();
   } catch(err){
     toast("Error contacting sandbox: " + err.message);
   } finally {
@@ -1986,8 +2302,8 @@ const GL=(function(){
 })();
 
 GL.init();
-fetchProfile();
-route();
+initAuthModal();
+fetchProfile().then(()=>route());
 </script>
 </body>
 </html>
