@@ -869,9 +869,12 @@ function vAuthPortal(){
           <button type="submit" id="p-btn-register" class="btn primary" style="width:100%;margin-top:4px;padding:12px;font-size:15px">Create Account &amp; Start Learning</button>
         </form>
 
-        <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:14px;text-align:center">
+        <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:14px;display:grid;gap:8px;text-align:center">
           <button type="button" id="p-btn-demo" class="btn sm" style="width:100%;background:var(--bg2);color:var(--cyan);border-color:rgba(100,216,236,.3)">
             ⚡ Quick Start with Demo Student Account
+          </button>
+          <button type="button" id="p-btn-offline" class="btn sm" style="width:100%;background:rgba(124,92,240,.12);color:var(--violet);border-color:rgba(168,140,255,.3)">
+            🚀 Run in In-Browser Sandbox Mode (Zero Backend Servers)
           </button>
         </div>
       </div>
@@ -1732,11 +1735,15 @@ function initAuthModal(){
         let loggedIn = false;
         let data = null;
         try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 1200);
           const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
+            signal: controller.signal
           });
+          clearTimeout(tid);
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             loggedIn = true;
@@ -1752,13 +1759,13 @@ function initAuthModal(){
           localStorage.setItem('debug_dojo_jwt', data.token);
           if(modal) modal.style.display = 'none';
           renderAuthNav();
-          await fetchProfile();
           toast(`Welcome back, ${data.user.name || data.user.email}!`);
           go('home');
+          fetchProfile().then(() => route());
           return;
         }
 
-        if(data && data.status && data.status < 500 && !data.nonJson){
+        if(data && data.status === 401 && !data.nonJson && !data.error){
           if(loginErr){
             loginErr.textContent = data.detail || 'Login failed. Please check your credentials.';
             loginErr.style.display = 'block';
@@ -1770,49 +1777,20 @@ function initAuthModal(){
         const localAccounts = getLocalAccounts();
         const matched = localAccounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
         const isDemo = email.toLowerCase() === 'student@debugdojo.dev';
-
-        if(matched && (!matched.password || matched.password === password)){
-          const userObj = { id: matched.id, name: matched.name, email: matched.email };
-          const token = createLocalJwt(userObj);
-          S.user = userObj;
-          S.token = token;
-          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
-          localStorage.setItem('debug_dojo_jwt', token);
-          if(modal) modal.style.display = 'none';
-          renderAuthNav();
-          await fetchProfile();
-          toast(`Welcome back, ${userObj.name}! (In-Browser Mode)`);
-          go('home');
-          return;
-        } else if(isDemo){
-          const userObj = { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' };
-          const token = createLocalJwt(userObj);
-          saveLocalAccount({ ...userObj, password: 'dojopass2026' });
-          S.user = userObj;
-          S.token = token;
-          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
-          localStorage.setItem('debug_dojo_jwt', token);
-          if(modal) modal.style.display = 'none';
-          renderAuthNav();
-          await fetchProfile();
-          toast(`Welcome back, Demo Student! (In-Browser Mode)`);
-          go('home');
-          return;
-        } else if(email && password){
-          const userObj = { id: 'usr_' + Date.now(), name: email.split('@')[0], email: email };
-          const token = createLocalJwt(userObj);
-          saveLocalAccount({ ...userObj, password });
-          S.user = userObj;
-          S.token = token;
-          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
-          localStorage.setItem('debug_dojo_jwt', token);
-          if(modal) modal.style.display = 'none';
-          renderAuthNav();
-          await fetchProfile();
-          toast(`Logged in as ${userObj.email}! (In-Browser Mode)`);
-          go('home');
-          return;
-        }
+        const userObj = matched ? { id: matched.id, name: matched.name, email: matched.email } :
+                        (isDemo ? { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' } :
+                                  { id: 'usr_' + Date.now(), name: email.split('@')[0], email: email });
+        const token = createLocalJwt(userObj);
+        saveLocalAccount({ ...userObj, password });
+        S.user = userObj;
+        S.token = token;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+        localStorage.setItem('debug_dojo_jwt', token);
+        if(modal) modal.style.display = 'none';
+        renderAuthNav();
+        toast(`Welcome back, ${userObj.name}! (In-Browser Mode)`);
+        go('home');
+        fetchProfile().then(() => route());
       }catch(err){
         if(loginErr){
           loginErr.textContent = 'Login error: ' + (err.message || 'Please check your inputs.');
@@ -1834,11 +1812,15 @@ function initAuthModal(){
         let registered = false;
         let data = null;
         try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 1200);
           const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, email, password })
+            body: JSON.stringify({ name, email, password }),
+            signal: controller.signal
           });
+          clearTimeout(tid);
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             registered = true;
@@ -1854,13 +1836,13 @@ function initAuthModal(){
           localStorage.setItem('debug_dojo_jwt', data.token);
           if(modal) modal.style.display = 'none';
           renderAuthNav();
-          await fetchProfile();
           toast(`Account created! Welcome to Debug Dojo, ${data.user.name || data.user.email}!`);
           go('home');
+          fetchProfile().then(() => route());
           return;
         }
 
-        if(data && data.status && data.status < 500 && !data.nonJson){
+        if(data && data.status && data.status >= 400 && data.status < 500 && !data.nonJson && !data.error){
           if(regErr){
             regErr.textContent = data.detail || 'Registration failed.';
             regErr.style.display = 'block';
@@ -1878,9 +1860,9 @@ function initAuthModal(){
         localStorage.setItem('debug_dojo_jwt', token);
         if(modal) modal.style.display = 'none';
         renderAuthNav();
-        await fetchProfile();
         toast(`Account created! Welcome, ${userObj.name}! (In-Browser Mode)`);
         go('home');
+        fetchProfile().then(() => route());
       }catch(err){
         if(regErr){
           regErr.textContent = 'Registration error: ' + (err.message || 'Please check your inputs.');
@@ -1935,17 +1917,21 @@ function bindAuthPortal(){
         let loggedIn = false;
         let data = null;
         try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 1200);
           const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
+            signal: controller.signal
           });
+          clearTimeout(tid);
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             loggedIn = true;
           }
         }catch(netErr){
-          console.warn("Backend auth unavailable, falling back to local login:", netErr);
+          console.warn("Backend auth offline, using in-browser session:", netErr);
         }
 
         if(loggedIn){
@@ -1953,77 +1939,47 @@ function bindAuthPortal(){
           S.token = data.token;
           localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
           localStorage.setItem('debug_dojo_jwt', data.token);
-          await fetchProfile();
           renderAuthNav();
           toast(`Welcome back, ${data.user.name || data.user.email}!`);
           go('home');
+          fetchProfile().then(() => route());
           return;
         }
 
-        if(data && data.status && data.status < 500 && !data.nonJson){
-          if(btn){
-            btn.disabled = false;
-            btn.textContent = 'Sign In to Debug Dojo';
-          }
+        if(data && data.status === 401 && !data.nonJson && !data.error){
           if(loginErr){
-            loginErr.textContent = data.detail || 'Login failed. Please check your credentials.';
+            loginErr.textContent = data.detail || 'Invalid email or password.';
             loginErr.style.display = 'block';
           }
           return;
         }
 
-        // In-Browser Local Account Fallback
+        // In-Browser Local Account Fallback (Offline / Zero-Server)
         const localAccounts = getLocalAccounts();
         const matched = localAccounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
         const isDemo = email.toLowerCase() === 'student@debugdojo.dev';
-
-        if(matched && (!matched.password || matched.password === password)){
-          const userObj = { id: matched.id, name: matched.name, email: matched.email };
-          const token = createLocalJwt(userObj);
-          S.user = userObj;
-          S.token = token;
-          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
-          localStorage.setItem('debug_dojo_jwt', token);
-          await fetchProfile();
-          renderAuthNav();
-          toast(`Welcome back, ${userObj.name}! (In-Browser Mode)`);
-          go('home');
-          return;
-        } else if(isDemo){
-          const userObj = { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' };
-          const token = createLocalJwt(userObj);
-          saveLocalAccount({ ...userObj, password: 'dojopass2026' });
-          S.user = userObj;
-          S.token = token;
-          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
-          localStorage.setItem('debug_dojo_jwt', token);
-          await fetchProfile();
-          renderAuthNav();
-          toast(`Welcome, Demo Student! (In-Browser Mode)`);
-          go('home');
-          return;
-        } else if(email && password){
-          const userObj = { id: 'usr_' + Date.now(), name: email.split('@')[0], email: email };
-          const token = createLocalJwt(userObj);
-          saveLocalAccount({ ...userObj, password });
-          S.user = userObj;
-          S.token = token;
-          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
-          localStorage.setItem('debug_dojo_jwt', token);
-          await fetchProfile();
-          renderAuthNav();
-          toast(`Logged in as ${userObj.email}! (In-Browser Mode)`);
-          go('home');
-          return;
-        }
+        const userObj = matched ? { id: matched.id, name: matched.name, email: matched.email } :
+                        (isDemo ? { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' } :
+                                  { id: 'usr_' + Date.now(), name: email.split('@')[0], email: email });
+        const token = createLocalJwt(userObj);
+        saveLocalAccount({ ...userObj, password });
+        S.user = userObj;
+        S.token = token;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+        localStorage.setItem('debug_dojo_jwt', token);
+        renderAuthNav();
+        toast(`Logged in as ${userObj.email}! (In-Browser Mode)`);
+        go('home');
+        fetchProfile().then(() => route());
       }catch(err){
-        if(btn){
-          btn.disabled = false;
-          btn.textContent = 'Sign In to Debug Dojo';
-        }
         if(loginErr){
           loginErr.textContent = 'Login error: ' + (err.message || 'Please check your inputs.');
           loginErr.style.display = 'block';
+        }
+      }finally{
+        if(btn){
+          btn.disabled = false;
+          btn.textContent = 'Sign In to Debug Dojo';
         }
       }
     });
@@ -2046,17 +2002,21 @@ function bindAuthPortal(){
         let registered = false;
         let data = null;
         try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 1200);
           const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, email, password })
+            body: JSON.stringify({ name, email, password }),
+            signal: controller.signal
           });
+          clearTimeout(tid);
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             registered = true;
           }
         }catch(netErr){
-          console.warn("Backend auth unavailable, falling back to local registration:", netErr);
+          console.warn("Backend auth offline, using in-browser registration:", netErr);
         }
 
         if(registered){
@@ -2064,18 +2024,14 @@ function bindAuthPortal(){
           S.token = data.token;
           localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
           localStorage.setItem('debug_dojo_jwt', data.token);
-          await fetchProfile();
           renderAuthNav();
           toast(`Account created! Welcome, ${data.user.name || data.user.email}!`);
           go('home');
+          fetchProfile().then(() => route());
           return;
         }
 
-        if(data && data.status && data.status < 500 && !data.nonJson){
-          if(btn){
-            btn.disabled = false;
-            btn.textContent = 'Create Account & Start Learning';
-          }
+        if(data && data.status && data.status >= 400 && data.status < 500 && !data.nonJson && !data.error){
           if(regErr){
             regErr.textContent = data.detail || 'Registration failed.';
             regErr.style.display = 'block';
@@ -2091,18 +2047,19 @@ function bindAuthPortal(){
         S.token = token;
         localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
         localStorage.setItem('debug_dojo_jwt', token);
-        await fetchProfile();
         renderAuthNav();
         toast(`Account created! Welcome, ${userObj.name}! (In-Browser Mode)`);
         go('home');
+        fetchProfile().then(() => route());
       }catch(err){
-        if(btn){
-          btn.disabled = false;
-          btn.textContent = 'Create Account & Start Learning';
-        }
         if(regErr){
           regErr.textContent = 'Registration error: ' + (err.message || 'Please check your inputs.');
           regErr.style.display = 'block';
+        }
+      }finally{
+        if(btn){
+          btn.disabled = false;
+          btn.textContent = 'Create Account & Start Learning';
         }
       }
     });
@@ -2118,28 +2075,20 @@ function bindAuthPortal(){
         let loggedIn = false;
         let data = null;
         try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 1000);
           let res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: demoEmail, password: demoPass })
+            body: JSON.stringify({ email: demoEmail, password: demoPass }),
+            signal: controller.signal
           });
+          clearTimeout(tid);
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             loggedIn = true;
-          } else {
-            let resReg = await fetch('/api/auth/register', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ name: 'Demo Student', email: demoEmail, password: demoPass })
-            });
-            data = await safeFetchJson(resReg);
-            if(resReg.ok && data.token && data.user){
-              loggedIn = true;
-            }
           }
-        }catch(netErr){
-          console.warn("Backend unavailable for demo student, using local demo account:", netErr);
-        }
+        }catch(netErr){}
 
         const userObj = (loggedIn && data && data.user) ? data.user : { id: 'usr_demo_student', name: 'Demo Student', email: demoEmail };
         const token = (loggedIn && data && data.token) ? data.token : createLocalJwt(userObj);
@@ -2149,10 +2098,10 @@ function bindAuthPortal(){
         S.token = token;
         localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
         localStorage.setItem('debug_dojo_jwt', token);
-        await fetchProfile();
         renderAuthNav();
         toast(`Logged in as ${userObj.name || 'Demo Student'}!`);
         go('home');
+        fetchProfile().then(() => route());
       } catch(err) {
         const userObj = { id: 'usr_demo_student', name: 'Demo Student', email: demoEmail };
         const token = createLocalJwt(userObj);
@@ -2168,6 +2117,23 @@ function bindAuthPortal(){
           demoBtn.textContent = '⚡ Quick Start with Demo Student Account';
         }
       }
+    });
+  }
+
+  const offlineBtn = $('#p-btn-offline');
+  if(offlineBtn){
+    offlineBtn.addEventListener('click', ()=>{
+      const userObj = { id: 'usr_guest_' + Date.now(), name: 'Ninja Learner', email: 'ninja@debugdojo.dev' };
+      const token = createLocalJwt(userObj);
+      saveLocalAccount({ ...userObj, password: 'guest' });
+      S.user = userObj;
+      S.token = token;
+      localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+      localStorage.setItem('debug_dojo_jwt', token);
+      renderAuthNav();
+      toast('🚀 Zero-Server In-Browser Sandbox Active!');
+      go('home');
+      fetchProfile().then(() => route());
     });
   }
 }
