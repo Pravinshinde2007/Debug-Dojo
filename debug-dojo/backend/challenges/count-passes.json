@@ -1,0 +1,49 @@
+{
+  "id": "count-passes",
+  "title": "Count Passing Marks",
+  "function_name": "count_passes",
+  "difficulty": "Easy",
+  "concepts": ["Loops", "Conditions"],
+  "description": "Write a function `count_passes(marks, threshold=40)` that counts how many student marks meet or exceed the passing threshold.\nMarks equal to the threshold count as passing. Return 0 if the list is empty.",
+  "starter_code": "def count_passes(marks, threshold=40):\n    # Write your solution here\n    count = 0\n    for m in marks:\n        if m >= threshold:\n            count += 1\n    return count\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "count_passes([45, 32, 80, 20], 40)",
+      "args": [[45, 32, 80, 20], 40],
+      "expected": 2
+    },
+    {
+      "test": 2,
+      "call": "count_passes([10, 20, 30])",
+      "args": [[10, 20, 30]],
+      "expected": 0
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 3,
+      "kind": "a mark exactly on the pass boundary",
+      "args": [[40, 39, 41], 40],
+      "expected": 2
+    },
+    {
+      "test": 4,
+      "kind": "an empty list of marks",
+      "args": [[], 50],
+      "expected": 0
+    },
+    {
+      "test": 5,
+      "kind": "all marks passing the threshold",
+      "args": [[50, 60, 70, 80], 40],
+      "expected": 4
+    }
+  ],
+  "hints": [
+    "Threshold evaluations often require careful inspection of strict versus inclusive comparison operators.",
+    "Look at your relational operator inside the loop condition: are you checking > or >=?",
+    "A mark equal to 40 is a passing score. Using strictly greater than excludes students on the exact cutoff.",
+    "Change '>' to '>=' to include marks that exactly reach the passing threshold."
+  ]
+}

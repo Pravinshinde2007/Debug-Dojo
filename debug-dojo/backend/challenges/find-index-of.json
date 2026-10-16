@@ -1,0 +1,49 @@
+{
+  "id": "find-index-of",
+  "title": "Find Index of Element",
+  "function_name": "find_index_of",
+  "difficulty": "Easy",
+  "concepts": ["Lists", "Loops", "Indexing"],
+  "description": "Write a function `find_index_of(items, target)` that returns the zero-based index of the first occurrence of `target` in `items`.\nIf `target` is not found, return `-1`.\nDo not use the built-in `.index()` method.",
+  "starter_code": "def find_index_of(items, target):\n    # Write your solution here\n    for i, x in enumerate(items):\n        if x == target:\n            return i\n    return -1\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "find_index_of([10, 20, 30], 20)",
+      "args": [[10, 20, 30], 20],
+      "expected": 1
+    },
+    {
+      "test": 2,
+      "call": "find_index_of(['a', 'b', 'c'], 'z')",
+      "args": [["a", "b", "c"], "z"],
+      "expected": -1
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 3,
+      "kind": "an empty list input",
+      "args": [[], 42],
+      "expected": -1
+    },
+    {
+      "test": 4,
+      "kind": "target at index 0 (first element)",
+      "args": [[99, 100], 99],
+      "expected": 0
+    },
+    {
+      "test": 5,
+      "kind": "target at the very last index",
+      "args": [[1, 2, 3, 4], 4],
+      "expected": 3
+    }
+  ],
+  "hints": [
+    "Linear searching examines each element along with its numeric position.",
+    "Make sure you track index from 0 rather than 1, and only return once a match is confirmed.",
+    "If your loop completes without finding a match, the fallback return must be -1.",
+    "Use enumerate(items) to check each index and item pair, returning the index on match and -1 after the loop."
+  ]
+}

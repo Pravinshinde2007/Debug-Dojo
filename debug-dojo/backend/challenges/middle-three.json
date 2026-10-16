@@ -1,0 +1,50 @@
+{
+  "id": "middle-three",
+  "title": "Middle Three Elements",
+  "function_name": "middle_three",
+  "difficulty": "Medium",
+  "concepts": ["Lists", "Indexing", "Input handling"],
+  "description": "Write a function `middle_three(items)` that returns the middle three elements of a list of odd length >= 3 as a new list.\nIf `len(items) < 3`, return an empty list `[]`.\nYour function must not mutate or alter the original input list.",
+  "starter_code": "def middle_three(items):\n    # Write your solution here\n    if len(items) < 3:\n        return []\n    mid = len(items) // 2\n    return items[mid - 1 : mid + 2]\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "middle_three([1, 2, 3, 4, 5])",
+      "args": [[1, 2, 3, 4, 5]],
+      "expected": [2, 3, 4]
+    },
+    {
+      "test": 2,
+      "call": "middle_three(['a', 'b', 'c'])",
+      "args": [["a", "b", "c"]],
+      "expected": ["a", "b", "c"]
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 3,
+      "kind": "a short list with 2 elements",
+      "args": [[10, 20]],
+      "expected": []
+    },
+    {
+      "test": 4,
+      "kind": "an empty list",
+      "args": [[]],
+      "expected": []
+    },
+    {
+      "test": 5,
+      "kind": "a list with 7 elements checking mutation",
+      "args": [[10, 20, 30, 40, 50, 60, 70]],
+      "expected": [30, 40, 50],
+      "prohibit_mutation": true
+    }
+  ],
+  "hints": [
+    "Slicing in Python requires careful midpoint calculation, and destructive methods should be avoided.",
+    "Look at your midpoint index and slice upper bound: in [start:end], the item at index 'end' is not included.",
+    "If you calculate mid = len(items) // 2, slicing mid-1 to mid+1 only captures two elements instead of three.",
+    "Use items[mid - 1 : mid + 2] to extract precisely 3 items, and ensure you do not call .pop() on the input."
+  ]
+}

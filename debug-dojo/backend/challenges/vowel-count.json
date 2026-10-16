@@ -1,0 +1,43 @@
+{
+  "id": "vowel-count",
+  "title": "Count Vowels",
+  "function_name": "vowel_count",
+  "difficulty": "Easy",
+  "concepts": ["Strings", "Loops", "Conditions"],
+  "description": "Write a function `vowel_count(text)` that counts the total number of vowels ('a', 'e', 'i', 'o', 'u') in a given string, case-insensitively.",
+  "starter_code": "def vowel_count(text):\n    # Write your solution here\n    vowels = set('aeiouAEIOU')\n    return sum(1 for ch in text if ch in vowels)\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "vowel_count('Hello World')",
+      "args": ["Hello World"],
+      "expected": 3
+    },
+    {
+      "test": 2,
+      "call": "vowel_count('rhythm')",
+      "args": ["rhythm"],
+      "expected": 0
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 3,
+      "kind": "an empty string",
+      "args": [""],
+      "expected": 0
+    },
+    {
+      "test": 4,
+      "kind": "an all-uppercase vowel string",
+      "args": ["AEIOU"],
+      "expected": 5
+    }
+  ],
+  "hints": [
+    "String iteration checks characters one by one against a vowel collection.",
+    "Verify whether your check handles uppercase and lowercase vowels equally.",
+    "If your check only looks for 'aeiou', letters like 'A' or 'E' will be skipped.",
+    "Convert each character with .lower() before testing membership, or include both lowercase and uppercase vowels."
+  ]
+}

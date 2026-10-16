@@ -1,0 +1,44 @@
+{
+  "id": "remove-duplicates",
+  "title": "Remove Duplicates In Order",
+  "function_name": "remove_duplicates",
+  "difficulty": "Medium",
+  "concepts": ["Lists", "Loops"],
+  "description": "Write a function `remove_duplicates(items)` that returns a new list containing only the unique elements of `items`, keeping their original order of appearance.\nDo not mutate the original list.",
+  "starter_code": "def remove_duplicates(items):\n    # Write your solution here\n    seen = set()\n    result = []\n    for x in items:\n        if x not in seen:\n            seen.add(x)\n            result.append(x)\n    return result\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "remove_duplicates([1, 2, 2, 3, 1])",
+      "args": [[1, 2, 2, 3, 1]],
+      "expected": [1, 2, 3]
+    },
+    {
+      "test": 2,
+      "call": "remove_duplicates(['a', 'b', 'a'])",
+      "args": [["a", "b", "a"]],
+      "expected": ["a", "b"]
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 3,
+      "kind": "an empty list input",
+      "args": [[]],
+      "expected": []
+    },
+    {
+      "test": 4,
+      "kind": "a list with mutation check",
+      "args": [[4, 4, 4, 4]],
+      "expected": [4],
+      "prohibit_mutation": true
+    }
+  ],
+  "hints": [
+    "Deduplication requires remembering what you have already observed without disrupting the input order.",
+    "Be careful not to call .remove() or .pop() directly on the argument list.",
+    "Using set(items) loses the original sequence ordering.",
+    "Maintain a tracking set alongside a new output list, appending items only on their first appearance."
+  ]
+}

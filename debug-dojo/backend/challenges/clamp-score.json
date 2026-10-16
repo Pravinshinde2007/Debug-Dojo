@@ -1,0 +1,49 @@
+{
+  "id": "clamp-score",
+  "title": "Clamp Score",
+  "function_name": "clamp_score",
+  "difficulty": "Easy",
+  "concepts": ["Conditions", "Functions"],
+  "description": "Write a function `clamp_score(score, min_val=0, max_val=100)` that restricts a numerical score so it never falls below `min_val` and never exceeds `max_val`.",
+  "starter_code": "def clamp_score(score, min_val=0, max_val=100):\n    # Write your solution here\n    if score < min_val:\n        return min_val\n    elif score > max_val:\n        return max_val\n    return score\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "clamp_score(105, 0, 100)",
+      "args": [105, 0, 100],
+      "expected": 100
+    },
+    {
+      "test": 2,
+      "call": "clamp_score(-10, 0, 100)",
+      "args": [-10, 0, 100],
+      "expected": 0
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 3,
+      "kind": "a score exactly on the minimum threshold",
+      "args": [0, 0, 100],
+      "expected": 0
+    },
+    {
+      "test": 4,
+      "kind": "a score exactly on the maximum threshold",
+      "args": [100, 0, 100],
+      "expected": 100
+    },
+    {
+      "test": 5,
+      "kind": "a score comfortably inside the range",
+      "args": [55, 0, 100],
+      "expected": 55
+    }
+  ],
+  "hints": [
+    "Clamping requires setting boundary walls while leaving values within the interval unchanged.",
+    "Inspect how boundary scores (equal to min_val or max_val) are handled by your conditions.",
+    "Make sure your logic doesn't invert the bounds or drop values that are exactly on the edge.",
+    "Compare if score < min_val: return min_val; if score > max_val: return max_val; otherwise return score."
+  ]
+}

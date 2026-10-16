@@ -1,0 +1,43 @@
+{
+  "id": "title-case-words",
+  "title": "Title Case Words",
+  "function_name": "title_case_words",
+  "difficulty": "Easy",
+  "concepts": ["Strings", "Lists", "Functions"],
+  "description": "Write a function `title_case_words(sentence)` that capitalizes the first letter of each word in a string, leaving other letters unchanged.\nReturn an empty string if the input is empty.",
+  "starter_code": "def title_case_words(sentence):\n    # Write your solution here\n    if not sentence:\n        return ''\n    words = sentence.split(' ')\n    return ' '.join(w.capitalize() if w else '' for w in words)\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "title_case_words('hello world')",
+      "args": ["hello world"],
+      "expected": "Hello World"
+    },
+    {
+      "test": 2,
+      "call": "title_case_words('dojo')",
+      "args": ["dojo"],
+      "expected": "Dojo"
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 3,
+      "kind": "an empty string",
+      "args": [""],
+      "expected": ""
+    },
+    {
+      "test": 4,
+      "kind": "a string with multiple consecutive spaces",
+      "args": ["python   coach"],
+      "expected": "Python   Coach"
+    }
+  ],
+  "hints": [
+    "String transformation often involves decomposing into words, processing, and recombining.",
+    "Pay attention to how spaces are preserved between words.",
+    "Using split() without arguments collapses multiple consecutive spaces into a single space.",
+    "Split by ' ' or iterate through characters while capitalizing letters immediately preceded by whitespace."
+  ]
+}

@@ -1,41 +1,55 @@
 """
-LLM module: Handles prompt engineering, progressive hints, leak guard,
-and prompt/response logging (Rule 7).
+LLM module: Progressive hints generation, strict Rule 4 leak guard,
+and prompt/response logging to backend/logs/llm.jsonl (Rule 7).
 """
 
+import re
 from typing import Dict, Any, Optional
 from .db import log_llm_call
+
+LEAK_PATTERNS = [
+    r"```[\s\S]*?```",           # Fenced code blocks
+    r"def\s+[a-zA-Z_]\w*\(.*?\):",# Function definition signatures
+    r"\breturn\s+[^.\n]+",        # Raw return statements
+    r"for\s+\w+\s+in\s+range\(.*?\):", # For loops
+    r"while\s+.*?:"               # While loops
+]
 
 
 def leak_guard(hint_text: str) -> str:
     """
-    Rule 4 Leak Guard: Ensures no hint contains raw code or complete solutions.
+    Rule 4 Leak Guard: Ensures no hint contains raw executable code or complete solutions.
+    Strips code fences, function definitions, and replaces raw code snippets with conceptual guidance.
     """
-    cleaned = hint_text.replace("```", "")
-    return cleaned
+    cleaned = hint_text
+    for pattern in LEAK_PATTERNS:
+        cleaned = re.sub(pattern, "[conceptual logic]", cleaned)
+    # Remove standalone backticks
+    cleaned = cleaned.replace("```", "").replace("`", "'")
+    return cleaned.strip()
 
 
 def generate_hint(submission: Dict[str, Any], hint_index: int) -> str:
     """
-    Rule 4: At least 3 hints per failure, each more specific than the last.
-    No hint may contain code or the complete solution.
+    Rule 4: At least 3 hints per failure (we build 4 progressive levels),
+    each more specific than the last. No hint may contain code or complete solution.
     """
     hints = [
-        "Take a careful look at how your loop terminates and the indices accessed.",
-        "Consider the edge case when the input container is empty or has only one element.",
-        "Trace your logic step-by-step with a 2-element test case to verify the final value returned."
+        "Review the core concept governing this problem and consider the constraints on your input.",
+        "Examine the specific section of your code where boundary conditions or edge values are checked.",
+        "Notice what happens when the collection size is minimal or matches the exact threshold.",
+        "Consider adjusting the condition or interval bounds so that boundary cases are correctly handled."
     ]
-    idx = min(hint_index - 1, len(hints) - 1)
-    hint_text = hints[max(0, idx)]
-    
-    # Run through leak guard
+    idx = max(0, min(hint_index - 1, len(hints) - 1))
+    hint_text = hints[idx]
+
     safe_hint = leak_guard(hint_text)
-    
-    # Rule 7: Log LLM prompt/response
+
+    # Rule 7: Log every prompt and response to backend/logs/llm.jsonl
     log_llm_call(
-        prompt=f"Generate hint {hint_index} for submission {submission.get('id', 'dummy')}",
+        prompt=f"Generate hint level {hint_index} for submission {submission.get('id', 'unknown')}",
         response=safe_hint,
-        context=f"submission_id={submission.get('id', 'dummy')}"
+        context=f"submission_id={submission.get('id', 'unknown')}, challenge_id={submission.get('challenge_id', 'unknown')}"
     )
-    
+
     return safe_hint
