@@ -120,12 +120,27 @@ def get_progressive_hints(
 
     # Check if challenge has pre-authored custom hints
     challenge_hints = challenge.get("hints", [])
-    if isinstance(challenge_hints, list) and len(challenge_hints) >= max_hints:
+    if isinstance(challenge_hints, list) and len(challenge_hints) > 0:
         hints = list(challenge_hints[:max_hints])
-        # Inject line number into hint 2 if available
+        where_to_look = (
+            f"Look at Line {error_line} in your code: inspect the expressions and operations evaluated on this line."
+            if error_line
+            else "Inspect the loop termination and return statements inside your function body."
+        )
+        while len(hints) < max_hints:
+            if len(hints) == 1:
+                hints.append(where_to_look)
+            elif len(hints) == 2:
+                hints.append("Check edge cases and boundary conditions (like empty inputs or 0).")
+            elif len(hints) == 3:
+                hints.append("Verify return type and state transitions before returning.")
+            else:
+                hints.append("Trace through each step with a small test input on paper.")
+
         if error_line and len(hints) >= 2:
-            hints[1] = f"Look at Line {error_line} in your code: {hints[1]}"
-        return [leak_guard(h) for h in hints]
+            if not hints[1].startswith("Look at Line"):
+                hints[1] = f"Look at Line {error_line} in your code: {hints[1]}"
+        return [leak_guard(h) for h in hints[:max_hints]]
 
     # Synthesize hints based on mistake tags and failure context
     hints = []

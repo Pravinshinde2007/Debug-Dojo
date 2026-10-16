@@ -221,7 +221,9 @@ def run_submission(code: str, challenge: Dict[str, Any]) -> Dict[str, Any]:
             "expected": str(t.get("expected", "")),
             "got": res["got"],
             "outcome": res["outcome"],
-            "error_msg": res.get("error_msg")
+            "error_msg": res.get("error_msg"),
+            "error_type": res.get("error_type"),
+            "error_line": res.get("error_line")
         })
 
         detailed_test_data.append({

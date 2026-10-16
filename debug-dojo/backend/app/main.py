@@ -62,6 +62,9 @@ class VisibleTestResult(BaseModel):
     expected: str
     got: str
     outcome: str  # passed | wrong_output | runtime_error | timeout
+    error_msg: Optional[str] = None
+    error_type: Optional[str] = None
+    error_line: Optional[int] = None
 
 
 class HiddenTestResult(BaseModel):
@@ -229,7 +232,10 @@ def submit_code(req: SubmitRequest):
             call=v["call"],
             expected=str(v["expected"]),
             got=str(v["got"]),
-            outcome=v["outcome"]
+            outcome=v["outcome"],
+            error_msg=v.get("error_msg"),
+            error_type=v.get("error_type"),
+            error_line=v.get("error_line")
         )
         for v in run_result["visible"]
     ]
@@ -343,9 +349,16 @@ def request_hint(req: HintRequest):
         for vr in visible_res:
             if vr.get("outcome") != "passed":
                 test_run_data["first_failed_test"] = vr
-                if vr.get("outcome") == "runtime_error":
+                if vr.get("error_line"):
                     test_run_data["first_error"] = {
-                        "error_type": "RuntimeError",
+                        "error_type": vr.get("error_type") or "RuntimeError",
+                        "error_line": vr.get("error_line"),
+                        "error_msg": vr.get("error_msg") or vr.get("outcome")
+                    }
+                elif vr.get("outcome") == "runtime_error":
+                    test_run_data["first_error"] = {
+                        "error_type": vr.get("error_type") or "RuntimeError",
+                        "error_line": None,
                         "error_msg": vr.get("error_msg") or vr.get("outcome")
                     }
                 break
