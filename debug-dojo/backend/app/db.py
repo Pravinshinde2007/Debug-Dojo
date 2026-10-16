@@ -263,7 +263,16 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
+        # Seed default demo student account if not present
+        cursor.execute("SELECT id FROM users WHERE email = 'student@debugdojo.dev'")
+        if not cursor.fetchone():
+            pwd_hash, salt = hash_password("dojopass2026")
+            cursor.execute(
+                "INSERT INTO users (id, name, email, password_hash, salt) VALUES (?, ?, ?, ?, ?)",
+                ("usr_demo_student", "Demo Student", "student@debugdojo.dev", pwd_hash, salt)
+            )
+
         conn.commit()
 
 
