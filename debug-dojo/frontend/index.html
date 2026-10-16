@@ -580,14 +580,76 @@ function isLoggedIn(){
   return !!(S.user && S.token);
 }
 
+async function safeFetchJson(res) {
+  let text = '';
+  try {
+    text = await res.text();
+  } catch (readErr) {
+    return { ok: false, status: 0, detail: 'Failed to read response from server' };
+  }
+  if (!text || !text.trim()) {
+    return { ok: res.ok, status: res.status, detail: res.ok ? '' : `Server returned empty response (${res.status})` };
+  }
+  try {
+    const json = JSON.parse(text);
+    return { ok: res.ok, status: res.status, ...json };
+  } catch (parseErr) {
+    return {
+      ok: false,
+      status: res.status,
+      error: true,
+      nonJson: true,
+      detail: (text.length < 150 && !text.includes('<html') && !text.includes('<!DOCTYPE')) ? text : `Server is currently offline or unreachable (HTTP ${res.status})`
+    };
+  }
+}
+
+function getLocalAccounts(){
+  try {
+    return JSON.parse(localStorage.getItem('debug_dojo_local_accounts') || '[]');
+  } catch(e){
+    return [];
+  }
+}
+
+function saveLocalAccount(acc){
+  try {
+    const list = getLocalAccounts();
+    const idx = list.findIndex(a => a.email && a.email.toLowerCase() === acc.email.toLowerCase());
+    if(idx >= 0){
+      list[idx] = { ...list[idx], ...acc };
+    } else {
+      list.push(acc);
+    }
+    localStorage.setItem('debug_dojo_local_accounts', JSON.stringify(list));
+  } catch(e){}
+}
+
+function createLocalJwt(user){
+  const payload = {
+    sub: user.id || user.email,
+    email: user.email,
+    name: user.name,
+    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 3600),
+    mode: 'in_browser'
+  };
+  try {
+    return 'local_jwt.' + btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) + '.client_sig';
+  } catch(e){
+    return 'local_jwt.' + btoa(JSON.stringify({ sub: user.email, email: user.email, name: user.name })) + '.client_sig';
+  }
+}
+
 async function fetchProfile(){
   const learnerId = (S.user && S.user.id) ? S.user.id : ((S.user && S.user.email) ? S.user.email : 'demo-learner');
+  let fetchedFromBackend = false;
   try{
     const headers = {};
     if(S.token) headers['Authorization'] = `Bearer ${S.token}`;
     const res = await fetch(`/api/learner/${encodeURIComponent(learnerId)}`, { headers });
-    if(res.ok){
-      const data = await res.json();
+    const data = await safeFetchJson(res);
+    if(res.ok && !data.error && !data.nonJson){
+      fetchedFromBackend = true;
       S.mastery = data.mastery_per_concept || S.mastery;
       S.streak = data.streak_days || S.streak || 1;
       S.recurringList = data.recurring_mistakes || [];
@@ -614,7 +676,66 @@ async function fetchProfile(){
       }
     }
   }catch(e){
-    console.warn("Could not fetch profile:", e);
+    console.warn("Could not fetch profile from backend:", e);
+  }
+
+  // Calculate stats from local submissions in offline/in-browser mode
+  if (!fetchedFromBackend) {
+    try {
+      const userEmail = (S.user && S.user.email) ? S.user.email.toLowerCase() : 'student@debugdojo.dev';
+      const allSubs = JSON.parse(localStorage.getItem('debug_dojo_client_subs') || '[]');
+      const userSubs = allSubs.filter(s => !s.learner_id || s.learner_id === learnerId || (s.email && s.email.toLowerCase() === userEmail));
+      
+      const attemptedSet = new Set();
+      const solvedSet = new Set();
+      let customCount = 0;
+
+      CH.forEach(c => { S.status[c.id] = 'new'; });
+
+      userSubs.forEach(s => {
+        if(s.challenge_id === 'custom-code'){
+          customCount++;
+        } else if(s.challenge_id) {
+          attemptedSet.add(s.challenge_id);
+          if(s.passed){
+            solvedSet.add(s.challenge_id);
+            S.status[s.challenge_id] = 'solved';
+          } else if(S.status[s.challenge_id] !== 'solved'){
+            S.status[s.challenge_id] = 'attempted';
+          }
+        }
+      });
+
+      const attempted = attemptedSet.size;
+      const solved = solvedSet.size;
+      const failed = Math.max(0, attempted - solved);
+
+      S.challenges_attempted = attempted;
+      S.challenges_solved = solved;
+      S.challenges_failed = failed;
+      S.custom_debug_count = customCount;
+      S.total_submissions = userSubs.length;
+      S.total_interactions = userSubs.length;
+      S.user_history = userSubs.map(s => ({
+        challenge_id: s.challenge_id,
+        passed: !!s.passed,
+        created_at: s.created_at || s.timestamp || 'Recent',
+        error_type: s.error_type || (s.passed ? null : 'Failed Test'),
+        outcome: s.outcome || (s.passed ? 'passed' : 'wrong output')
+      }));
+
+      // Calculate concept mastery
+      CONCEPTS.forEach(k => {
+        const matching = CH.filter(c => c.concept === k);
+        const solvedInConcept = matching.filter(c => solvedSet.has(c.id)).length;
+        if(matching.length > 0){
+          S.mastery[k] = Math.min(100, Math.round(30 + (solvedInConcept / matching.length) * 70));
+        }
+      });
+      S.overall_mastery = overall();
+    } catch(err){
+      console.warn("Error computing local profile:", err);
+    }
   }
 }
 
@@ -1484,13 +1605,49 @@ function bind(r){
       formData.append('file', file);
 
       try{
-        const res = await fetch('/api/upload-document', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await res.json();
+        let data = null;
+        let onlineSuccess = false;
+        try {
+          const res = await fetch('/api/upload-document', {
+            method: 'POST',
+            body: formData
+          });
+          data = await safeFetchJson(res);
+          if (res.ok && !data.error && !data.nonJson) {
+            onlineSuccess = true;
+          }
+        }catch(netErr){
+          console.warn("Backend document upload unavailable, falling back to client-side reader:", netErr);
+        }
 
-        if(!res.ok || !data.is_python){
+        if (!onlineSuccess) {
+          const lowerName = file.name.toLowerCase();
+          if (lowerName.endsWith('.py') || lowerName.endsWith('.txt')) {
+            const text = await file.text();
+            const hasPyConstructs = /^\s*(def |class |import |from |for |while |if |print\(|return |try:|except )/m.test(text);
+            if (lowerName.endsWith('.py') || hasPyConstructs) {
+              data = {
+                is_python: true,
+                code: text,
+                message: "Python code extracted successfully."
+              };
+            } else {
+              data = {
+                is_python: false,
+                code: "",
+                message: "We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code."
+              };
+            }
+          } else {
+            data = {
+              is_python: false,
+              code: "",
+              message: "PDF parsing requires the backend server. To run in zero-server mode, please upload a .py or .txt file, or paste your code directly into the editor."
+            };
+          }
+        }
+
+        if(!data.is_python){
           S.customResult = {
             success: false,
             outcome: 'not_python',
@@ -1572,31 +1729,93 @@ function initAuthModal(){
       if(loginErr) loginErr.style.display = 'none';
 
       try{
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if(!res.ok){
+        let loggedIn = false;
+        let data = null;
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email, password })
+          });
+          data = await safeFetchJson(res);
+          if(res.ok && data.token && data.user){
+            loggedIn = true;
+          }
+        }catch(netErr){
+          console.warn("Backend auth unavailable, falling back to local login:", netErr);
+        }
+
+        if(loggedIn){
+          S.user = data.user;
+          S.token = data.token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+          localStorage.setItem('debug_dojo_jwt', data.token);
+          if(modal) modal.style.display = 'none';
+          renderAuthNav();
+          await fetchProfile();
+          toast(`Welcome back, ${data.user.name || data.user.email}!`);
+          go('home');
+          return;
+        }
+
+        if(data && data.status && data.status < 500 && !data.nonJson){
           if(loginErr){
-            loginErr.textContent = data.detail || 'Login failed.';
+            loginErr.textContent = data.detail || 'Login failed. Please check your credentials.';
             loginErr.style.display = 'block';
           }
           return;
         }
-        S.user = data.user;
-        S.token = data.token;
-        localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
-        localStorage.setItem('debug_dojo_jwt', data.token);
-        if(modal) modal.style.display = 'none';
-        renderAuthNav();
-        await fetchProfile();
-        toast(`Welcome back, ${data.user.name || data.user.email}!`);
-        go('home');
+
+        // Local In-Browser Login Fallback
+        const localAccounts = getLocalAccounts();
+        const matched = localAccounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
+        const isDemo = email.toLowerCase() === 'student@debugdojo.dev';
+
+        if(matched && (!matched.password || matched.password === password)){
+          const userObj = { id: matched.id, name: matched.name, email: matched.email };
+          const token = createLocalJwt(userObj);
+          S.user = userObj;
+          S.token = token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+          localStorage.setItem('debug_dojo_jwt', token);
+          if(modal) modal.style.display = 'none';
+          renderAuthNav();
+          await fetchProfile();
+          toast(`Welcome back, ${userObj.name}! (In-Browser Mode)`);
+          go('home');
+          return;
+        } else if(isDemo){
+          const userObj = { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' };
+          const token = createLocalJwt(userObj);
+          saveLocalAccount({ ...userObj, password: 'dojopass2026' });
+          S.user = userObj;
+          S.token = token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+          localStorage.setItem('debug_dojo_jwt', token);
+          if(modal) modal.style.display = 'none';
+          renderAuthNav();
+          await fetchProfile();
+          toast(`Welcome back, Demo Student! (In-Browser Mode)`);
+          go('home');
+          return;
+        } else if(email && password){
+          const userObj = { id: 'usr_' + Date.now(), name: email.split('@')[0], email: email };
+          const token = createLocalJwt(userObj);
+          saveLocalAccount({ ...userObj, password });
+          S.user = userObj;
+          S.token = token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+          localStorage.setItem('debug_dojo_jwt', token);
+          if(modal) modal.style.display = 'none';
+          renderAuthNav();
+          await fetchProfile();
+          toast(`Logged in as ${userObj.email}! (In-Browser Mode)`);
+          go('home');
+          return;
+        }
       }catch(err){
         if(loginErr){
-          loginErr.textContent = 'Network error: ' + err.message;
+          loginErr.textContent = 'Login error: ' + (err.message || 'Please check your inputs.');
           loginErr.style.display = 'block';
         }
       }
@@ -1612,31 +1831,59 @@ function initAuthModal(){
       if(regErr) regErr.style.display = 'none';
 
       try{
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ name, email, password })
-        });
-        const data = await res.json();
-        if(!res.ok){
+        let registered = false;
+        let data = null;
+        try {
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, email, password })
+          });
+          data = await safeFetchJson(res);
+          if(res.ok && data.token && data.user){
+            registered = true;
+          }
+        }catch(netErr){
+          console.warn("Backend auth unavailable, falling back to local registration:", netErr);
+        }
+
+        if(registered){
+          S.user = data.user;
+          S.token = data.token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+          localStorage.setItem('debug_dojo_jwt', data.token);
+          if(modal) modal.style.display = 'none';
+          renderAuthNav();
+          await fetchProfile();
+          toast(`Account created! Welcome to Debug Dojo, ${data.user.name || data.user.email}!`);
+          go('home');
+          return;
+        }
+
+        if(data && data.status && data.status < 500 && !data.nonJson){
           if(regErr){
             regErr.textContent = data.detail || 'Registration failed.';
             regErr.style.display = 'block';
           }
           return;
         }
-        S.user = data.user;
-        S.token = data.token;
-        localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
-        localStorage.setItem('debug_dojo_jwt', data.token);
+
+        // Local In-Browser Registration Fallback
+        const userObj = { id: 'usr_' + Date.now(), name: name || email.split('@')[0], email: email };
+        const token = createLocalJwt(userObj);
+        saveLocalAccount({ ...userObj, password });
+        S.user = userObj;
+        S.token = token;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+        localStorage.setItem('debug_dojo_jwt', token);
         if(modal) modal.style.display = 'none';
         renderAuthNav();
         await fetchProfile();
-        toast(`Account created! Welcome to Debug Dojo, ${data.user.name || data.user.email}!`);
+        toast(`Account created! Welcome, ${userObj.name}! (In-Browser Mode)`);
         go('home');
       }catch(err){
         if(regErr){
-          regErr.textContent = 'Network error: ' + err.message;
+          regErr.textContent = 'Registration error: ' + (err.message || 'Please check your inputs.');
           regErr.style.display = 'block';
         }
       }
@@ -1685,13 +1932,35 @@ function bindAuthPortal(){
       }
 
       try{
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if(!res.ok){
+        let loggedIn = false;
+        let data = null;
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email, password })
+          });
+          data = await safeFetchJson(res);
+          if(res.ok && data.token && data.user){
+            loggedIn = true;
+          }
+        }catch(netErr){
+          console.warn("Backend auth unavailable, falling back to local login:", netErr);
+        }
+
+        if(loggedIn){
+          S.user = data.user;
+          S.token = data.token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+          localStorage.setItem('debug_dojo_jwt', data.token);
+          await fetchProfile();
+          renderAuthNav();
+          toast(`Welcome back, ${data.user.name || data.user.email}!`);
+          go('home');
+          return;
+        }
+
+        if(data && data.status && data.status < 500 && !data.nonJson){
           if(btn){
             btn.disabled = false;
             btn.textContent = 'Sign In to Debug Dojo';
@@ -1702,21 +1971,58 @@ function bindAuthPortal(){
           }
           return;
         }
-        S.user = data.user;
-        S.token = data.token;
-        localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
-        localStorage.setItem('debug_dojo_jwt', data.token);
-        await fetchProfile();
-        renderAuthNav();
-        toast(`Welcome back, ${data.user.name || data.user.email}!`);
-        go('home');
+
+        // In-Browser Local Account Fallback
+        const localAccounts = getLocalAccounts();
+        const matched = localAccounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
+        const isDemo = email.toLowerCase() === 'student@debugdojo.dev';
+
+        if(matched && (!matched.password || matched.password === password)){
+          const userObj = { id: matched.id, name: matched.name, email: matched.email };
+          const token = createLocalJwt(userObj);
+          S.user = userObj;
+          S.token = token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+          localStorage.setItem('debug_dojo_jwt', token);
+          await fetchProfile();
+          renderAuthNav();
+          toast(`Welcome back, ${userObj.name}! (In-Browser Mode)`);
+          go('home');
+          return;
+        } else if(isDemo){
+          const userObj = { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' };
+          const token = createLocalJwt(userObj);
+          saveLocalAccount({ ...userObj, password: 'dojopass2026' });
+          S.user = userObj;
+          S.token = token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+          localStorage.setItem('debug_dojo_jwt', token);
+          await fetchProfile();
+          renderAuthNav();
+          toast(`Welcome, Demo Student! (In-Browser Mode)`);
+          go('home');
+          return;
+        } else if(email && password){
+          const userObj = { id: 'usr_' + Date.now(), name: email.split('@')[0], email: email };
+          const token = createLocalJwt(userObj);
+          saveLocalAccount({ ...userObj, password });
+          S.user = userObj;
+          S.token = token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+          localStorage.setItem('debug_dojo_jwt', token);
+          await fetchProfile();
+          renderAuthNav();
+          toast(`Logged in as ${userObj.email}! (In-Browser Mode)`);
+          go('home');
+          return;
+        }
       }catch(err){
         if(btn){
           btn.disabled = false;
           btn.textContent = 'Sign In to Debug Dojo';
         }
         if(loginErr){
-          loginErr.textContent = 'Network error: ' + err.message;
+          loginErr.textContent = 'Login error: ' + (err.message || 'Please check your inputs.');
           loginErr.style.display = 'block';
         }
       }
@@ -1737,13 +2043,35 @@ function bindAuthPortal(){
       }
 
       try{
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ name, email, password })
-        });
-        const data = await res.json();
-        if(!res.ok){
+        let registered = false;
+        let data = null;
+        try {
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, email, password })
+          });
+          data = await safeFetchJson(res);
+          if(res.ok && data.token && data.user){
+            registered = true;
+          }
+        }catch(netErr){
+          console.warn("Backend auth unavailable, falling back to local registration:", netErr);
+        }
+
+        if(registered){
+          S.user = data.user;
+          S.token = data.token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+          localStorage.setItem('debug_dojo_jwt', data.token);
+          await fetchProfile();
+          renderAuthNav();
+          toast(`Account created! Welcome, ${data.user.name || data.user.email}!`);
+          go('home');
+          return;
+        }
+
+        if(data && data.status && data.status < 500 && !data.nonJson){
           if(btn){
             btn.disabled = false;
             btn.textContent = 'Create Account & Start Learning';
@@ -1754,13 +2082,18 @@ function bindAuthPortal(){
           }
           return;
         }
-        S.user = data.user;
-        S.token = data.token;
-        localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
-        localStorage.setItem('debug_dojo_jwt', data.token);
+
+        // Local In-Browser Registration Fallback
+        const userObj = { id: 'usr_' + Date.now(), name: name || email.split('@')[0], email: email };
+        const token = createLocalJwt(userObj);
+        saveLocalAccount({ ...userObj, password });
+        S.user = userObj;
+        S.token = token;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+        localStorage.setItem('debug_dojo_jwt', token);
         await fetchProfile();
         renderAuthNav();
-        toast(`Account created! Welcome, ${data.user.name || data.user.email}!`);
+        toast(`Account created! Welcome, ${userObj.name}! (In-Browser Mode)`);
         go('home');
       }catch(err){
         if(btn){
@@ -1768,7 +2101,7 @@ function bindAuthPortal(){
           btn.textContent = 'Create Account & Start Learning';
         }
         if(regErr){
-          regErr.textContent = 'Network error: ' + err.message;
+          regErr.textContent = 'Registration error: ' + (err.message || 'Please check your inputs.');
           regErr.style.display = 'block';
         }
       }
@@ -1778,39 +2111,62 @@ function bindAuthPortal(){
   if(demoBtn){
     demoBtn.addEventListener('click', async ()=>{
       demoBtn.disabled = true;
-      demoBtn.textContent = 'Preparing demo student account...';
+      demoBtn.textContent = 'Starting demo student session...';
       const demoEmail = 'student@debugdojo.dev';
       const demoPass = 'dojopass2026';
       try {
-        let res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ email: demoEmail, password: demoPass })
-        });
-        if(!res.ok){
-          res = await fetch('/api/auth/register', {
+        let loggedIn = false;
+        let data = null;
+        try {
+          let res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name: 'Demo Student', email: demoEmail, password: demoPass })
+            body: JSON.stringify({ email: demoEmail, password: demoPass })
           });
+          data = await safeFetchJson(res);
+          if(res.ok && data.token && data.user){
+            loggedIn = true;
+          } else {
+            let resReg = await fetch('/api/auth/register', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name: 'Demo Student', email: demoEmail, password: demoPass })
+            });
+            data = await safeFetchJson(resReg);
+            if(resReg.ok && data.token && data.user){
+              loggedIn = true;
+            }
+          }
+        }catch(netErr){
+          console.warn("Backend unavailable for demo student, using local demo account:", netErr);
         }
-        const data = await res.json();
-        if(data.success && data.token){
-          S.user = data.user;
-          S.token = data.token;
-          localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
-          localStorage.setItem('debug_dojo_jwt', data.token);
-          await fetchProfile();
-          renderAuthNav();
-          toast(`Logged in as ${data.user.name || 'Demo Student'}!`);
-          go('home');
-        } else {
+
+        const userObj = (loggedIn && data && data.user) ? data.user : { id: 'usr_demo_student', name: 'Demo Student', email: demoEmail };
+        const token = (loggedIn && data && data.token) ? data.token : createLocalJwt(userObj);
+
+        saveLocalAccount({ ...userObj, password: demoPass });
+        S.user = userObj;
+        S.token = token;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+        localStorage.setItem('debug_dojo_jwt', token);
+        await fetchProfile();
+        renderAuthNav();
+        toast(`Logged in as ${userObj.name || 'Demo Student'}!`);
+        go('home');
+      } catch(err) {
+        const userObj = { id: 'usr_demo_student', name: 'Demo Student', email: demoEmail };
+        const token = createLocalJwt(userObj);
+        S.user = userObj;
+        S.token = token;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+        localStorage.setItem('debug_dojo_jwt', token);
+        renderAuthNav();
+        go('home');
+      } finally {
+        if(demoBtn){
           demoBtn.disabled = false;
           demoBtn.textContent = '⚡ Quick Start with Demo Student Account';
         }
-      } catch(err) {
-        demoBtn.disabled = false;
-        demoBtn.textContent = '⚡ Quick Start with Demo Student Account';
       }
     });
   }
@@ -1837,8 +2193,16 @@ async function getPyodide(){
 function recordLocalSubmission(entry){
   try {
     const list = JSON.parse(localStorage.getItem('debug_dojo_client_subs') || '[]');
-    list.unshift(entry);
-    localStorage.setItem('debug_dojo_client_subs', JSON.stringify(list.slice(0, 50)));
+    const learnerId = (S.user && S.user.id) ? S.user.id : ((S.user && S.user.email) ? S.user.email : 'student@debugdojo.dev');
+    const userEmail = (S.user && S.user.email) ? S.user.email : 'student@debugdojo.dev';
+    const enriched = {
+      learner_id: learnerId,
+      email: userEmail,
+      ...entry,
+      timestamp: entry.timestamp || new Date().toISOString()
+    };
+    list.unshift(enriched);
+    localStorage.setItem('debug_dojo_client_subs', JSON.stringify(list.slice(0, 100)));
   } catch(e){}
 }
 
@@ -2133,8 +2497,8 @@ async function runLive(){
          code: code
        })
      });
-     if(!res.ok){ throw new Error("HTTP " + res.status); }
-     data = await res.json();
+     data = await safeFetchJson(res);
+     if(!res.ok || data.error || data.nonJson){ throw new Error("HTTP " + res.status); }
    } catch(apiErr){
      console.warn("Backend judge unavailable, running in in-browser sandbox:", apiErr);
      data = await runChallengeInBrowser(c, code);
@@ -2211,9 +2575,9 @@ async function requestHintLive(){
      headers: headers,
      body: JSON.stringify({ submission_id: sub.id })
    });
+   const data = await safeFetchJson(res);
 
-   if(res.ok){
-     const data = await res.json();
+   if(res.ok && !data.error && !data.nonJson){
      if(!S.hintsMap[sub.id]) S.hintsMap[sub.id] = [];
      const lvl = data.hint_level || data.level || (S.hintsMap[sub.id].length + 1);
      if(!S.hintsMap[sub.id].some(h=>((h.hint_level || h.level) === lvl))){
@@ -2272,8 +2636,8 @@ async function runCustomDebugLive(){
         headers: headers,
         body: JSON.stringify(payload)
       });
-      if(!res.ok){ throw new Error("HTTP " + res.status); }
-      data = await res.json();
+      data = await safeFetchJson(res);
+      if(!res.ok || data.error || data.nonJson){ throw new Error("HTTP " + res.status); }
     } catch(apiErr){
       console.warn("Backend sandbox unavailable, running in in-browser sandbox:", apiErr);
       data = await runCustomCodeInBrowser(content);
