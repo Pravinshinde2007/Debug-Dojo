@@ -26,7 +26,11 @@ LLM_LOG_FILE = LOGS_DIR / "llm.jsonl"
 
 
 def get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -265,26 +269,29 @@ def init_db():
 
 def log_llm_call(prompt: str, response: str, context: Optional[str] = None):
     # Rule 7: Log every LLM prompt and response to backend/logs/llm.jsonl
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    import json
-    import time
-    log_entry = {
-        "timestamp": time.time(),
-        "prompt": prompt,
-        "response": response,
-        "context": context or ""
-    }
-    with open(LLM_LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(json.dumps(log_entry) + "\n")
+    try:
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        import json
+        import time
+        log_entry = {
+            "timestamp": time.time(),
+            "prompt": prompt,
+            "response": response,
+            "context": context or ""
+        }
+        with open(LLM_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_entry) + "\n")
 
-    # Also log to SQLite table llm_log
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO llm_log (prompt, response, context) VALUES (?, ?, ?)",
-            (prompt, response, context or "")
-        )
-        conn.commit()
+        # Also log to SQLite table llm_log
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO llm_log (prompt, response, context) VALUES (?, ?, ?)",
+                (prompt, response, context or "")
+            )
+            conn.commit()
+    except Exception as exc:
+        print(f"Non-fatal logging warning: {exc}")
 
 
 init_db()

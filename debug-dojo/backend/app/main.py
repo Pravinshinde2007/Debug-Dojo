@@ -269,120 +269,147 @@ def submit_code(req: SubmitRequest, authorization: Optional[str] = Header(None))
         if auth_user:
             effective_learner_id = auth_user["id"]
 
-    challenge = find_challenge(req.challenge_id)
-    if not challenge:
-        # Fallback challenge template if challenge ID not recognized
-        challenge = {
-            "id": req.challenge_id,
-            "title": req.challenge_id.replace("-", " ").title(),
-            "visible_tests": [{"test": 1, "call": "solution()", "args": [], "expected": 10}],
-            "hidden_tests": [{"test": 2, "kind": "boundary case", "args": [], "expected": 10}],
-        }
+    try:
+        challenge = find_challenge(req.challenge_id)
+        if not challenge:
+            # Fallback challenge template if challenge ID not recognized
+            challenge = {
+                "id": req.challenge_id,
+                "title": req.challenge_id.replace("-", " ").title(),
+                "visible_tests": [{"test": 1, "call": "solution()", "args": [], "expected": 10}],
+                "hidden_tests": [{"test": 2, "kind": "boundary case", "args": [], "expected": 10}],
+            }
 
-    # 1. Run submission in separate, isolated child process (Rule 1)
-    run_result = run_submission(req.code, challenge)
+        # 1. Run submission in separate, isolated child process (Rule 1)
+        run_result = run_submission(req.code, challenge)
 
-    # 2. Detect mistakes deterministically (Rule 5)
-    mistake_tags = detect_mistakes(req.code, run_result, challenge)
+        # 2. Detect mistakes deterministically (Rule 5)
+        mistake_tags = detect_mistakes(req.code, run_result, challenge)
 
-    # 3. Plain language explanation (Rule 2)
-    explanation = explain_failure(run_result, mistake_tags, challenge)
+        # 3. Plain language explanation (Rule 2)
+        explanation = explain_failure(run_result, mistake_tags, challenge)
 
-    visible_tests = [
-        VisibleTestResult(
-            test=v["test"],
-            call=v["call"],
-            expected=str(v["expected"]),
-            got=str(v["got"]),
-            outcome=v["outcome"],
-            error_msg=v.get("error_msg"),
-            error_type=v.get("error_type"),
-            error_line=v.get("error_line")
-        )
-        for v in run_result["visible"]
-    ]
-
-    # Rule 2: Hidden tests are secret
-    hidden_tests = [
-        HiddenTestResult(
-            test=h["test"],
-            outcome=h["outcome"]
-        )
-        for h in run_result["hidden"]
-    ]
-
-    all_passed = run_result.get("all_passed", False)
-    overall_outcome = run_result.get("overall_outcome", "passed" if all_passed else "wrong output")
-    first_error = run_result.get("first_error") or {}
-    first_failed = run_result.get("first_failed_test") or {}
-
-    diff = str(challenge.get("difficulty") or "Easy").lower()
-    total_hints = 5 if diff == "easy" else 4 if diff == "medium" else 3
-
-    # 4. Persist in SQLite
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO submissions (
-                id, learner_id, challenge_id, code,
-                visible_results, hidden_results, mistake_tags,
-                explanation, passed
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                submission_id,
-                effective_learner_id,
-                req.challenge_id,
-                req.code,
-                json.dumps([v.model_dump() for v in visible_tests]),
-                json.dumps([h.model_dump() for h in hidden_tests]),
-                json.dumps(mistake_tags),
-                explanation,
-                1 if all_passed else 0
+        visible_tests = [
+            VisibleTestResult(
+                test=v["test"],
+                call=v["call"],
+                expected=str(v["expected"]),
+                got=str(v["got"]),
+                outcome=v["outcome"],
+                error_msg=v.get("error_msg"),
+                error_type=v.get("error_type"),
+                error_line=v.get("error_line")
             )
-        )
-        # Log interaction event for measuring user activities
-        cursor.execute(
-            """
-            INSERT INTO learner_events (learner_id, event_type, payload)
-            VALUES (?, ?, ?)
-            """,
-            (
-                effective_learner_id,
-                "challenge_submission",
-                json.dumps({
-                    "submission_id": submission_id,
-                    "challenge_id": req.challenge_id,
-                    "passed": all_passed,
-                    "outcome": overall_outcome,
-                    "mistake_tags": mistake_tags
-                })
-            )
-        )
-        conn.commit()
+            for v in run_result.get("visible", [])
+        ]
 
-    return SubmitResponse(
-        submission_id=submission_id,
-        learner_id=effective_learner_id,
-        challenge_id=req.challenge_id,
-        visible=visible_tests,
-        hidden=hidden_tests,
-        mistake_tags=mistake_tags,
-        explanation=explanation,
-        passed=all_passed,
-        overall_outcome=overall_outcome,
-        error_type=first_error.get("error_type"),
-        error_line=first_error.get("error_line"),
-        error_msg=first_error.get("error_msg"),
-        total_hints=total_hints,
-        failed_test_num=first_failed.get("test"),
-        failed_test_call=first_failed.get("call"),
-        failed_test_expected=str(first_failed.get("expected", "")) if first_failed.get("expected") is not None else None,
-        failed_test_got=str(first_failed.get("got", "")) if first_failed.get("got") is not None else None,
-        visible_test_results=visible_tests,
-        hidden_test_outcomes=hidden_tests
-    )
+        # Rule 2: Hidden tests are secret
+        hidden_tests = [
+            HiddenTestResult(
+                test=h["test"],
+                outcome=h["outcome"]
+            )
+            for h in run_result.get("hidden", [])
+        ]
+
+        all_passed = run_result.get("all_passed", False)
+        overall_outcome = run_result.get("overall_outcome", "passed" if all_passed else "wrong output")
+        first_error = run_result.get("first_error") or {}
+        first_failed = run_result.get("first_failed_test") or {}
+
+        diff = str(challenge.get("difficulty") or "Easy").lower()
+        total_hints = 5 if diff == "easy" else 4 if diff == "medium" else 3
+
+        # 4. Persist in SQLite
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO submissions (
+                        id, learner_id, challenge_id, code,
+                        visible_results, hidden_results, mistake_tags,
+                        explanation, passed
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        submission_id,
+                        effective_learner_id,
+                        req.challenge_id,
+                        req.code,
+                        json.dumps([v.model_dump() for v in visible_tests]),
+                        json.dumps([h.model_dump() for h in hidden_tests]),
+                        json.dumps(mistake_tags),
+                        explanation,
+                        1 if all_passed else 0
+                    )
+                )
+                # Log interaction event for measuring user activities
+                cursor.execute(
+                    """
+                    INSERT INTO learner_events (learner_id, event_type, payload)
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        effective_learner_id,
+                        "challenge_submission",
+                        json.dumps({
+                            "submission_id": submission_id,
+                            "challenge_id": req.challenge_id,
+                            "passed": all_passed,
+                            "outcome": overall_outcome,
+                            "mistake_tags": mistake_tags
+                        })
+                    )
+                )
+                conn.commit()
+        except Exception as db_exc:
+            print(f"Non-fatal DB save error in submit_code: {db_exc}")
+
+        return SubmitResponse(
+            submission_id=submission_id,
+            learner_id=effective_learner_id,
+            challenge_id=req.challenge_id,
+            visible=visible_tests,
+            hidden=hidden_tests,
+            mistake_tags=mistake_tags,
+            explanation=explanation,
+            passed=all_passed,
+            overall_outcome=overall_outcome,
+            error_type=first_error.get("error_type"),
+            error_line=first_error.get("error_line"),
+            error_msg=first_error.get("error_msg"),
+            total_hints=total_hints,
+            failed_test_num=first_failed.get("test"),
+            failed_test_call=first_failed.get("call"),
+            failed_test_expected=str(first_failed.get("expected", "")) if first_failed.get("expected") is not None else None,
+            failed_test_got=str(first_failed.get("got", "")) if first_failed.get("got") is not None else None,
+            visible_test_results=visible_tests,
+            hidden_test_outcomes=hidden_tests
+        )
+    except Exception as exc:
+        print(f"Unexpected error in submit_code: {exc}")
+        return SubmitResponse(
+            submission_id=submission_id,
+            learner_id=effective_learner_id,
+            challenge_id=req.challenge_id,
+            visible=[],
+            hidden=[],
+            mistake_tags=[],
+            explanation=f"Sandbox execution error: {str(exc)}",
+            passed=False,
+            overall_outcome="runtime error",
+            error_type="SandboxError",
+            error_line=None,
+            error_msg=str(exc),
+            total_hints=3,
+            failed_test_num=1,
+            failed_test_call=f"{req.challenge_id}()",
+            failed_test_expected=None,
+            failed_test_got=None,
+            visible_test_results=[],
+            hidden_test_outcomes=[]
+        )
 
 
 @router.post("/hint", response_model=HintResponse)
@@ -789,170 +816,207 @@ def analyze_custom_code(req: CustomDebugRequest, authorization: Optional[str] = 
     raw_code = req.code or ""
     extracted_from_doc = False
 
-    if not raw_code.strip() and req.document_text:
-        is_py, extracted_code, _ = verify_and_extract_python(req.document_text)
+    try:
+        if not raw_code.strip() and req.document_text:
+            is_py, extracted_code, _ = verify_and_extract_python(req.document_text)
+            if not is_py:
+                return CustomDebugResponse(
+                    success=False,
+                    outcome="not_python",
+                    error_type="NonPythonDocumentError",
+                    error_line=None,
+                    error_msg="The provided document does not contain Python code.",
+                    explanation="We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code.",
+                    hints=[
+                        "Please upload a .py file or paste valid Python code.",
+                        "Ensure your document contains Python functions, loops, or statements.",
+                        "If you are submitting a markdown or text document, enclose Python code inside ```python and ``` blocks.",
+                        "Only .pdf, .py, and .txt files containing Python code are supported."
+                    ],
+                    mistake_tags=["non_python_document"],
+                    stdout="",
+                    extracted_from_doc=True,
+                    cleaned_code=""
+                )
+            raw_code = extracted_code
+            extracted_from_doc = True
+
+        if not raw_code.strip():
+            return CustomDebugResponse(
+                success=False,
+                outcome="syntax_error",
+                error_type="EmptyCodeError",
+                error_line=1,
+                error_msg="No Python code was provided to test.",
+                explanation="Please paste your Python code or document snippet into the editor first.",
+                hints=[
+                    "Write or paste Python code into the editor.",
+                    "Ensure your code has at least one executable statement or function.",
+                    "You can also upload a .py, .pdf, or .txt file containing Python code.",
+                    "Click 'Analyze & Run' to execute it safely in the sandbox."
+                ],
+                mistake_tags=["unhandled_short_input"],
+                stdout="",
+                extracted_from_doc=extracted_from_doc,
+                cleaned_code=raw_code
+            )
+
+        # Agentic verification on raw code: verify it's actual Python before running in sandbox
+        is_py, verified_code, non_py_msg = verify_and_extract_python(raw_code)
         if not is_py:
             return CustomDebugResponse(
                 success=False,
                 outcome="not_python",
                 error_type="NonPythonDocumentError",
                 error_line=None,
-                error_msg="The provided document does not contain Python code.",
+                error_msg="The provided text does not contain Python code.",
                 explanation="We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code.",
                 hints=[
                     "Please upload a .py file or paste valid Python code.",
-                    "Ensure your document contains Python functions, loops, or statements.",
-                    "If you are submitting a markdown or text document, enclose Python code inside ```python and ``` blocks.",
+                    "Ensure your code contains Python functions, loops, or statements.",
+                    "If you are uploading documentation, enclose code inside ```python and ``` blocks.",
                     "Only .pdf, .py, and .txt files containing Python code are supported."
                 ],
                 mistake_tags=["non_python_document"],
                 stdout="",
-                extracted_from_doc=True,
-                cleaned_code=""
+                extracted_from_doc=extracted_from_doc,
+                cleaned_code=raw_code
             )
-        raw_code = extracted_code
-        extracted_from_doc = True
 
-    if not raw_code.strip():
+        # 1. Execute safely in isolated subprocess sandbox (Rule 1)
+        run_res = run_custom_code(raw_code)
+
+        outcome = run_res.get("outcome", "runtime_error")
+        error_type = run_res.get("error_type")
+        error_line = run_res.get("error_line")
+        error_msg = run_res.get("error_msg")
+        stdout = run_res.get("stdout", "")
+
+        # 2. Mistake tagger AST inspection
+        dummy_test_data = {
+            "_detailed_data": [{
+                "outcome": outcome,
+                "stdout": stdout,
+                "got": run_res.get("return_val"),
+                "expected": None,
+                "error_msg": error_msg
+            }]
+        }
+        mistake_tags = detect_mistakes(raw_code, dummy_test_data, {"id": "custom-code"})
+
+        # 3. Plain language explanation and 4 progressive hints with leak guard
+        explanation_res = explain_custom_code_error(
+            error_type=error_type,
+            error_line=error_line,
+            error_msg=error_msg,
+            code=raw_code,
+            mistake_tags=mistake_tags
+        )
+
+        success = outcome == "passed" and not error_type
+
+        # 4. Log LLM / analysis event
+        log_llm_call(
+            prompt=f"Analyze custom code error: {error_type} {error_msg}",
+            response=explanation_res["explanation"],
+            context=f"custom_debug:{error_type or 'success'}"
+        )
+
+        # 5. Persist interaction into submissions and learner_events
+        custom_sub_id = f"custom_{uuid.uuid4().hex[:10]}"
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO submissions (
+                        id, learner_id, challenge_id, code,
+                        visible_results, hidden_results, mistake_tags,
+                        explanation, passed
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        custom_sub_id,
+                        effective_learner_id,
+                        "custom-code",
+                        raw_code,
+                        json.dumps([{"outcome": outcome, "error_type": error_type, "error_line": error_line, "error_msg": error_msg}]),
+                        "[]",
+                        json.dumps(mistake_tags),
+                        explanation_res["explanation"],
+                        1 if success else 0
+                    )
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO learner_events (learner_id, event_type, payload)
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        effective_learner_id,
+                        "custom_code_analysis",
+                        json.dumps({
+                            "submission_id": custom_sub_id,
+                            "outcome": outcome,
+                            "error_type": error_type,
+                            "mistake_tags": mistake_tags,
+                            "extracted_from_doc": extracted_from_doc
+                        })
+                    )
+                )
+                conn.commit()
+        except Exception as db_exc:
+            print(f"Non-fatal DB save error in analyze_custom_code: {db_exc}")
+
         return CustomDebugResponse(
-            success=False,
-            outcome="syntax_error",
-            error_type="EmptyCodeError",
-            error_line=1,
-            error_msg="No Python code was provided to test.",
-            explanation="Please paste your Python code or document snippet into the editor first.",
-            hints=[
-                "Write or paste Python code into the editor.",
-                "Ensure your code has at least one executable statement or function.",
-                "You can also upload a .py, .pdf, or .txt file containing Python code.",
-                "Click 'Analyze & Run' to execute it safely in the sandbox."
-            ],
-            mistake_tags=["unhandled_short_input"],
-            stdout="",
+            success=success,
+            outcome=outcome,
+            error_type=error_type,
+            error_line=error_line,
+            error_msg=error_msg,
+            explanation=explanation_res["explanation"],
+            hints=explanation_res["hints"],
+            mistake_tags=mistake_tags,
+            stdout=stdout,
             extracted_from_doc=extracted_from_doc,
             cleaned_code=raw_code
         )
-
-    # Agentic verification on raw code: verify it's actual Python before running in sandbox
-    is_py, verified_code, non_py_msg = verify_and_extract_python(raw_code)
-    if not is_py:
+    except Exception as exc:
+        print(f"Unexpected error in analyze_custom_code: {exc}")
         return CustomDebugResponse(
             success=False,
-            outcome="not_python",
-            error_type="NonPythonDocumentError",
+            outcome="runtime_error",
+            error_type="SandboxError",
             error_line=None,
-            error_msg="The provided text does not contain Python code.",
-            explanation="We need Python code to analyze! The uploaded document does not contain any Python code. Please upload a Python file (.py) or a document containing Python code.",
+            error_msg=f"Sandbox execution error: {str(exc)}",
+            explanation=f"The sandbox encountered an unexpected issue while analyzing your code: {str(exc)}",
             hints=[
-                "Please upload a .py file or paste valid Python code.",
-                "Ensure your code contains Python functions, loops, or statements.",
-                "If you are uploading documentation, enclose code inside ```python and ``` blocks.",
-                "Only .pdf, .py, and .txt files containing Python code are supported."
+                "Check that your code contains valid Python statements.",
+                "Ensure standard libraries are used without unhandled external dependencies.",
+                "Review the editor for unclosed strings, parentheses, or brackets."
             ],
-            mistake_tags=["non_python_document"],
+            mistake_tags=[],
             stdout="",
             extracted_from_doc=extracted_from_doc,
             cleaned_code=raw_code
         )
-
-    # 1. Execute safely in isolated subprocess sandbox (Rule 1)
-    run_res = run_custom_code(raw_code)
-
-    outcome = run_res.get("outcome", "runtime_error")
-    error_type = run_res.get("error_type")
-    error_line = run_res.get("error_line")
-    error_msg = run_res.get("error_msg")
-    stdout = run_res.get("stdout", "")
-
-    # 2. Mistake tagger AST inspection
-    dummy_test_data = {
-        "_detailed_data": [{
-            "outcome": outcome,
-            "stdout": stdout,
-            "got": run_res.get("return_val"),
-            "expected": None,
-            "error_msg": error_msg
-        }]
-    }
-    mistake_tags = detect_mistakes(raw_code, dummy_test_data, {"id": "custom-code"})
-
-    # 3. Plain language explanation and 4 progressive hints with leak guard
-    explanation_res = explain_custom_code_error(
-        error_type=error_type,
-        error_line=error_line,
-        error_msg=error_msg,
-        code=raw_code,
-        mistake_tags=mistake_tags
-    )
-
-    success = outcome == "passed" and not error_type
-
-    # 4. Log LLM / analysis event
-    log_llm_call(
-        prompt=f"Analyze custom code error: {error_type} {error_msg}",
-        response=explanation_res["explanation"],
-        context=f"custom_debug:{error_type or 'success'}"
-    )
-
-    # 5. Persist interaction into submissions and learner_events
-    custom_sub_id = f"custom_{uuid.uuid4().hex[:10]}"
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO submissions (
-                id, learner_id, challenge_id, code,
-                visible_results, hidden_results, mistake_tags,
-                explanation, passed
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                custom_sub_id,
-                effective_learner_id,
-                "custom-code",
-                raw_code,
-                json.dumps([{"outcome": outcome, "error_type": error_type, "error_line": error_line, "error_msg": error_msg}]),
-                "[]",
-                json.dumps(mistake_tags),
-                explanation_res["explanation"],
-                1 if success else 0
-            )
-        )
-        cursor.execute(
-            """
-            INSERT INTO learner_events (learner_id, event_type, payload)
-            VALUES (?, ?, ?)
-            """,
-            (
-                effective_learner_id,
-                "custom_code_analysis",
-                json.dumps({
-                    "submission_id": custom_sub_id,
-                    "outcome": outcome,
-                    "error_type": error_type,
-                    "mistake_tags": mistake_tags,
-                    "extracted_from_doc": extracted_from_doc
-                })
-            )
-        )
-        conn.commit()
-
-    return CustomDebugResponse(
-        success=success,
-        outcome=outcome,
-        error_type=error_type,
-        error_line=error_line,
-        error_msg=error_msg,
-        explanation=explanation_res["explanation"],
-        hints=explanation_res["hints"],
-        mistake_tags=mistake_tags,
-        stdout=stdout,
-        extracted_from_doc=extracted_from_doc,
-        cleaned_code=raw_code
-    )
 
 
 # Mount router at both root ("") and "/api" so rewrites with or without prefix work seamlessly
 app.include_router(router, prefix="")
 app.include_router(router, prefix="/api")
+
+# Serve frontend build directly on port 8000 if frontend/dist exists
+from fastapi.responses import FileResponse
+
+frontend_dist = BASE_DIR.parent / "frontend" / "dist"
+if frontend_dist.exists() and (frontend_dist / "index.html").exists():
+    @app.get("/{full_path:path}")
+    def serve_frontend_spa(full_path: str):
+        if full_path.startswith("api/") or full_path == "api" or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+            raise HTTPException(status_code=404, detail="API endpoint not found")
+        file_path = frontend_dist / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(frontend_dist / "index.html")
 

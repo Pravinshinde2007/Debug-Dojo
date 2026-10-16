@@ -120,8 +120,8 @@ def detect_mistakes(code: str, test_run_data: Dict[str, Any], challenge: Dict[st
     # Condition: Normal cases pass, but empty/short/boundary input crashes or produces wrong output
     short_input_failed = False
     for t in detailed_tests:
-        kind = t.get("kind", "").lower()
-        args = t.get("args", [])
+        kind = (t.get("kind") or "").lower()
+        args = t.get("args") or []
         
         # Check if test targets empty list, zero k, or sub-boundary
         is_short_or_empty = (
@@ -143,7 +143,7 @@ def detect_mistakes(code: str, test_run_data: Dict[str, Any], challenge: Dict[st
     # 4. Detection of 'boundary_comparison'
     # Condition: Equality threshold mismatch (e.g. mark >= 40 vs mark > 40)
     for t in detailed_tests:
-        kind = t.get("kind", "").lower()
+        kind = (t.get("kind") or "").lower()
         if "boundary" in kind or "threshold" in kind or "equal" in kind or "exact" in kind:
             if t["outcome"] != "passed":
                 tags.add("boundary_comparison")

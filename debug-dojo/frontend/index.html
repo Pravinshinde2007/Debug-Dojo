@@ -1834,7 +1834,12 @@ async function runLive(){
    });
 
    if(!res.ok){
-     throw new Error("HTTP " + res.status);
+     let errMsg = "HTTP " + res.status;
+     try {
+       const errJson = await res.json();
+       if(errJson && errJson.detail) errMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+     } catch(_){}
+     throw new Error(errMsg);
    }
 
    const data = await res.json();
@@ -1956,7 +1961,12 @@ async function runCustomDebugLive(){
     });
 
     if(!res.ok){
-      throw new Error("HTTP " + res.status);
+      let errMsg = "HTTP " + res.status;
+      try {
+        const errJson = await res.json();
+        if(errJson && errJson.detail) errMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+      } catch(_){}
+      throw new Error(errMsg);
     }
 
     const data = await res.json();

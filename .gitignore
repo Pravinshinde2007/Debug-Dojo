@@ -39,6 +39,9 @@ dist/
 *.sqlite
 *.sqlite3
 debug_dojo.db
+*.db-shm
+*.db-wal
+*.db
 
 # OS & IDE
 .DS_Store
