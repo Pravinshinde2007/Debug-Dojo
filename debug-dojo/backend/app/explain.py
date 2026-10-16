@@ -130,3 +130,116 @@ def get_progressive_hints(challenge: Dict[str, Any], mistake_tags: List[str], te
 
     # Ensure all hints pass leak guard
     return [leak_guard(h) for h in hints]
+
+
+def explain_custom_code_error(
+    error_type: Optional[str],
+    error_line: Optional[int],
+    error_msg: Optional[str],
+    code: str,
+    mistake_tags: List[str]
+) -> Dict[str, Any]:
+    """
+    Generates beginner-friendly plain language error explanations and 4 progressive hints
+    for learner-pasted arbitrary Python code. Guaranteed zero code leakage via leak_guard.
+    """
+    if not error_type and not error_msg:
+        return {
+            "explanation": "Your code executed successfully without any runtime crashes or syntax errors! Verify that the terminal output matches your intended result.",
+            "hints": [
+                "Your program ran from start to finish without raising an exception.",
+                "Review the printed output to ensure it matches what you expected.",
+                "Consider testing edge cases, such as empty inputs or negative values.",
+                "Try writing additional assertions or test prints to verify all logic branches."
+            ]
+        }
+
+    err_str = str(error_type or error_msg or "").lower()
+    line_ref = f" on line {error_line}" if error_line else ""
+
+    if "syntax" in err_str:
+        explanation = f"Your code has a Syntax Error{line_ref}. Python's grammar parser was unable to understand this statement."
+        hints = [
+            "Syntax errors happen when code violates the spelling, grammar, or punctuation rules of Python.",
+            f"Examine line {error_line or 'where the error occurred'} and the line immediately before it.",
+            "Common syntax issues include missing colons at the end of 'if', 'for', 'while', or 'def', unclosed parentheses, or misplaced quotation marks.",
+            "Make sure every opening bracket or quote has a matching close, and compound statements end with a colon."
+        ]
+    elif "indent" in err_str or "tab" in err_str:
+        explanation = f"Your code has an Indentation Error{line_ref}. Python relies on consistent indentation to know which lines belong inside a block."
+        hints = [
+            "In Python, indentation replaces curly braces to define code blocks.",
+            f"Look at line {error_line or 'the flagged line'} and compare its indentation to the surrounding code.",
+            "Statements inside a function, loop, or conditional must be indented further than their header.",
+            "Use a consistent 4 spaces per indentation level and avoid mixing tabs and spaces."
+        ]
+    elif "zerodivision" in err_str:
+        explanation = f"Your code tried to divide by zero{line_ref}. Division by zero is undefined in mathematics and causes Python to crash."
+        hints = [
+            "Computers cannot divide numbers by zero.",
+            f"Inspect the right-hand operand of your division operator on line {error_line or 'the active line'}.",
+            "This frequently occurs when dividing by the length of an empty list or when a counter variable hasn't incremented.",
+            "Add an 'if' condition before the division to check whether the denominator is zero and handle that case gracefully."
+        ]
+    elif "indexerror" in err_str or "range" in err_str:
+        explanation = f"Your code encountered an Index Error{line_ref}: you tried to access a position that does not exist in the collection."
+        hints = [
+            "Python lists, tuples, and strings use zero-based indexing (0 to length - 1).",
+            f"Check which list or string is being accessed on line {error_line or 'the flagged line'}, and what its size is.",
+            "If a list has 3 items, the only valid positive indices are 0, 1, and 2. Attempting to access index 3 will trigger an IndexError.",
+            "Verify that your loop index or slice stays strictly within the boundaries of the collection."
+        ]
+    elif "typeerror" in err_str:
+        explanation = f"Your code encountered a Type Error{line_ref}: an operation was applied to an inappropriate or incompatible data type."
+        hints = [
+            "Different data types (numbers, text strings, lists, None) have specific operations they support.",
+            f"Check the data types of variables participating in the operation on line {error_line or 'the error line'}.",
+            "For instance, you cannot perform addition between a number and a string, or index into a variable whose value is None.",
+            "Convert values using type conversion functions (like int() or str()), or check whether a variable is None before using it."
+        ]
+    elif "nameerror" in err_str:
+        explanation = f"Your code tried to use a variable or function name{line_ref} that has not been defined yet."
+        hints = [
+            "Python must encounter a variable's assignment or definition before that variable can be accessed.",
+            f"Check the exact spelling and capitalization of the identifier on line {error_line or 'the flagged line'}.",
+            "Look for typos, variables defined inside an inner scope that was skipped, or missing function definitions.",
+            "Initialize the variable before the line where it is used, or correct any spelling mismatch."
+        ]
+    elif "keyerror" in err_str:
+        explanation = f"Your code encountered a Key Error{line_ref}: you tried to look up a key that doesn't exist in the dictionary."
+        hints = [
+            "Dictionaries only return values for keys that have been explicitly stored.",
+            f"Check the dictionary key being requested on line {error_line or 'the active line'}.",
+            "Directly indexing dict[key] when the key is absent raises a KeyError.",
+            "Use 'key in dict' to check existence beforehand, or use the .get(key, default) method."
+        ]
+    elif "timeout" in err_str:
+        explanation = "Your code exceeded the execution time limit (2.0s). This almost always indicates an infinite loop or runaway recursion."
+        hints = [
+            "Every loop must have a guaranteed stopping condition that becomes true after finite iterations.",
+            "Check all 'while' loops and recursive functions in your script.",
+            "Ensure that the variable controlling the loop's condition is being updated inside the loop body.",
+            "Step through your loop manually with sample data to verify that the loop counter changes on every cycle."
+        ]
+    elif "outputlimit" in err_str:
+        explanation = "Your code produced more terminal output than the 4KB limit. This often happens if print() is placed inside an infinite loop."
+        hints = [
+            "Programs must not flood stdout with excessive print messages.",
+            "Look for print() statements located inside loops.",
+            "Check if an un-advancing loop is repeatedly printing to the terminal.",
+            "Remove unnecessary debug print calls or ensure the loop terminates promptly."
+        ]
+    else:
+        explanation = f"Your code stopped due to {error_type or 'a runtime error'}{line_ref} ({error_msg or 'exception raised'})."
+        hints = [
+            "An unhandled condition halted execution before the script finished.",
+            f"Investigate the operations on line {error_line or 'where the exception was reported'}.",
+            "Check your variable states immediately before this line runs.",
+            "Add defensive checks or error handling around this operation to keep your code safe."
+        ]
+
+    # Ensure all hints strictly obey leak guard (Rule 4)
+    return {
+        "explanation": explanation,
+        "hints": [leak_guard(h) for h in hints]
+    }

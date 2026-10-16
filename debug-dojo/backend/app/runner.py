@@ -233,3 +233,130 @@ def run_submission(code: str, challenge: Dict[str, Any]) -> Dict[str, Any]:
         "all_passed": all_passed,
         "_detailed_data": detailed_test_data  # Internal only for tagger / explain
     }
+
+
+def run_custom_code(code: str, timeout: float = PER_TEST_TIMEOUT) -> Dict[str, Any]:
+    """
+    Executes learner's custom arbitrary Python code in an isolated child process sandbox.
+    Enforces Rule 1 (isolated child process) and returns execution output, error type,
+    error line, and stdout.
+    """
+    if len(code.encode("utf-8")) > MAX_CODE_BYTES:
+        return {
+            "outcome": "runtime_error",
+            "error_type": "MemoryError",
+            "error_line": None,
+            "error_msg": "Code size limit exceeded (max 16KB)",
+            "stdout": "",
+            "return_val": None,
+        }
+
+    # Pre-check AST syntax
+    try:
+        compile(code, "<string>", "exec")
+    except SyntaxError as syn_err:
+        return {
+            "outcome": "syntax_error",
+            "error_type": type(syn_err).__name__,
+            "error_line": syn_err.lineno,
+            "error_msg": str(syn_err),
+            "stdout": "",
+            "return_val": None,
+        }
+    except Exception as ast_err:
+        return {
+            "outcome": "syntax_error",
+            "error_type": type(ast_err).__name__,
+            "error_line": getattr(ast_err, "lineno", None),
+            "error_msg": str(ast_err),
+            "stdout": "",
+            "return_val": None,
+        }
+
+    payload = {
+        "code": code,
+        "function_name": "",
+        "args": [],
+        "kwargs": {},
+    }
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        input_file = Path(tmp_dir) / "payload.json"
+        with open(input_file, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+
+        cmd = [sys.executable, str(WORKER_SCRIPT), str(input_file)]
+
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            raw_stdout = proc.stdout.strip()
+            if not raw_stdout:
+                return {
+                    "outcome": "runtime_error",
+                    "error_type": "ProcessTerminated",
+                    "error_line": None,
+                    "error_msg": proc.stderr.strip() or "Child process terminated unexpectedly",
+                    "stdout": "",
+                    "return_val": None,
+                }
+
+            result_data = json.loads(raw_stdout)
+            runtime_err = result_data.get("runtime_error")
+            output_limit_hit = result_data.get("output_limit_hit", False)
+            stdout = result_data.get("stdout", "")
+            return_val = result_data.get("return_val")
+            err_type = result_data.get("error_type")
+            err_line = result_data.get("error_line")
+
+            if output_limit_hit:
+                return {
+                    "outcome": "runtime_error",
+                    "error_type": "OutputLimitExceeded",
+                    "error_line": err_line,
+                    "error_msg": "Output limit exceeded (max 4KB)",
+                    "stdout": stdout,
+                    "return_val": return_val,
+                }
+
+            if runtime_err:
+                return {
+                    "outcome": "runtime_error",
+                    "error_type": err_type or "RuntimeError",
+                    "error_line": err_line,
+                    "error_msg": runtime_err,
+                    "stdout": stdout,
+                    "return_val": return_val,
+                }
+
+            return {
+                "outcome": "passed",
+                "error_type": None,
+                "error_line": None,
+                "error_msg": None,
+                "stdout": stdout,
+                "return_val": return_val,
+            }
+
+        except subprocess.TimeoutExpired:
+            return {
+                "outcome": "timeout",
+                "error_type": "TimeoutError",
+                "error_line": None,
+                "error_msg": f"Execution timed out (exceeded {timeout}s limit - possible infinite loop)",
+                "stdout": "",
+                "return_val": None,
+            }
+        except Exception as ex:
+            return {
+                "outcome": "runtime_error",
+                "error_type": "SandboxError",
+                "error_line": None,
+                "error_msg": f"Sandbox execution error: {str(ex)}",
+                "stdout": "",
+                "return_val": None,
+            }

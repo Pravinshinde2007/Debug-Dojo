@@ -264,6 +264,7 @@ body>.wrap{position:relative;z-index:1}
   <span class="live-pill" title="Connected to isolated Python execution judge"><i></i>Live Sandbox Judge: Active</span>
   <nav class="links" id="links">
     <a href="#home" data-r="home">Home</a>
+    <a href="#custom-debug" data-r="custom-debug" style="color:var(--cyan)">Debug Your Code</a>
     <a href="#challenges" data-r="challenges">Challenges</a>
     <a href="#dashboard" data-r="dashboard">Dashboard</a>
     <a href="#how" data-r="how">How It Works</a>
@@ -405,7 +406,55 @@ const S={
   recommendedChallenge:null,
   recommendationReason:"",
   history:[],
-  streak:3
+  streak:3,
+  customCode:`def calculate_average(numbers):
+    total = sum(numbers)
+    # Bug: What happens if numbers is empty?
+    return total / len(numbers)
+
+# Test call that triggers an error:
+print(calculate_average([]))
+`,
+  customDoc:`# Buggy Python Function Report
+
+Here is the student function that needs debugging:
+
+\`\`\`python
+def calculate_average(numbers):
+    total = sum(numbers)
+    # Division by zero happens when numbers is empty!
+    return total / len(numbers)
+
+print(calculate_average([]))
+\`\`\`
+`,
+  customMode:'code',
+  customResult:null,
+  customHintsShown:1,
+  customRunning:false
+};
+
+const SAMPLES={
+  zero_div:{
+    title:'ZeroDivisionError',
+    code:`def calculate_average(numbers):\n    total = sum(numbers)\n    # What happens when numbers is empty?\n    return total / len(numbers)\n\n# Test with empty list:\nprint("Average:", calculate_average([]))\n`
+  },
+  syntax:{
+    title:'SyntaxError',
+    code:`def greet(name)\n    if len(name) > 0\n        return "Hello " + name\n    return "Hello stranger"\n\nprint(greet("Dojo"))\n`
+  },
+  index:{
+    title:'IndexError',
+    code:`def get_last_item(items):\n    # Python lists are 0-indexed!\n    return items[len(items)]\n\nprint(get_last_item(["apple", "banana", "cherry"]))\n`
+  },
+  type_err:{
+    title:'TypeError',
+    code:`def format_user_age(name, age):\n    # Cannot concatenate string and integer directly\n    return "User " + name + " is " + age + " years old."\n\nprint(format_user_age("Alex", 24))\n`
+  },
+  name_err:{
+    title:'NameError',
+    code:`def calculate_area(width, height):\n    area = widht * height  # Notice the spelling of width\n    return area\n\nprint("Area:", calculate_area(5, 10))\n`
+  }
 };
 
 const $=s=>document.querySelector(s);
@@ -440,12 +489,12 @@ async function fetchProfile(){
 const overall=()=>Math.round(CONCEPTS.reduce((a,k)=>a+(S.mastery[k]||50),0)/CONCEPTS.length);
 
 /* ---------- router ---------- */
-const ROUTES=['home','challenges','workspace','results','dashboard','how'];
+const ROUTES=['home','challenges','workspace','results','dashboard','how','custom-debug'];
 function route(force){
   let r=(location.hash||'#home').slice(1);
   if(!ROUTES.includes(r)) r='home';
   document.querySelectorAll('#links a').forEach(a=>a.classList.toggle('on',a.dataset.r===r||(r==='workspace'&&a.dataset.r==='challenges')||(r==='results'&&a.dataset.r==='dashboard')));
-  const v={home:vHome,challenges:vChallenges,workspace:vWorkspace,results:vResults,dashboard:vDashboard,how:vHow}[r];
+  const v={home:vHome,challenges:vChallenges,workspace:vWorkspace,results:vResults,dashboard:vDashboard,how:vHow,'custom-debug':vCustomDebug}[r];
   const changed=!!force||r!==S.lastRoute; S.lastRoute=r;
   GL.unmount();
   const app=$('#app'), sy=window.scrollY;
@@ -469,7 +518,7 @@ function vHome(){
    <span class="eyebrow">AI-guided debugging platform</span>
    <h1>Don't Just Fix Bugs. <em>Learn to Think.</em></h1>
    <p class="lead">Debug Dojo runs your Python against hidden tests in an isolated sandbox, explains what went wrong in plain words, and gives you hints one step at a time. You write the fix. The answer stays yours to find.</p>
-   <div class="row"><a class="btn primary" href="#workspace" data-start>Start Practising ${IC.arrow}</a><a class="btn" href="#challenges">Explore Challenges</a><a class="btn" href="/docs" target="_blank">Swagger API ↗</a></div>
+   <div class="row"><a class="btn primary" href="#custom-debug">${IC.bug} Debug Your Code ${IC.arrow}</a><a class="btn" href="#workspace" data-start>Start Practising</a></div>
   </div>
   <div class="stage" id="stage">
    <div class="stage-fallback">Interactive 3D view requires WebGL.</div>
@@ -709,6 +758,255 @@ function vHow(){
  <div class="how">${items.map((x,i)=>`<div class="it"><div class="no">${i+1}</div><div><h3>${x[0]}</h3><p>${x[1]}</p></div></div>`).join('')}</div>`;
 }
 
+function vCustomDebug(){
+  const res = S.customResult;
+  const isDoc = S.customMode === 'doc';
+  const val = isDoc ? S.customDoc : S.customCode;
+  const shown = Math.min(S.customHintsShown || 1, 4);
+
+  return `
+  <div class="page-head">
+    <div>
+      <span class="eyebrow">Interactive Code Debugging &amp; Document Verification</span>
+      <h1>Debug Your Code</h1>
+      <p class="muted" style="margin-top:6px;font-size:15px;max-width:760px">
+        Paste your own Python script or document containing code. Our sandbox judge executes the code in isolation, pinpoints syntax or runtime errors, explains the mistake in simple words, and coaches you step-by-step with progressive hints.
+        <strong style="color:var(--amber)"> You type and verify the fix yourself!</strong>
+      </p>
+    </div>
+  </div>
+
+  <div class="card" style="padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:13px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em">Try a sample bug:</span>
+    <button class="chip" data-sample="zero_div">➗ ZeroDivisionError</button>
+    <button class="chip" data-sample="syntax">🔤 SyntaxError</button>
+    <button class="chip" data-sample="index">📦 IndexError</button>
+    <button class="chip" data-sample="type_err">🔄 TypeError</button>
+    <button class="chip" data-sample="name_err">⚡ NameError</button>
+  </div>
+
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+    <div class="chips">
+      <button class="chip ${!isDoc?'on':''}" id="mode-code">💻 Python Code Editor</button>
+      <button class="chip ${isDoc?'on':''}" id="mode-doc">📄 Document / Markdown with Code</button>
+    </div>
+    <span class="sp" style="flex:1"></span>
+    <label class="btn sm" style="cursor:pointer">
+      📂 Upload File (.py, .md, .txt)
+      <input type="file" id="custom-file-input" accept=".py,.md,.txt,.markdown" style="display:none">
+    </label>
+  </div>
+
+  <div class="ws" style="grid-template-columns:minmax(0,1.3fr) minmax(320px,1fr)">
+    <div style="display:grid;gap:14px">
+      <section class="panel" aria-label="Custom code editor">
+        <div class="panel-h">
+          <span>${isDoc?'document_with_code.md':'debug_script.py'}</span>
+          <span id="custom-status-pill" class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">
+            ${res ? (res.success ? '<span style="color:var(--green)">✓ Executing Cleanly</span>' : '<span style="color:var(--coral)">⚠ ' + esc(res.error_type || 'Error Detected') + '</span>') : 'Ready to Analyze'}
+          </span>
+        </div>
+        <div class="editor" style="height:380px">
+          <div class="gutter" id="custom-gutter"></div>
+          <textarea id="custom-code" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste your Python code or markdown document here...">${esc(val)}</textarea>
+        </div>
+        <div id="custom-typing-bar" style="padding:9px 16px;background:rgba(255,255,255,.02);border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px">
+          <span style="color:var(--cyan);font-weight:600">⚡ Live Assistant:</span>
+          <span id="custom-typing-msg">Type or edit your code. Syntax balance and colons are verified live.</span>
+        </div>
+        <div class="ed-bar">
+          <button class="btn primary" id="custom-run" ${S.customRunning?'disabled':''}>
+            ${S.customRunning?'<span class="spin"></span> Running in Sandbox...':IC.play+' Analyze &amp; Run Code'}
+          </button>
+          <button class="btn" id="custom-reset">${IC.reset} Clear</button>
+          <span class="sp"></span>
+          <span class="muted" style="font-size:12px">Sandboxed · Sockets disabled · Max 2s</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Execution output">
+        <div class="panel-h">
+          <span>Execution Output (stdout / Terminal)</span>
+          <span class="mono" style="text-transform:none;letter-spacing:0">${res ? (res.success?'exit 0':'exit 1') : 'inactive'}</span>
+        </div>
+        <div style="padding:14px 18px;background:var(--bg2);font-family:var(--mono);font-size:13px;line-height:1.6;min-height:90px;max-height:220px;overflow-y:auto;white-space:pre-wrap">
+          ${renderCustomConsole(res)}
+        </div>
+      </section>
+    </div>
+
+    <section class="panel coach" aria-label="Debug Coach &amp; Progressive Guidance">
+      <div class="panel-h">
+        <span>Debug Coach</span>
+        <span class="mono" style="text-transform:none;letter-spacing:0">${res && !res.success ? 'Hint ' + shown + '/4' : ''}</span>
+      </div>
+      <div class="panel-b">
+        ${renderCustomCoach(res, shown)}
+      </div>
+    </section>
+  </div>`;
+}
+
+function renderCustomConsole(res){
+  if(!res){
+    return '<span style="color:var(--faint)">Terminal idle. Paste code and click "Analyze &amp; Run Code" to execute.</span>';
+  }
+  let out = '';
+  if(res.stdout && res.stdout.trim()){
+    out += esc(res.stdout);
+  } else {
+    out += '<span style="color:var(--faint)">[Process finished with no printed stdout]</span>';
+  }
+  if(!res.success && res.error_type){
+    out += '\n<span style="color:var(--coral)">' + esc(res.error_type + (res.error_line ? ' on line ' + res.error_line : '') + (res.error_msg ? ': ' + res.error_msg : '')) + '</span>';
+  }
+  return out;
+}
+
+function renderCustomCoach(res, shown){
+  if(!res){
+    return `
+    <div class="msg">
+      <b>Welcome to Debug Dojo\'s Custom Code Inspector!</b><br><br>
+      Paste any Python code or a document containing code snippets on the left and click <b>Analyze &amp; Run Code</b>.<br><br>
+      Our sandbox judge will safely execute the code, catch any syntax or runtime bugs, and guide you through debugging it in simple, jargon-free English.
+    </div>
+    <div class="note">
+      <strong>Educational Principle:</strong> Like ChatGPT or an encouraging mentor, Debug Dojo will never directly provide the corrected code. Read the progressive hints, think through the cause, and type the fix yourself.
+    </div>`;
+  }
+
+  if(res.success){
+    return `
+    <div class="banner ok">✓ Clean Execution! No errors or exceptions occurred.</div>
+    <div class="msg" style="border-color:rgba(111,231,169,.3)">
+      <h3 style="color:var(--green);font-size:16px;margin-bottom:6px">Bug Successfully Resolved!</h3>
+      <p style="margin-bottom:10px">Your code ran through to completion without throwing any errors. The standard output is shown in the terminal on the left.</p>
+      <p style="color:var(--muted);font-size:13px">You identified the issue, applied the correct logic, and verified it in the sandbox. Great work!</p>
+    </div>
+    <div class="card" style="padding:14px;background:var(--bg2)">
+      <b style="font-size:13px;color:var(--cyan)">Want to practise more?</b>
+      <p style="font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5">
+        Explore our curated collection of Python debugging challenges with hidden test cases and concept mastery tracking!
+      </p>
+      <div style="margin-top:10px"><a class="btn sm primary" href="#challenges">Explore Challenges ${IC.arrow}</a></div>
+    </div>`;
+  }
+
+  const HINT_TITLES = ['General concept', 'Where to look', 'Underlying cause', 'Debugging strategy'];
+  const hints = res.hints || [];
+
+  return `
+  <div class="banner bad">
+    ⚠ ${esc(res.error_type || 'Error')}${res.error_line ? ` on Line ${res.error_line}` : ''}
+  </div>
+
+  <div>
+    <b style="font-size:12.5px;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">What Went Wrong (Plain English)</b>
+    <div class="msg" style="border-left:3px solid var(--coral);background:var(--card2)">
+      ${esc(res.explanation)}
+    </div>
+  </div>
+
+  ${res.error_msg ? `
+  <div style="font-size:12.5px;color:var(--coral);font-family:var(--mono);background:rgba(255,136,120,.08);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,136,120,.2)">
+    ${esc(res.error_msg)}
+  </div>` : ''}
+
+  ${res.mistake_tags && res.mistake_tags.length ? `
+  <div class="row">
+    <span style="font-size:12px;color:var(--faint)">Detected Mistake Pattern:</span>
+    ${res.mistake_tags.map(t => `<span class="pill mistake">${esc(t)}</span>`).join('')}
+  </div>` : ''}
+
+  <div style="margin-top:4px">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <b style="font-size:13px">Progressive Hint Ladder</b>
+      <span class="mono" style="font-size:12px;color:var(--violet)">Step ${shown} of ${Math.max(hints.length, 4)}</span>
+    </div>
+    ${hints.slice(0, shown).map((h, k) => `
+      <div class="hint" style="margin-bottom:8px">
+        <b>Hint ${k+1} · ${HINT_TITLES[k] || 'Guidance'}</b>
+        <p>${esc(h)}</p>
+      </div>
+    `).join('')}
+  </div>
+
+  <button class="btn" id="custom-next-hint" ${shown >= hints.length ? 'disabled' : ''}>
+    ${IC.key} ${shown >= hints.length ? 'All Hints Revealed' : 'Reveal Next Hint (' + (shown + 1) + '/4)'}
+  </button>
+
+  <div class="note">
+    <strong>Educational Rule:</strong> Complete solution code is never handed out. Read the hints, type your fix into the code editor on the left, and click <b>Analyze &amp; Run Code</b> to see if it fixes the bug!
+  </div>`;
+}
+
+function updateCustomTypingAssistant(code, errorLine){
+  const msgEl = $('#custom-typing-msg');
+  if(!msgEl) return;
+
+  if(!code.trim()){
+    msgEl.innerHTML = 'Editor is empty. Paste or write Python code to analyze.';
+    return;
+  }
+
+  // 1. Check bracket/parenthesis balancing
+  const stack = [];
+  const pairs = { '(': ')', '[': ']', '{': '}' };
+  let bracketErr = null;
+  const lines = code.split('\n');
+
+  for(let i = 0; i < lines.length; i++){
+    const line = lines[i];
+    const codePart = line.split('#')[0];
+    for(let j = 0; j < codePart.length; j++){
+      const ch = codePart[j];
+      if(ch === '(' || ch === '[' || ch === '{'){
+        stack.push({ ch, line: i + 1 });
+      } else if(ch === ')' || ch === ']' || ch === '}'){
+        if(!stack.length){
+          bracketErr = `Unmatched closing '${ch}' on line ${i + 1}`;
+          break;
+        }
+        const last = stack.pop();
+        if(pairs[last.ch] !== ch){
+          bracketErr = `Mismatched '${last.ch}' (line ${last.line}) with '${ch}' on line ${i + 1}`;
+          break;
+        }
+      }
+    }
+    if(bracketErr) break;
+  }
+  if(!bracketErr && stack.length){
+    const last = stack[stack.length - 1];
+    bracketErr = `Unclosed '${last.ch}' starting on line ${last.line}`;
+  }
+
+  if(bracketErr){
+    msgEl.innerHTML = `<span style="color:var(--coral)">⚠ ${bracketErr}</span>`;
+    return;
+  }
+
+  // 2. Check for missing colon on statements
+  for(let i = 0; i < lines.length; i++){
+    const trimmed = lines[i].split('#')[0].trim();
+    if(trimmed.match(/^(def |class |if |elif |else:|for |while |try:|except|finally:)/)){
+      if(!trimmed.endsWith(':') && !trimmed.endsWith('\\') && !trimmed.endsWith('(') && !trimmed.endsWith('[')){
+        msgEl.innerHTML = `<span style="color:var(--amber)">Tip: Line ${i + 1} looks like a control statement or function definition but doesn't end with a colon ':'</span>`;
+        return;
+      }
+    }
+  }
+
+  // 3. If previous error on errorLine, check if user edited it
+  if(errorLine && lines.length >= errorLine){
+    msgEl.innerHTML = `<span style="color:var(--cyan)">✓ Syntax balance OK. Ready to test changes on Line ${errorLine}! Hit "Analyze &amp; Run Code".</span>`;
+    return;
+  }
+
+  msgEl.innerHTML = `<span style="color:var(--green)">✓ Syntax structure and bracket balance look clean.</span>`;
+}
+
 /* ---------- interactions & live api calls ---------- */
 function bind(r){
  document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault(); S.cur=b.dataset.open; S.tab='all'; go('workspace');}));
@@ -730,6 +1028,111 @@ function bind(r){
   $('#hint').addEventListener('click',requestHintLive);
   document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{S.tab=b.dataset.tab; route();}));
   $('#toggle').addEventListener('click',()=>{S.consoleOpen=!S.consoleOpen; route();});
+ }
+ if(r==='custom-debug'){
+  const ta=$('#custom-code'), g=$('#custom-gutter');
+  const updateGutter=()=>{
+    if(g&&ta) g.textContent=Array.from({length:ta.value.split('\n').length},(_,i)=>i+1).join('\n');
+  };
+  updateGutter();
+  updateCustomTypingAssistant(ta ? ta.value : '', S.customResult?.error_line);
+
+  if(ta){
+    ta.addEventListener('input',()=>{
+      if(S.customMode==='doc') S.customDoc=ta.value;
+      else S.customCode=ta.value;
+      updateGutter();
+      updateCustomTypingAssistant(ta.value, S.customResult?.error_line);
+    });
+    ta.addEventListener('scroll',()=>{ if(g) g.scrollTop=ta.scrollTop; });
+    ta.addEventListener('keydown',e=>{
+      if(e.key==='Tab'){
+        e.preventDefault();
+        const s=ta.selectionStart;
+        ta.setRangeText('    ',s,ta.selectionEnd,'end');
+        if(S.customMode==='doc') S.customDoc=ta.value;
+        else S.customCode=ta.value;
+        updateGutter();
+      }
+    });
+  }
+
+  const runBtn = $('#custom-run');
+  if(runBtn) runBtn.addEventListener('click', runCustomDebugLive);
+
+  const resetBtn = $('#custom-reset');
+  if(resetBtn){
+    resetBtn.addEventListener('click', ()=>{
+      if(S.customMode==='doc') S.customDoc='';
+      else S.customCode='';
+      S.customResult=null;
+      S.customHintsShown=1;
+      route();
+      toast('Editor cleared.');
+    });
+  }
+
+  const nextHintBtn = $('#custom-next-hint');
+  if(nextHintBtn){
+    nextHintBtn.addEventListener('click', ()=>{
+      S.customHintsShown = Math.min((S.customHintsShown || 1) + 1, 4);
+      route();
+      toast(`Revealed Hint ${S.customHintsShown} of 4`);
+    });
+  }
+
+  const modeCodeBtn = $('#mode-code');
+  if(modeCodeBtn){
+    modeCodeBtn.addEventListener('click', ()=>{
+      S.customMode='code';
+      route();
+    });
+  }
+  const modeDocBtn = $('#mode-doc');
+  if(modeDocBtn){
+    modeDocBtn.addEventListener('click', ()=>{
+      S.customMode='doc';
+      route();
+    });
+  }
+
+  document.querySelectorAll('[data-sample]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const smp = SAMPLES[b.dataset.sample];
+      if(smp){
+        S.customMode = 'code';
+        S.customCode = smp.code;
+        S.customResult = null;
+        S.customHintsShown = 1;
+        route();
+        toast(`Loaded sample: ${smp.title}. Click "Analyze & Run" to inspect!`);
+      }
+    });
+  });
+
+  const fileInput = $('#custom-file-input');
+  if(fileInput){
+    fileInput.addEventListener('change', e=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ev=>{
+        const content = ev.target.result;
+        if(file.name.endsWith('.md') || file.name.endsWith('.txt')){
+          S.customMode = 'doc';
+          S.customDoc = content;
+        } else {
+          S.customMode = 'code';
+          S.customCode = content;
+        }
+        S.customResult = null;
+        S.customHintsShown = 1;
+        route();
+        toast(`Loaded file: ${file.name}`);
+      };
+      reader.readAsText(file);
+    });
+  }
  }
 }
 
@@ -811,6 +1214,50 @@ async function requestHintLive(){
    toast("Hint request error: " + err.message);
  }
  route();
+}
+
+async function runCustomDebugLive(){
+  const isDoc = S.customMode === 'doc';
+  const content = isDoc ? S.customDoc : S.customCode;
+  const btn = $('#custom-run');
+  if(!content.trim()){
+    toast('Please enter some Python code or document text first.');
+    return;
+  }
+
+  S.customRunning = true;
+  if(btn){
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> Running in Sandbox...';
+  }
+
+  try{
+    const payload = isDoc ? { document_text: content } : { code: content };
+    const res = await fetch('/api/analyze-custom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if(!res.ok){
+      throw new Error("HTTP " + res.status);
+    }
+
+    const data = await res.json();
+    S.customResult = data;
+    S.customHintsShown = 1;
+
+    if(isDoc && data.cleaned_code){
+      S.customCode = data.cleaned_code;
+    }
+
+    toast(data.success ? "✓ Clean Run! No errors found." : "⚠ " + (data.error_type || "Error detected"));
+  } catch(err){
+    toast("Error contacting sandbox: " + err.message);
+  } finally {
+    S.customRunning = false;
+    route();
+  }
 }
 
 /* ==============================================================================

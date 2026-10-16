@@ -92,3 +92,72 @@ def test_sqlite_tables_exist():
         assert "hints_given" in tables
         assert "learner_events" in tables
         assert "llm_log" in tables
+
+
+def test_analyze_custom_syntax_error():
+    # Buggy code with missing colon
+    code = """def calculate_total(a, b)
+    return a + b
+"""
+    res = client.post("/api/analyze-custom", json={"code": code})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is False
+    assert data["outcome"] == "syntax_error"
+    assert "SyntaxError" in data["error_type"]
+    assert data["error_line"] == 1
+    assert "Syntax Error" in data["explanation"]
+    assert len(data["hints"]) == 4
+    # Rule 4: No code solution leaks in hints!
+    for h in data["hints"]:
+        assert "def calculate_total" not in h
+        assert "return a + b" not in h
+
+
+def test_analyze_custom_runtime_error():
+    # ZeroDivisionError
+    code = """def calc_avg(nums):
+    total = sum(nums)
+    return total / len(nums)
+
+print(calc_avg([]))
+"""
+    res = client.post("/api/analyze-custom", json={"code": code})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is False
+    assert data["outcome"] == "runtime_error"
+    assert "ZeroDivisionError" in (data["error_type"] or data["error_msg"])
+    assert "divide by zero" in data["explanation"].lower() or "zero" in data["explanation"].lower()
+    assert len(data["hints"]) == 4
+
+
+def test_analyze_custom_from_document():
+    doc = """
+# Homework Assignment 3
+Please find the bug in this Python snippet:
+
+```python
+names = ['Alice', 'Bob']
+print(names[5])
+```
+"""
+    res = client.post("/api/analyze-custom", json={"document_text": doc})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["extracted_from_doc"] is True
+    assert "names[5]" in data["cleaned_code"]
+    assert data["outcome"] == "runtime_error"
+    assert "Index" in (data["error_type"] or data["error_msg"])
+
+
+def test_analyze_custom_clean_run():
+    code = """val = 40 + 2
+print(f"Computed: {val}")
+"""
+    res = client.post("/api/analyze-custom", json={"code": code})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["outcome"] == "passed"
+    assert "Computed: 42" in data["stdout"]

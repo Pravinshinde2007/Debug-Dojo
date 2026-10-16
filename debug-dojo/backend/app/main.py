@@ -1,6 +1,7 @@
 import uuid
 import json
 import os
+import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from contextlib import asynccontextmanager
@@ -9,9 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .db import init_db, get_db_connection, log_llm_call
-from .runner import run_submission
+from .runner import run_submission, run_custom_code
 from .tagger import detect_mistakes
-from .explain import explain_failure, get_progressive_hints
+from .explain import explain_failure, get_progressive_hints, explain_custom_code_error
 from .learner import get_learner_profile
 from .llm import generate_hint, leak_guard
 
@@ -106,6 +107,26 @@ class LearnerProfileResponse(BaseModel):
     recommended_next_challenge: Optional[Dict[str, Any]] = None
     recommendation_reason: Optional[str] = None
     reason: str
+
+
+class CustomDebugRequest(BaseModel):
+    code: Optional[str] = ""
+    document_text: Optional[str] = None
+    learner_id: Optional[str] = "demo-learner"
+
+
+class CustomDebugResponse(BaseModel):
+    success: bool
+    outcome: str  # passed | syntax_error | runtime_error | timeout
+    error_type: Optional[str] = None
+    error_line: Optional[int] = None
+    error_msg: Optional[str] = None
+    explanation: str
+    hints: List[str]
+    mistake_tags: List[str]
+    stdout: str
+    extracted_from_doc: bool = False
+    cleaned_code: str
 
 
 # --- Challenge Loader Helper ---
@@ -332,6 +353,109 @@ def get_learner(learner_id: str):
         recommended_next_challenge=profile.get("recommended_next_challenge"),
         recommendation_reason=profile.get("recommendation_reason"),
         reason=profile["reason"]
+    )
+
+
+def extract_python_from_doc(doc_text: str) -> str:
+    """
+    Extracts Python code from document/text (e.g. markdown code blocks, snippets).
+    """
+    if not doc_text:
+        return ""
+
+    # Check for markdown code fences ```python ... ``` or ``` ... ```
+    pattern = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
+    matches = pattern.findall(doc_text)
+    if matches:
+        return "\n\n".join(m.strip() for m in matches if m.strip())
+
+    return doc_text.strip()
+
+
+@router.post("/analyze-custom", response_model=CustomDebugResponse)
+def analyze_custom_code(req: CustomDebugRequest):
+    """
+    Analyzes and executes learner-pasted Python code or extracted document code in an isolated
+    subprocess sandbox. Explains errors in plain language with progressive non-revealing hints.
+    """
+    raw_code = req.code or ""
+    extracted_from_doc = False
+
+    if not raw_code.strip() and req.document_text:
+        raw_code = extract_python_from_doc(req.document_text)
+        extracted_from_doc = True
+
+    if not raw_code.strip():
+        return CustomDebugResponse(
+            success=False,
+            outcome="syntax_error",
+            error_type="EmptyCodeError",
+            error_line=1,
+            error_msg="No Python code was provided to test.",
+            explanation="Please paste your Python code or document snippet into the editor first.",
+            hints=[
+                "Write or paste Python code into the editor.",
+                "Ensure your code has at least one executable statement or function.",
+                "You can also paste a markdown document containing code blocks.",
+                "Click 'Analyze & Run' to execute it safely in the sandbox."
+            ],
+            mistake_tags=["unhandled_short_input"],
+            stdout="",
+            extracted_from_doc=extracted_from_doc,
+            cleaned_code=raw_code
+        )
+
+    # 1. Execute safely in isolated subprocess sandbox (Rule 1)
+    run_res = run_custom_code(raw_code)
+
+    outcome = run_res.get("outcome", "runtime_error")
+    error_type = run_res.get("error_type")
+    error_line = run_res.get("error_line")
+    error_msg = run_res.get("error_msg")
+    stdout = run_res.get("stdout", "")
+
+    # 2. Mistake tagger AST inspection
+    dummy_test_data = {
+        "_detailed_data": [{
+            "outcome": outcome,
+            "stdout": stdout,
+            "got": run_res.get("return_val"),
+            "expected": None,
+            "error_msg": error_msg
+        }]
+    }
+    mistake_tags = detect_mistakes(raw_code, dummy_test_data, {"id": "custom-code"})
+
+    # 3. Plain language explanation and 4 progressive hints with leak guard
+    explanation_res = explain_custom_code_error(
+        error_type=error_type,
+        error_line=error_line,
+        error_msg=error_msg,
+        code=raw_code,
+        mistake_tags=mistake_tags
+    )
+
+    success = outcome == "passed" and not error_type
+
+    # 4. Log LLM / analysis event
+    log_llm_call(
+        prompt=f"Analyze custom code error: {error_type} {error_msg}",
+        response=explanation_res["explanation"],
+        context=f"custom_debug:{error_type or 'success'}"
+    )
+
+    return CustomDebugResponse(
+        success=success,
+        outcome=outcome,
+        error_type=error_type,
+        error_line=error_line,
+        error_msg=error_msg,
+        explanation=explanation_res["explanation"],
+        hints=explanation_res["hints"],
+        mistake_tags=mistake_tags,
+        stdout=stdout,
+        extracted_from_doc=extracted_from_doc,
+        cleaned_code=raw_code
     )
 
 

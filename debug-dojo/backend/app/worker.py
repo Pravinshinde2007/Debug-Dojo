@@ -108,14 +108,15 @@ def run_test_case(code: str, function_name: str, call_args: list, call_kwargs: d
         # Execute learner code definition
         exec(code, safe_globals)
 
-        # Locate learner function
-        if function_name not in safe_globals or not callable(safe_globals[function_name]):
-            raise NameError(f"Function '{function_name}' was not defined in your code.")
+        # Locate learner function if specified
+        if function_name and function_name != "__main__":
+            if function_name not in safe_globals or not callable(safe_globals[function_name]):
+                raise NameError(f"Function '{function_name}' was not defined in your code.")
 
-        target_func = safe_globals[function_name]
+            target_func = safe_globals[function_name]
 
-        # Call learner function
-        return_val = target_func(*call_args, **call_kwargs)
+            # Call learner function
+            return_val = target_func(*call_args, **call_kwargs)
 
         # Detect argument mutation (Rule 5: mutates_input)
         try:
@@ -124,13 +125,25 @@ def run_test_case(code: str, function_name: str, call_args: list, call_kwargs: d
         except Exception:
             mutated_input = False
 
+        exc_type = None
+        exc_line = None
+
     except OutputLimitExceeded:
         output_limit_hit = True
         runtime_error_msg = "Runtime error: Output limit exceeded (max 4KB)"
+        exc_type = "OutputLimitExceeded"
+        exc_line = None
     except Exception as exc:
         exc_type = type(exc).__name__
         exc_msg = str(exc)
         runtime_error_msg = f"{exc_type}: {exc_msg}"
+        exc_line = getattr(exc, "lineno", None)
+        if exc_line is None and exc.__traceback__:
+            tb = exc.__traceback__
+            while tb:
+                if tb.tb_frame.f_code.co_filename == "<string>":
+                    exc_line = tb.tb_lineno
+                tb = tb.tb_next
     finally:
         sys.stdout = old_stdout
         sys.stderr = old_stderr
@@ -145,6 +158,8 @@ def run_test_case(code: str, function_name: str, call_args: list, call_kwargs: d
         "mutated_input": mutated_input,
         "output_limit_hit": output_limit_hit,
         "runtime_error": runtime_error_msg,
+        "error_type": exc_type,
+        "error_line": exc_line,
     }
 
 
