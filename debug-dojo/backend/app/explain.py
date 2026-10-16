@@ -106,14 +106,18 @@ def get_progressive_hints(
         error_line = first_error.get("error_line")
         error_type = first_error.get("error_type")
 
-    # If no runtime crash line, inspect code for return statement or condition
+    # If no runtime crash line, inspect code for return statement, condition, loop, or pass
     if not error_line and code:
         lines = code.split("\n")
         for idx, l in enumerate(lines, 1):
             s = l.strip()
-            if s.startswith("return ") or s.startswith("if ") or s.startswith("for ") or s.startswith("while "):
+            if s.startswith("return ") or s.startswith("if ") or s.startswith("for ") or s.startswith("while ") or s == "pass" or s.startswith("pass"):
                 error_line = idx
                 break
+        if not error_line:
+            error_line = 2 if len(lines) >= 2 else 1
+    elif not error_line:
+        error_line = 2
 
     first_failed = test_run_data.get("first_failed_test", {}) if isinstance(test_run_data, dict) else {}
     kind = first_failed.get("kind", "")
@@ -122,10 +126,9 @@ def get_progressive_hints(
     challenge_hints = challenge.get("hints", [])
     if isinstance(challenge_hints, list) and len(challenge_hints) > 0:
         hints = list(challenge_hints[:max_hints])
+        target_line = error_line or 2
         where_to_look = (
-            f"Look at Line {error_line} in your code: inspect the expressions and operations evaluated on this line."
-            if error_line
-            else "Inspect the loop termination and return statements inside your function body."
+            f"Look at Line {target_line} in your code: inspect the expressions and operations evaluated on this line."
         )
         while len(hints) < max_hints:
             if len(hints) == 1:
@@ -137,9 +140,9 @@ def get_progressive_hints(
             else:
                 hints.append("Trace through each step with a small test input on paper.")
 
-        if error_line and len(hints) >= 2:
+        if len(hints) >= 2:
             if not hints[1].startswith("Look at Line"):
-                hints[1] = f"Look at Line {error_line} in your code: {hints[1]}"
+                hints[1] = f"Look at Line {target_line} in your code: {hints[1]}"
         return [leak_guard(h) for h in hints[:max_hints]]
 
     # Synthesize hints based on mistake tags and failure context

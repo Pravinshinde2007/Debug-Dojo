@@ -293,7 +293,7 @@ const IC={
  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
 };
 
-const CONCEPTS=['Lists','Loops','Functions','Conditions','Indexing','Strings','Input handling'];
+const CONCEPTS=['Lists','Loops','Functions','Conditions','Indexing','Strings','Input handling','Recursion','Stacks','Sets'];
 const TAGS={
  off_by_one:'Off by one',
  unhandled_short_input:'Unhandled short input',
@@ -304,6 +304,7 @@ const TAGS={
 const OUT={ 'passed':'passed','wrong output':'wrong','runtime error':'runtime','timeout':'timeout' };
 
 const CH=[
+/* Beginner (Easy) - 5 Hints */
 {id:'last-k-total',title:'Last K Total',diff:'Easy',concepts:['Lists','Loops','Indexing'],
  short:'Add up the last k marks, or every mark when k is bigger than the list.',
  desc:'A teacher keeps a list of marks. Write a function named last_k_total that returns the total of the last k marks in the list. If k is larger than the list, return the total of all marks. If k is 0 or marks is empty, return 0.',
@@ -331,6 +332,32 @@ const CH=[
  visible:[{call:'first_n_squares(3)',exp:'[1, 4, 9]'},{call:'first_n_squares(0)',exp:'[]'},{call:'first_n_squares(1)',exp:'[1]'}],
  hidden:6,
  tip:'Before writing your loop, verify what its first and last values are. Python range(n) starts at 0, but this task starts at 1.'},
+{id:'clamp-score',title:'Clamp Score',diff:'Easy',concepts:['Conditions','Functions'],
+ short:'Keep a score between a lower and an upper limit.',
+ desc:'Write a function named clamp_score that returns score if it lies between low and high, returns low if score is below it, and high if score is above it.',
+ sig:'clamp_score(score, low, high)',
+ rules:['low is never greater than high.','A score equal to low or high stays unchanged.','Return an integer.'],
+ starter:'def clamp_score(score, low, high):\n    # Keep score within low and high\n    pass\n',
+ visible:[{call:'clamp_score(50, 0, 100)',exp:'50'},{call:'clamp_score(-5, 0, 100)',exp:'0'},{call:'clamp_score(120, 0, 100)',exp:'100'}],
+ hidden:5,tip:'Name the three cases (below low, above high, inside range) before writing conditions.'},
+{id:'count-vowels',title:'Vowel Counter',diff:'Easy',concepts:['Strings','Loops','Conditions'],
+ short:'Count a, e, i, o and u in a piece of text, ignoring case.',
+ desc:'Write a function named count_vowels that returns how many vowels appear in a string. Treat capital letters the same as lowercase ones.',
+ sig:'count_vowels(text)',
+ rules:['text may be empty.','Vowels are a, e, i, o, u in any case.','Return an integer.'],
+ starter:'def count_vowels(text):\n    # Return the number of vowels in text\n    pass\n',
+ visible:[{call:'count_vowels("Dojo")',exp:'2'},{call:'count_vowels("")',exp:'0'},{call:'count_vowels("AEIOU xyz")',exp:'5'}],
+ hidden:5,tip:'Capital and lowercase letters are different characters to Python until you normalize them with text.lower().'},
+{id:'find-index-of',title:'Find Index of Element',diff:'Easy',concepts:['Lists','Loops','Indexing'],
+ short:'Return the zero-based index of the first occurrence of target, or -1.',
+ desc:'Write a function find_index_of that returns the zero-based index of the first occurrence of target in items. If target is not found in items, return -1.',
+ sig:'find_index_of(items, target)',
+ rules:['items may be empty or contain duplicates.','Return the index of the FIRST occurrence.','If target is absent, return -1.'],
+ starter:'def find_index_of(items, target):\n    # Return first index of target, or -1\n    pass\n',
+ visible:[{call:'find_index_of([10, 20, 30], 20)',exp:'1'},{call:'find_index_of(["a", "b", "c"], "z")',exp:'-1'},{call:'find_index_of([], 5)',exp:'-1'}],
+ hidden:6,tip:'Use enumerate(items) to check each item and its index in order, and return immediately upon the first match.'},
+
+/* Intermediate (Medium) - 4 Hints */
 {id:'middle-three',title:'Middle Three',diff:'Medium',concepts:['Indexing','Lists'],
  short:'Pick out the three items in the middle of an odd-length list.',
  desc:'Write a function named middle_three that returns the middle three items of an odd-length list. If the list has fewer than three items, return the whole list without altering the original.',
@@ -340,14 +367,6 @@ const CH=[
  visible:[{call:'middle_three([1, 2, 3, 4, 5])',exp:'[2, 3, 4]'},{call:'middle_three([7, 8, 9])',exp:'[7, 8, 9]'},{call:'middle_three([1])',exp:'[1]'}],
  hidden:6,
  tip:'Slices include the start position and stop before the end position. If mid = len(items)//2, items[mid-1:mid+2] gives exactly 3 items.'},
-{id:'count-vowels',title:'Vowel Counter',diff:'Easy',concepts:['Strings','Loops','Conditions'],
- short:'Count a, e, i, o and u in a piece of text, ignoring case.',
- desc:'Write a function named count_vowels that returns how many vowels appear in a string. Treat capital letters the same as lowercase ones.',
- sig:'count_vowels(text)',
- rules:['text may be empty.','Vowels are a, e, i, o, u in any case.','Return an integer.'],
- starter:'def count_vowels(text):\n    # Return the number of vowels in text\n    pass\n',
- visible:[{call:'count_vowels("Dojo")',exp:'2'},{call:'count_vowels("")',exp:'0'},{call:'count_vowels("AEIOU xyz")',exp:'5'}],
- hidden:5,tip:'Capital and lowercase letters are different characters to Python until you normalize them with text.lower().'},
 {id:'running-total',title:'Running Total',diff:'Medium',concepts:['Lists','Loops'],
  short:'Return the running sum of a list, without changing the original.',
  desc:'Write a function named running_total that returns a new list where each item is the sum of all items up to that position in the input list.',
@@ -356,14 +375,6 @@ const CH=[
  starter:'def running_total(nums):\n    # Return the running totals as a new list\n    pass\n',
  visible:[{call:'running_total([1, 2, 3])',exp:'[1, 3, 6]'},{call:'running_total([])',exp:'[]'},{call:'running_total([5])',exp:'[5]'}],
  hidden:5,tip:'Keep one variable that remembers the total so far, and append total to a new list during each step.'},
-{id:'clamp-score',title:'Clamp Score',diff:'Easy',concepts:['Conditions','Functions'],
- short:'Keep a score between a lower and an upper limit.',
- desc:'Write a function named clamp_score that returns score if it lies between low and high, returns low if score is below it, and high if score is above it.',
- sig:'clamp_score(score, low, high)',
- rules:['low is never greater than high.','A score equal to low or high stays unchanged.','Return an integer.'],
- starter:'def clamp_score(score, low, high):\n    # Keep score within low and high\n    pass\n',
- visible:[{call:'clamp_score(50, 0, 100)',exp:'50'},{call:'clamp_score(-5, 0, 100)',exp:'0'},{call:'clamp_score(120, 0, 100)',exp:'100'}],
- hidden:5,tip:'Name the three cases (below low, above high, inside range) before writing conditions.'},
 {id:'second-largest',title:'Second Largest',diff:'Medium',concepts:['Lists','Conditions'],
  short:'Find the second largest distinct value, or None if there is not one.',
  desc:'Write a function named second_largest that returns the second largest distinct number in a list. Return None when the list has fewer than two distinct values.',
@@ -380,6 +391,24 @@ const CH=[
  starter:'def safe_average(readings):\n    # Average the readings that are not None\n    pass\n',
  visible:[{call:'safe_average([2, None, 4])',exp:'3.0'},{call:'safe_average([])',exp:'0'},{call:'safe_average([None, None])',exp:'0'}],
  hidden:5,tip:'Any time you divide, always guard against dividing by zero when count is 0.'},
+{id:'remove-duplicates',title:'Remove Duplicates In Order',diff:'Medium',concepts:['Lists','Loops','Sets'],
+ short:'Keep only unique items while preserving their original order.',
+ desc:'Write a function remove_duplicates that returns a new list containing only the unique elements of items in their order of first appearance. Do not mutate the original list.',
+ sig:'remove_duplicates(items)',
+ rules:['items may be empty or contain duplicates.','Do not mutate the original input list.','Preserve the original order of items.'],
+ starter:'def remove_duplicates(items):\n    # Return list with duplicates removed preserving order\n    pass\n',
+ visible:[{call:'remove_duplicates([1, 2, 2, 3, 1])',exp:'[1, 2, 3]'},{call:'remove_duplicates(["a", "b", "a"])',exp:'["a", "b"]'},{call:'remove_duplicates([])',exp:'[]'}],
+ hidden:6,tip:'Use a set to track already seen items and a list to accumulate first occurrences to preserve order.'},
+{id:'title-case-words',title:'Title Case Words',diff:'Medium',concepts:['Strings','Lists','Functions'],
+ short:'Capitalize the first letter of each word in a string.',
+ desc:'Write a function title_case_words that capitalizes the first letter of each word in a string, leaving other letters unchanged. Return an empty string if the input is empty.',
+ sig:'title_case_words(sentence)',
+ rules:['sentence may be empty.','Only capitalize the first letter of each word.','Preserve word order and spacing.'],
+ starter:'def title_case_words(sentence):\n    # Capitalize the first letter of each word in sentence\n    pass\n',
+ visible:[{call:'title_case_words("debug dojo python")',exp:'"Debug Dojo Python"'},{call:'title_case_words("dojo")',exp:'"Dojo"'},{call:'title_case_words("")',exp:'""'}],
+ hidden:6,tip:'Split the sentence by single space (" ") rather than whitespace to avoid losing multiple consecutive spaces.'},
+
+/* Advanced (Hard) - 3 Hints */
 {id:'compress-runs',title:'Compress Runs',diff:'Hard',concepts:['Strings','Loops','Indexing'],
  short:'Turn "aaabcc" into "a3b1c2" by counting runs of the same letter.',
  desc:'Write a function named compress_runs that compresses a string by replacing each contiguous run of the same character with the character followed by the length of the run.',
@@ -387,7 +416,31 @@ const CH=[
  rules:['text may be empty.','Single characters are written with a count of 1 ("z" becomes "z1").','"aaabcc" becomes "a3b1c2".'],
  starter:'def compress_runs(text):\n    # Return the run-length encoded string\n    pass\n',
  visible:[{call:'compress_runs("aaabcc")',exp:'"a3b1c2"'},{call:'compress_runs("")',exp:'""'},{call:'compress_runs("z")',exp:'"z1"'}],
- hidden:5,tip:'The last run in a string has no next character to trigger it. Flush the last run when the loop finishes.'}
+ hidden:5,tip:'The last run in a string has no next character to trigger it. Flush the last run when the loop finishes.'},
+{id:'balanced-brackets',title:'Balanced Brackets',diff:'Hard',concepts:['Stacks','Strings','Conditions'],
+ short:'Verify if brackets ()[]{} are properly matched and closed in order.',
+ desc:'Write a function balanced_brackets that takes a string of bracket characters and returns True if every opening bracket is matched and closed in correct order, or False otherwise. An empty string is balanced.',
+ sig:'balanced_brackets(s)',
+ rules:['String contains characters: ()[]{}','Every open bracket must have a matching closed bracket of same type.','Closing brackets must match the most recent unmatched opening bracket.'],
+ starter:'def balanced_brackets(s):\n    # Return True if brackets are balanced, False otherwise\n    pass\n',
+ visible:[{call:'balanced_brackets("([]){}")',exp:'True'},{call:'balanced_brackets("([)]")',exp:'False'},{call:'balanced_brackets("")',exp:'True'}],
+ hidden:6,tip:'Use a list as a LIFO stack: push openers, and when seeing a closer, check if stack is empty or top does not match.'},
+{id:'longest-streak',title:'Longest Streak',diff:'Hard',concepts:['Lists','Loops','Indexing'],
+ short:'Find the maximum number of consecutive identical elements.',
+ desc:'Write a function longest_streak that finds the maximum number of consecutive identical elements in a list. If the list is empty, return 0.',
+ sig:'longest_streak(items)',
+ rules:['items may be empty.','Only consecutive identical values count towards a streak.','Return an integer maximum streak count.'],
+ starter:'def longest_streak(items):\n    # Return max consecutive streak of same value, 0 if empty\n    pass\n',
+ visible:[{call:'longest_streak([1, 1, 2, 2, 2, 3])',exp:'3'},{call:'longest_streak([])',exp:'0'},{call:'longest_streak(["a", "b", "c"])',exp:'1'}],
+ hidden:6,tip:'Track current_streak and max_streak. When the current item differs from the previous, update max_streak and reset current_streak to 1.'},
+{id:'flatten-nested-list',title:'Flatten Nested List',diff:'Hard',concepts:['Recursion','Lists'],
+ short:'Recursively flatten an arbitrarily nested list of integers into a 1D list.',
+ desc:'Write a recursive function flatten_nested_list that accepts an arbitrarily nested list of integers and returns a flat 1D list containing all the numbers in order. Empty sublists contribute no elements.',
+ sig:'flatten_nested_list(nested)',
+ rules:['nested contains integers or further nested lists.','Sublists can be nested to arbitrary depths.','Return a single flat 1D list of integers.'],
+ starter:'def flatten_nested_list(nested):\n    # Return flat list of integers from arbitrarily nested list\n    pass\n',
+ visible:[{call:'flatten_nested_list([1, [2, [3, 4]], 5])',exp:'[1, 2, 3, 4, 5]'},{call:'flatten_nested_list([])',exp:'[]'},{call:'flatten_nested_list([1, 2, 3])',exp:'[1, 2, 3]'}],
+ hidden:6,tip:'Iterate over items in nested: if isinstance(item, list), recursively flatten and extend; otherwise append the integer.'}
 ];
 
 /* ---------- state ---------- */
@@ -400,8 +453,8 @@ const S={
   tab:'all',
   consoleOpen:true,
   filter:{q:'',diff:'All',concept:'All',status:'All',sort:'recommended'},
-  mastery:{Lists:58,Loops:66,Functions:61,Conditions:72,Indexing:41,Strings:35,'Input handling':44},
-  status:{'last-k-total':'new','count-passes':'solved','first-n-squares':'attempted','middle-three':'new','count-vowels':'new','running-total':'new','clamp-score':'new','second-largest':'new','safe-average':'new','compress-runs':'new'},
+  mastery:{Lists:58,Loops:66,Functions:61,Conditions:72,Indexing:41,Strings:35,'Input handling':44,Recursion:50,Stacks:50,Sets:55},
+  status:{'last-k-total':'new','count-passes':'solved','first-n-squares':'attempted','clamp-score':'new','count-vowels':'new','find-index-of':'new','middle-three':'new','running-total':'new','second-largest':'new','safe-average':'new','remove-duplicates':'new','title-case-words':'new','compress-runs':'new','balanced-brackets':'new','longest-streak':'new','flatten-nested-list':'new'},
   recurringList:[],
   recommendedChallenge:null,
   recommendationReason:"",
@@ -570,18 +623,23 @@ function vChallenges(){
    (!f.q||(c.title+' '+c.short+' '+c.concepts.join(' ')).toLowerCase().includes(f.q.toLowerCase())));
  const chips=(key,opts)=>opts.map(o=>`<button class="chip ${f[key]===o?'on':''}" data-f="${key}" data-v="${esc(o)}">${esc(o)}</button>`).join('');
  const stLabel={new:'Not started',attempted:'In progress',solved:'Solved'};
+ const diffBadge={
+   'Easy': '<span class="pill easy">Beginner · 5 Hints</span>',
+   'Medium': '<span class="pill medium">Intermediate · 4 Hints</span>',
+   'Hard': '<span class="pill hard">Advanced · 3 Hints</span>'
+ };
  return `
- <div class="page-head"><div><span class="eyebrow">Challenge Library</span><h1>Challenges</h1></div></div>
+ <div class="page-head"><div><span class="eyebrow">Challenge Library</span><h1>Python Coding Challenges</h1></div></div>
  <div class="filters">
   <input class="search" id="q" type="search" placeholder="Search challenges or concepts..." value="${esc(f.q)}" aria-label="Search challenges">
   <div class="chips"><small>Difficulty</small>${chips('diff',['All','Easy','Medium','Hard'])}</div>
   <div class="chips"><small>Concept</small>${chips('concept',['All',...CONCEPTS])}</div>
   <div class="chips"><small>Status</small>${chips('status',['All','Not started','In progress','Solved'])}</div>
  </div>
- <div class="muted" style="margin-bottom:14px;font-size:13.5px">${list.length} of ${CH.length} challenges available. Click "Start Challenge" to open the interactive coding workspace.</div>
+ <div class="muted" style="margin-bottom:14px;font-size:13.5px">${list.length} of ${CH.length} challenges available across Beginner (5 Hints), Intermediate (4 Hints), and Advanced (3 Hints). Click "Start Challenge" to open the interactive coding workspace.</div>
  <div class="grid cards">${list.map(c=>`
   <article class="ch tilt" data-tilt="3">
-   <div class="row" style="justify-content:space-between"><span class="pill ${c.diff.toLowerCase()}">${c.diff}</span>${(S.recommendedChallenge&&(S.recommendedChallenge.challenge_id===c.id||S.recommendedChallenge.id===c.id))?'<span class="rec">Recommended next</span>':''}</div>
+   <div class="row" style="justify-content:space-between">${diffBadge[c.diff] || `<span class="pill ${c.diff.toLowerCase()}">${c.diff}</span>`}${(S.recommendedChallenge&&(S.recommendedChallenge.challenge_id===c.id||S.recommendedChallenge.id===c.id))?'<span class="rec">Recommended next</span>':''}</div>
    <h3>${c.title}</h3>
    <div class="ch-sig">${esc(c.sig)}</div>
    <div class="ch-statement"><b>Task:</b> ${esc(c.short)}</div>
@@ -598,10 +656,13 @@ function vWorkspace(){
  const prev=CH[(i+CH.length-1)%CH.length], next=CH[(i+1)%CH.length];
  const hints = sub && S.hintsMap[sub.id] ? S.hintsMap[sub.id] : [];
  const shown = hints.length;
+ const maxHints = sub?.total_hints || (c.diff === 'Easy' ? 5 : c.diff === 'Medium' ? 4 : 3);
+ const diffName = c.diff === 'Easy' ? 'Beginner' : c.diff === 'Medium' ? 'Intermediate' : 'Advanced';
+
  return `
  <div class="ws">
   <section class="panel desc" aria-label="Challenge description">
-   <div class="panel-h"><span>Challenge ${i+1} of ${CH.length}</span><span class="pill ${c.diff.toLowerCase()}">${c.diff}</span></div>
+   <div class="panel-h"><span>Challenge ${i+1} of ${CH.length}</span><span class="pill ${c.diff.toLowerCase()}">${diffName} · ${maxHints} Hints</span></div>
    <div class="panel-b">
     <h2>${c.title}</h2>
     <div class="row">${c.concepts.map(k=>`<span class="pill tag">${k}</span>`).join('')}</div>
@@ -617,8 +678,16 @@ function vWorkspace(){
   </section>
 
   <section class="panel" aria-label="Code editor">
-   <div class="panel-h"><span class="mono" style="text-transform:none;letter-spacing:0">${c.id.replace(/-/g,'_')}.py</span><span id="runstate" class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">${sub?('Status: '+sub.overall.toUpperCase()):'Ready to execute'}</span></div>
+   <div class="panel-h"><span class="mono" style="text-transform:none;letter-spacing:0">${c.id.replace(/-/g,'_')}.py</span><span id="runstate" class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">${sub?('Status: '+(sub.overall||'').toUpperCase()):'Ready to execute'}</span></div>
    <div class="editor"><div class="gutter" id="gutter"></div><textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python code">${esc(code)}</textarea></div>
+   ${sub && sub.overall !== 'passed' ? `
+   <div style="padding:10px 18px;background:rgba(255,136,120,.09);border-top:1px solid rgba(255,136,120,.3);display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--coral)">
+     <span style="font-size:16px;line-height:1">⚠</span>
+     <div style="display:grid;gap:2px;flex:1">
+       <div><b>${esc(sub.error_type || (sub.overall==='runtime error'?'Runtime / Syntax Error':sub.overall==='timeout'?'Timeout Error':'Assertion Failure'))}:</b> ${sub.error_line ? `<span class="pill mistake" style="font-size:11px;padding:1px 7px;margin-left:4px">Line ${sub.error_line}</span>` : ''}</div>
+       <div class="mono" style="font-size:12px;opacity:.95;white-space:pre-wrap;word-break:break-all">${esc(sub.error_msg || sub.explain || 'Test execution failed')}</div>
+     </div>
+   </div>` : ''}
    <div class="ed-bar">
     <button class="btn primary" id="run">${IC.play} Run Code</button>
     <button class="btn" id="reset">${IC.reset} Reset Starter Code</button>
@@ -631,16 +700,31 @@ function vWorkspace(){
   </section>
 
   <section class="panel coach coach-p" aria-label="Debug Coach">
-   <div class="panel-h"><span>Debug Coach</span><span class="mono" style="text-transform:none;letter-spacing:0">Hint ${shown}/4</span></div>
+   <div class="panel-h"><span>Debug Coach</span><span class="mono" style="text-transform:none;letter-spacing:0">Hint ${shown}/${maxHints}</span></div>
    <div class="panel-b">
     ${sub?`
-     ${sub.overall==='passed'?'<div class="banner ok">✓ All visible and hidden tests passed!</div>':sub.overall==='runtime error'?'<div class="banner bad">⚠ Execution Runtime / Syntax Error</div>':sub.overall==='timeout'?'<div class="banner bad">⏱ Execution Timed Out</div>':'<div class="banner bad">✕ Incorrect Output on Some Tests</div>'}
+     ${sub.overall==='passed'?'<div class="banner ok">✓ All visible and hidden tests passed!</div>':sub.overall==='runtime error'?`
+      <div class="banner bad" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <div style="display:flex;align-items:center;gap:8px"><span>⚠</span><b>${esc(sub.error_type || 'Runtime / Syntax Error')}${sub.error_line ? ` on Line ${sub.error_line}` : ''}</b></div>
+        ${sub.error_msg ? `<div class="mono" style="font-size:12px;opacity:.95;white-space:pre-wrap;word-break:break-all">${esc(sub.error_msg)}</div>` : ''}
+      </div>` : sub.overall==='timeout'?'<div class="banner bad">⏱ Execution Timed Out (&gt; 3.0s limit exceeded)</div>':`
+      <div class="banner bad" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <div style="display:flex;align-items:center;gap:8px"><span>✕</span><b>Incorrect Output${sub.failed_test_num ? ` on Test #${sub.failed_test_num}` : ''}</b></div>
+        ${sub.failed_test_call ? `<div class="mono" style="font-size:12px;opacity:.95">${esc(sub.failed_test_call)} returned <code>${esc(sub.failed_test_got || 'None')}</code>, expected <code>${esc(sub.failed_test_expected || '')}</code></div>` : ''}
+      </div>`}
      <div class="msg">${sub.explain}</div>
      <div class="row">${sub.tags && sub.tags.length?sub.tags.map(t=>`<span class="pill mistake">${t}</span>`).join(''):'<span class="pill">No taxonomy mistakes detected</span>'}</div>`
      :`<div class="msg">Write your Python function in the editor and click <b>Run Code</b>. The Debug Coach will execute it against test cases in the sandbox and guide your debugging here.</div>`}
-    <div class="row" style="justify-content:space-between"><b style="font-size:13px">Progressive Hint Ladder</b></div>
-    ${shown?hints.map((h,k)=>`<div class="hint"><b>Hint ${k+1} · ${h.hint_type}</b><p>${h.hint}</p></div>`).join(''):'<div class="muted" style="font-size:13.5px">No hints requested yet. If you get stuck, reveal hints progressively below.</div>'}
-    <button class="btn" id="hint" ${(!sub || sub.overall==='passed' || shown>=4)?'disabled':''}>${IC.key} ${shown>=4?'All hints revealed':'Reveal Next Hint'}</button>
+    <div class="row" style="justify-content:space-between"><b style="font-size:13px">Progressive Hint Ladder (${diffName} · ${maxHints} Hints)</b></div>
+    ${shown?hints.map((h,k)=>`
+      <div class="hint" ${k === 1 ? 'style="border-color:var(--violet);background:rgba(168,140,255,.07)"' : ''}>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <b>Hint ${k+1} · ${esc(h.hint_type || ('Level ' + (k+1)))}</b>
+          ${k === 1 ? '<span class="pill" style="font-size:10.5px;color:var(--violet);border-color:rgba(168,140,255,.3)">Line &amp; Error Diagnostic</span>' : ''}
+        </div>
+        <p>${esc(h.hint)}</p>
+      </div>`).join(''):'<div class="muted" style="font-size:13.5px">No hints requested yet. If you get stuck, reveal hints progressively below.</div>'}
+    <button class="btn" id="hint" ${(!sub || sub.overall==='passed' || shown>=maxHints)?'disabled':''}>${IC.key} ${shown>=maxHints?'All hints revealed':'Reveal Next Hint'}</button>
     <div class="tip">${IC.bulb}<span>${c.tip}</span></div>
     <div class="note">The fix is yours to write. Debug Dojo never reveals complete solution code.</div>
    </div>
@@ -664,7 +748,7 @@ function consoleBody(c,sub){
 
  const banner = `<div style="padding:10px 16px;border-bottom:1px solid var(--line);font-size:13.5px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.02)">
    <span>Visible: <b style="color:${vp===vis.length?'var(--green)':'var(--coral)'}">${vp}/${vis.length} passed</b> · Hidden: <b style="color:${hp===hid.length?'var(--green)':'var(--coral)'}">${hp}/${hid.length} passed</b></span>
-   <span class="o ${sub.cls}">${sub.overall.toUpperCase()}</span>
+   <span class="o ${sub.cls}">${(sub.overall || '').toUpperCase()}</span>
  </div>`;
 
  const rows=l=>l.length?`<div class="tbl"><table><thead><tr><th>#</th><th>Input</th><th>Expected</th><th>Actual Returned</th><th>Outcome</th></tr></thead><tbody>${l.map(t=>`<tr><td class="num">${t.n}</td><td>${esc(t.call)}</td><td>${esc(t.exp)}</td><td>${esc(t.act)}</td><td><span class="o ${OUT[t.o]||'passed'}">${t.o}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">All visible sample tests passed! The failure occurred on a hidden edge case.</div>';
@@ -1017,7 +1101,16 @@ function bind(r){
  }
  if(r==='workspace'){
   const ta=$('#code'), g=$('#gutter');
-  const lines=()=>{ g.textContent=Array.from({length:ta.value.split('\n').length},(_,i)=>i+1).join('\n'); };
+  const sub=curSub();
+  const errLine = sub && sub.overall !== 'passed' ? sub.error_line : null;
+  const lines=()=>{
+    const total = ta.value.split('\n').length;
+    g.innerHTML = Array.from({length:total},(_,i)=>{
+      const num = i + 1;
+      const isErr = errLine === num;
+      return `<div style="${isErr?'color:var(--coral);font-weight:700;background:rgba(255,136,120,.22);border-radius:3px':''}">${isErr?'► ':''}${num}</div>`;
+    }).join('');
+  };
   lines();
   ta.addEventListener('input',()=>{S.code[S.cur]=ta.value; lines();});
   ta.addEventListener('scroll',()=>{g.scrollTop=ta.scrollTop;});
@@ -1158,16 +1251,40 @@ async function runLive(){
    const data = await res.json();
    const id = data.submission_id;
 
+   const visibleList = data.visible || data.visible_test_results || [];
+   const hiddenList = data.hidden || data.hidden_test_outcomes || [];
+   const overallOutcome = data.overall_outcome || (data.passed ? 'passed' : 'wrong output');
+
    const sub = {
      id: id,
      ch: c.id,
      code: code,
      tags: data.mistake_tags || [],
-     visible: (data.visible_test_results || []).map(t=>({n:t.test_number, call:t.input_call, exp:t.expected, act:t.actual, o:t.outcome})),
-     hidden: (data.hidden_test_outcomes || []).map(h=>({n:h.test_number, o:h.outcome})),
+     visible: visibleList.map(t=>({
+       n: t.test_number || t.test,
+       call: t.input_call || t.call,
+       exp: t.expected || t.exp,
+       act: t.actual || t.got,
+       o: t.outcome,
+       error_msg: t.error_msg,
+       error_type: t.error_type,
+       error_line: t.error_line
+     })),
+     hidden: hiddenList.map(h=>({
+       n: h.test_number || h.test,
+       o: h.outcome
+     })),
      explain: data.explanation || "Execution finished.",
-     overall: data.overall_outcome,
-     cls: OUT[data.overall_outcome] || 'passed',
+     overall: overallOutcome,
+     cls: OUT[overallOutcome] || (data.passed ? 'passed' : 'wrong'),
+     error_type: data.error_type,
+     error_line: data.error_line,
+     error_msg: data.error_msg,
+     total_hints: data.total_hints || (c.diff === 'Easy' ? 5 : c.diff === 'Medium' ? 4 : 3),
+     failed_test_num: data.failed_test_num,
+     failed_test_call: data.failed_test_call,
+     failed_test_expected: data.failed_test_expected,
+     failed_test_got: data.failed_test_got,
      time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
    };
 
@@ -1175,12 +1292,12 @@ async function runLive(){
    S.active = id;
    S.hintsMap[id] = [];
    S.status[c.id] = data.passed ? 'solved' : 'attempted';
-   S.history.unshift({ch:c.id, when:'Just now', res:data.overall_outcome.replace(/^./,x=>x.toUpperCase()), cls:sub.cls});
+   S.history.unshift({ch:c.id, when:'Just now', res:overallOutcome.replace(/^./,x=>x.toUpperCase()), cls:sub.cls});
    S.tab = 'all';
 
    fetchProfile();
    route();
-   toast(data.passed ? "All tests passed successfully!" : "Outcome: " + data.overall_outcome);
+   toast(data.passed ? "All tests passed successfully!" : "Outcome: " + overallOutcome + (data.error_line ? ` (Line ${data.error_line})` : ''));
  }catch(err){
    btn.disabled=false;
    btn.innerHTML = `${IC.play} Run Code`;
@@ -1205,10 +1322,15 @@ async function requestHintLive(){
    if(res.ok){
      const data = await res.json();
      if(!S.hintsMap[sub.id]) S.hintsMap[sub.id] = [];
-     if(!S.hintsMap[sub.id].some(h=>h.hint_level === data.hint_level)){
-       S.hintsMap[sub.id].push(data);
+     const lvl = data.hint_level || data.level || (S.hintsMap[sub.id].length + 1);
+     if(!S.hintsMap[sub.id].some(h=>((h.hint_level || h.level) === lvl))){
+       S.hintsMap[sub.id].push({
+         hint: data.hint,
+         hint_type: data.hint_type || `Level ${lvl} Hint`,
+         hint_level: lvl
+       });
      }
-     toast(`Revealed Hint ${data.hint_level}: ${data.hint_type}`);
+     toast(`Revealed Hint ${lvl}: ${data.hint_type || 'Guidance'}`);
    }
  }catch(err){
    toast("Hint request error: " + err.message);
