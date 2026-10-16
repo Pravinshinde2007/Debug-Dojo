@@ -36,6 +36,9 @@ dist/
 
 # Logs & Databases
 *.log
+*.jsonl
+logs/
+backend/logs/
 *.sqlite
 *.sqlite3
 debug_dojo.db
