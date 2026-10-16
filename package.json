@@ -1,0 +1,9 @@
+{
+  "name": "debug-dojo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix debug-dojo/frontend run build",
+    "dev": "npm --prefix debug-dojo/frontend run dev"
+  }
+}

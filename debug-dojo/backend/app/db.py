@@ -13,9 +13,18 @@ JWT_ALGORITHM = "HS256"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# On Vercel serverless, the root filesystem is read-only; use /tmp for SQLite and logs
-IS_VERCEL = bool(os.environ.get("VERCEL"))
-if IS_VERCEL:
+def _is_read_only_env() -> bool:
+    if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        return True
+    try:
+        test_file = BASE_DIR / ".write_test"
+        test_file.touch()
+        test_file.unlink()
+        return False
+    except Exception:
+        return True
+
+if _is_read_only_env():
     DB_PATH = os.environ.get("DEBUG_DOJO_DB", "/tmp/debug_dojo.db")
     LOGS_DIR = Path("/tmp/logs")
 else:
@@ -23,16 +32,33 @@ else:
     LOGS_DIR = BASE_DIR / "logs"
 
 LLM_LOG_FILE = LOGS_DIR / "llm.jsonl"
+_is_initializing_schema = False
 
 
 def get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    global DB_PATH, _is_initializing_schema
     try:
-        conn.execute("PRAGMA journal_mode=WAL")
-    except Exception:
-        pass
-    conn.row_factory = sqlite3.Row
-    return conn
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+        except Exception:
+            pass
+        conn.row_factory = sqlite3.Row
+        return conn
+    except Exception as e:
+        if DB_PATH != "/tmp/debug_dojo.db" and not _is_initializing_schema:
+            DB_PATH = "/tmp/debug_dojo.db"
+            conn = sqlite3.connect(DB_PATH, timeout=30.0)
+            conn.row_factory = sqlite3.Row
+            try:
+                _is_initializing_schema = True
+                init_db()
+            except Exception:
+                pass
+            finally:
+                _is_initializing_schema = False
+            return conn
+        raise e
 
 
 def hash_password(password: str) -> Tuple[str, str]:
@@ -185,7 +211,10 @@ def revoke_jwt_token(token: str) -> bool:
 
 
 def init_db():
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
     with get_db_connection() as conn:
         cursor = conn.cursor()
         

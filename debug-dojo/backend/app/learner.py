@@ -27,72 +27,101 @@ CORE_CONCEPTS = [
     "Input handling"
 ]
 
-CHALLENGES_DIR = Path(__file__).resolve().parent.parent / "challenges"
+FALLBACK_CHALLENGES = [
+    {"id": "last-k-total", "title": "Last K Total", "difficulty": "Easy", "concepts": ["Lists", "Loops", "Indexing"], "short": "Add up the last k marks"},
+    {"id": "count-passes", "title": "Count Passes", "difficulty": "Easy", "concepts": ["Loops", "Conditions"], "short": "Count how many students passed"},
+    {"id": "find-index-of", "title": "Find Index of Element", "difficulty": "Easy", "concepts": ["Lists", "Loops", "Conditions"], "short": "Find the index of an element"}
+]
+
+def get_challenges_dir() -> Path:
+    candidates = [
+        Path(__file__).resolve().parent.parent / "challenges",
+        Path(__file__).resolve().parent.parent.parent / "backend" / "challenges",
+        Path(__file__).resolve().parent.parent.parent / "debug-dojo" / "backend" / "challenges",
+        Path.cwd() / "challenges",
+        Path.cwd() / "backend" / "challenges",
+        Path.cwd() / "debug-dojo" / "backend" / "challenges",
+    ]
+    for c in candidates:
+        if c.exists() and any(c.glob("*.json")):
+            return c
+    return Path(__file__).resolve().parent.parent / "challenges"
+
+CHALLENGES_DIR = get_challenges_dir()
 
 
 def load_all_challenges() -> List[Dict[str, Any]]:
     challenges = []
-    if CHALLENGES_DIR.exists():
-        for f in CHALLENGES_DIR.glob("*.json"):
+    c_dir = get_challenges_dir()
+    if c_dir.exists():
+        for f in c_dir.glob("*.json"):
             try:
                 with open(f, "r", encoding="utf-8") as fp:
                     data = json.load(fp)
                     challenges.append(data)
             except Exception:
                 pass
+    if not challenges:
+        return list(FALLBACK_CHALLENGES)
     return challenges
 
 
 def get_learner_history(learner_id: str) -> List[Dict[str, Any]]:
-    # Find both id and email for this learner if registered
-    identifiers = [learner_id]
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, email FROM users WHERE id = ? OR email = ?", (learner_id, learner_id.strip().lower()))
-        u = cursor.fetchone()
-        if u:
-            identifiers = list(set([u["id"], u["email"]]))
+    try:
+        # Find both id and email for this learner if registered
+        identifiers = [learner_id]
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, email FROM users WHERE id = ? OR email = ?", (learner_id, learner_id.strip().lower()))
+            u = cursor.fetchone()
+            if u:
+                identifiers = list(set([u["id"], u["email"]]))
 
-        placeholders = ",".join(["?"] * len(identifiers))
-        cursor.execute(
-            f"""
-            SELECT id, learner_id, challenge_id, code, visible_results, passed, mistake_tags, explanation, created_at
-            FROM submissions
-            WHERE learner_id IN ({placeholders})
-            ORDER BY created_at ASC
-            """,
-            identifiers
-        )
-        rows = cursor.fetchall()
+            placeholders = ",".join(["?"] * len(identifiers))
+            cursor.execute(
+                f"""
+                SELECT id, learner_id, challenge_id, code, visible_results, passed, mistake_tags, explanation, created_at
+                FROM submissions
+                WHERE learner_id IN ({placeholders})
+                ORDER BY created_at ASC
+                """,
+                identifiers
+            )
+            rows = cursor.fetchall()
 
-    history = []
-    for r in rows:
-        tags = []
-        try:
-            tags = json.loads(r["mistake_tags"])
-        except Exception:
-            pass
+        history = []
+        for r in rows:
+            tags = []
+            try:
+                tags = json.loads(r["mistake_tags"])
+            except Exception:
+                pass
 
-        history.append({
-            "id": r["id"],
-            "challenge_id": r["challenge_id"],
-            "code": r["code"],
-            "passed": bool(r["passed"]),
-            "mistake_tags": tags,
-            "created_at": r["created_at"]
-        })
-    return history
+            history.append({
+                "id": r["id"],
+                "challenge_id": r["challenge_id"],
+                "code": r["code"],
+                "passed": bool(r["passed"]),
+                "mistake_tags": tags,
+                "created_at": r["created_at"]
+            })
+        return history
+    except Exception:
+        return []
 
 
 def get_hints_used_count(submission_id: str) -> int:
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*) as count FROM hints_given WHERE submission_id = ?",
-            (submission_id,)
-        )
-        row = cursor.fetchone()
-        return row["count"] if row and row["count"] is not None else 0
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) as count FROM hints_given WHERE submission_id = ?",
+                (submission_id,)
+            )
+            row = cursor.fetchone()
+            return row["count"] if row and row["count"] is not None else 0
+    except Exception:
+        return 0
 
 
 def calculate_recurring_mistakes(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -261,20 +290,25 @@ def get_learner_profile(learner_id: str) -> Dict[str, Any]:
     user_email = learner_id if "@" in learner_id else None
     identifiers = [learner_id]
 
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name, email FROM users WHERE email = ? OR id = ?", (learner_id, learner_id.strip().lower()))
-        user_row = cursor.fetchone()
-        if user_row:
-            user_name = user_row["name"]
-            user_email = user_row["email"]
-            identifiers = list(set([user_row["id"], user_row["email"]]))
+    total_interactions = total_submissions
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, name, email FROM users WHERE email = ? OR id = ?", (learner_id, learner_id.strip().lower()))
+            user_row = cursor.fetchone()
+            if user_row:
+                user_name = user_row["name"]
+                user_email = user_row["email"]
+                identifiers = list(set([user_row["id"], user_row["email"]]))
 
-        # Count total measured interaction events (submissions, hints, custom debug runs)
-        placeholders = ",".join(["?"] * len(identifiers))
-        cursor.execute(f"SELECT COUNT(*) as cnt FROM learner_events WHERE learner_id IN ({placeholders})", identifiers)
-        row = cursor.fetchone()
-        total_interactions = row["cnt"] if row and row["cnt"] is not None else total_submissions
+            # Count total measured interaction events (submissions, hints, custom debug runs)
+            placeholders = ",".join(["?"] * len(identifiers))
+            cursor.execute(f"SELECT COUNT(*) as cnt FROM learner_events WHERE learner_id IN ({placeholders})", identifiers)
+            row = cursor.fetchone()
+            if row and row["cnt"] is not None:
+                total_interactions = row["cnt"]
+    except Exception:
+        pass
 
     # Build formatted submission history from real SQLite rows
     submission_history = []
