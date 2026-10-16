@@ -35,6 +35,14 @@ def test_auth_registration_and_login():
     assert data["success"] is True
     assert data["user"]["email"] == test_email
     assert data["user"]["name"] == "Pravin Shinde"
+    assert "token" in data and len(data["token"]) > 20
+    reg_token = data["token"]
+
+    # Verify token with /auth/me
+    me_res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {reg_token}"})
+    assert me_res.status_code == 200
+    assert me_res.json()["authenticated"] is True
+    assert me_res.json()["user"]["email"] == test_email
 
     # 2. Duplicate registration should fail
     dup_res = client.post("/api/auth/register", json=reg_payload)
@@ -47,8 +55,11 @@ def test_auth_registration_and_login():
         "password": "secretpassword123"
     })
     assert login_res.status_code == 200
-    assert login_res.json()["success"] is True
-    assert login_res.json()["user"]["name"] == "Pravin Shinde"
+    login_data = login_res.json()
+    assert login_data["success"] is True
+    assert login_data["user"]["name"] == "Pravin Shinde"
+    assert "token" in login_data and len(login_data["token"]) > 20
+    login_token = login_data["token"]
 
     # 4. Login with incorrect password
     bad_login = client.post("/api/auth/login", json={
@@ -56,6 +67,16 @@ def test_auth_registration_and_login():
         "password": "wrongpassword"
     })
     assert bad_login.status_code == 401
+
+    # 5. Logout revokes token
+    logout_res = client.post("/api/auth/logout", headers={"Authorization": f"Bearer {login_token}"})
+    assert logout_res.status_code == 200
+    assert logout_res.json()["success"] is True
+
+    # 6. Revoked token fails authentication
+    after_logout_res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {login_token}"})
+    assert after_logout_res.status_code == 200
+    assert after_logout_res.json()["authenticated"] is False
 
 
 def test_upload_document_extension_restrictions():
@@ -119,32 +140,44 @@ def test_analyze_custom_rejects_non_python_text():
 def test_user_interactions_tracked_on_dashboard():
     import uuid
     user_email = f"pravin_tracker_{uuid.uuid4().hex[:8]}@example.com"
-    client.post("/api/auth/register", json={
+    reg = client.post("/api/auth/register", json={
         "name": "Pravin Tracker",
         "email": user_email,
         "password": "password123"
     })
+    token = reg.json()["token"]
 
-    # Submit a failing solution
+    # Submit a failing solution with Bearer token
     client.post("/api/submit", json={
         "learner_id": user_email,
         "challenge_id": "count-passes",
         "code": "def count_passes(scores):\n    return -1\n"
-    })
+    }, headers={"Authorization": f"Bearer {token}"})
 
     # Submit a passing solution
     client.post("/api/submit", json={
         "learner_id": user_email,
         "challenge_id": "count-passes",
         "code": "def count_passes(scores, threshold=40):\n    return sum(1 for s in scores if s >= threshold)\n"
-    })
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Execute custom code debugging with Bearer token
+    client.post("/api/analyze-custom", json={
+        "code": "print('hello from custom debug')",
+        "learner_id": user_email
+    }, headers={"Authorization": f"Bearer {token}"})
 
     # Fetch learner profile
-    prof_res = client.get(f"/api/learner/{user_email}")
+    prof_res = client.get(f"/api/learner/{user_email}", headers={"Authorization": f"Bearer {token}"})
     assert prof_res.status_code == 200
     prof = prof_res.json()
 
-    assert prof["learner_id"] == user_email
+    assert prof["learner_id"] == user_email or prof["user_email"] == user_email
     assert prof["challenges_attempted"] >= 1
     assert prof["challenges_solved"] >= 1
-    assert len(prof.get("recurring_mistakes", [])) >= 0
+    assert prof["custom_debug_count"] >= 1
+    assert prof["total_submissions"] >= 3
+    assert len(prof.get("history", [])) >= 3
+    # Verify history items are real database entries
+    assert any(h["challenge_id"] == "custom-code" for h in prof["history"])
+    assert any(h["challenge_id"] == "count-passes" for h in prof["history"])

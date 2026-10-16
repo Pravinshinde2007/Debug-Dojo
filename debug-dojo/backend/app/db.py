@@ -3,8 +3,13 @@ import os
 import hashlib
 import secrets
 import uuid
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
+import jwt
+
+JWT_SECRET = os.environ.get("JWT_SECRET", "debug_dojo_jwt_secret_key_2026_secured_key")
+JWT_ALGORITHM = "HS256"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -96,6 +101,85 @@ def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
         }
 
 
+def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves user info by id without password hash."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, email, created_at FROM users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "email": row["email"],
+            "created_at": row["created_at"]
+        }
+
+
+def create_jwt_token(user_id: str, email: str, name: str, expires_in_seconds: int = 86400 * 7) -> str:
+    """Creates a signed JWT token and stores it in SQLite user_tokens table."""
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(seconds=expires_in_seconds)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "name": name,
+        "jti": uuid.uuid4().hex,
+        "iat": int(now.timestamp()),
+        "exp": int(exp.timestamp())
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO user_tokens (user_id, token, expires_at, revoked)
+            VALUES (?, ?, ?, 0)
+            """,
+            (user_id, token, exp.isoformat())
+        )
+        conn.commit()
+    return token
+
+
+def verify_jwt_token(token: str) -> Optional[Dict[str, Any]]:
+    """Verifies a JWT token signature and confirms it exists and is unrevoked in SQLite."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except Exception:
+        return None
+
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, user_id, expires_at, revoked FROM user_tokens WHERE token = ?",
+            (token,)
+        )
+        row = cursor.fetchone()
+        if not row or row["revoked"] == 1:
+            return None
+
+    return get_user_by_id(user_id)
+
+
+def revoke_jwt_token(token: str) -> bool:
+    """Revokes a JWT token in the database upon logout."""
+    if not token:
+        return False
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE user_tokens SET revoked = 1 WHERE token = ?", (token,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
 def init_db():
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     with get_db_connection() as conn:
@@ -110,6 +194,19 @@ def init_db():
                 password_hash TEXT NOT NULL,
                 salt TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 0b. user_tokens table (stores JWT tokens in SQLite)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                token TEXT UNIQUE NOT NULL,
+                expires_at TEXT NOT NULL,
+                revoked INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
 

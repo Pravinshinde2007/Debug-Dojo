@@ -6,11 +6,22 @@ import ast
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .db import init_db, get_db_connection, log_llm_call, create_user, authenticate_user, get_user_by_email
+from .db import (
+    init_db,
+    get_db_connection,
+    log_llm_call,
+    create_user,
+    authenticate_user,
+    get_user_by_email,
+    get_user_by_id,
+    create_jwt_token,
+    verify_jwt_token,
+    revoke_jwt_token
+)
 from .runner import run_submission, run_custom_code
 from .tagger import detect_mistakes
 from .explain import explain_failure, get_progressive_hints, explain_custom_code_error
@@ -112,12 +123,21 @@ class HintResponse(BaseModel):
 
 class LearnerProfileResponse(BaseModel):
     learner_id: str
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
     recurring_mistakes: List[Dict[str, Any]]
     mastery_per_concept: Dict[str, float]
     mastery: Optional[Dict[str, float]] = None
     overall_mastery: Optional[int] = None
     challenges_attempted: Optional[int] = None
     challenges_solved: Optional[int] = None
+    challenges_failed: Optional[int] = None
+    custom_debug_count: Optional[int] = None
+    total_interactions: Optional[int] = None
+    total_submissions: Optional[int] = None
+    passed_count: Optional[int] = None
+    failed_count: Optional[int] = None
+    history: Optional[List[Dict[str, Any]]] = None
     next_challenge: Dict[str, Any]
     recommended_next_challenge: Optional[Dict[str, Any]] = None
     recommendation_reason: Optional[str] = None
@@ -164,6 +184,8 @@ class UserProfile(BaseModel):
 
 class AuthResponse(BaseModel):
     success: bool
+    token: Optional[str] = None
+    token_type: str = "Bearer"
     user: Optional[UserProfile] = None
     message: str = ""
 
@@ -239,8 +261,14 @@ def get_challenges():
 
 
 @router.post("/submit", response_model=SubmitResponse)
-def submit_code(req: SubmitRequest):
+def submit_code(req: SubmitRequest, authorization: Optional[str] = Header(None)):
     submission_id = f"sub_{uuid.uuid4().hex[:12]}"
+    effective_learner_id = req.learner_id
+    if authorization and authorization.lower().startswith("bearer "):
+        auth_user = verify_jwt_token(authorization[7:].strip())
+        if auth_user:
+            effective_learner_id = auth_user["id"]
+
     challenge = find_challenge(req.challenge_id)
     if not challenge:
         # Fallback challenge template if challenge ID not recognized
@@ -304,7 +332,7 @@ def submit_code(req: SubmitRequest):
             """,
             (
                 submission_id,
-                req.learner_id,
+                effective_learner_id,
                 req.challenge_id,
                 req.code,
                 json.dumps([v.model_dump() for v in visible_tests]),
@@ -314,11 +342,29 @@ def submit_code(req: SubmitRequest):
                 1 if all_passed else 0
             )
         )
+        # Log interaction event for measuring user activities
+        cursor.execute(
+            """
+            INSERT INTO learner_events (learner_id, event_type, payload)
+            VALUES (?, ?, ?)
+            """,
+            (
+                effective_learner_id,
+                "challenge_submission",
+                json.dumps({
+                    "submission_id": submission_id,
+                    "challenge_id": req.challenge_id,
+                    "passed": all_passed,
+                    "outcome": overall_outcome,
+                    "mistake_tags": mistake_tags
+                })
+            )
+        )
         conn.commit()
 
     return SubmitResponse(
         submission_id=submission_id,
-        learner_id=req.learner_id,
+        learner_id=effective_learner_id,
         challenge_id=req.challenge_id,
         visible=visible_tests,
         hidden=hidden_tests,
@@ -358,11 +404,13 @@ def request_hint(req: HintRequest):
             hint_index = row["count"] + 1
 
         cursor.execute(
-            "SELECT challenge_id, code, visible_results, mistake_tags FROM submissions WHERE id = ?",
+            "SELECT learner_id, challenge_id, code, visible_results, mistake_tags FROM submissions WHERE id = ?",
             (req.submission_id,)
         )
         sub_row = cursor.fetchone()
+        sub_learner_id = "anonymous_learner"
         if sub_row:
+            sub_learner_id = sub_row["learner_id"] or "anonymous_learner"
             sub_code = sub_row["code"] or ""
             challenge = find_challenge(sub_row["challenge_id"])
             try:
@@ -405,7 +453,7 @@ def request_hint(req: HintRequest):
 
     hint_text = leak_guard(hint_text)
 
-    # Persist hint in hints_given
+    # Persist hint in hints_given and log learner event
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -413,7 +461,21 @@ def request_hint(req: HintRequest):
             INSERT INTO hints_given (submission_id, learner_id, hint_index, hint_text)
             VALUES (?, ?, ?, ?)
             """,
-            (req.submission_id, "anonymous_learner", hint_level, hint_text)
+            (req.submission_id, sub_learner_id, hint_level, hint_text)
+        )
+        cursor.execute(
+            """
+            INSERT INTO learner_events (learner_id, event_type, payload)
+            VALUES (?, ?, ?)
+            """,
+            (
+                sub_learner_id,
+                "hint_requested",
+                json.dumps({
+                    "submission_id": req.submission_id,
+                    "hint_level": hint_level
+                })
+            )
         )
         conn.commit()
 
@@ -452,16 +514,31 @@ def request_hint(req: HintRequest):
 
 
 @router.get("/learner/{learner_id}", response_model=LearnerProfileResponse)
-def get_learner(learner_id: str):
-    profile = get_learner_profile(learner_id)
+def get_learner(learner_id: str, authorization: Optional[str] = Header(None)):
+    target_id = learner_id
+    if authorization and authorization.lower().startswith("bearer "):
+        auth_user = verify_jwt_token(authorization[7:].strip())
+        if auth_user and (learner_id in ["me", "current", "self"]):
+            target_id = auth_user["id"]
+
+    profile = get_learner_profile(target_id)
     return LearnerProfileResponse(
         learner_id=profile["learner_id"],
+        user_name=profile.get("user_name"),
+        user_email=profile.get("user_email"),
         recurring_mistakes=profile["recurring_mistakes"],
         mastery_per_concept=profile["mastery_per_concept"],
         mastery=profile.get("mastery"),
         overall_mastery=profile.get("overall_mastery"),
         challenges_attempted=profile.get("challenges_attempted"),
         challenges_solved=profile.get("challenges_solved"),
+        challenges_failed=profile.get("challenges_failed"),
+        custom_debug_count=profile.get("custom_debug_count"),
+        total_interactions=profile.get("total_interactions"),
+        total_submissions=profile.get("total_submissions"),
+        passed_count=profile.get("passed_count"),
+        failed_count=profile.get("failed_count"),
+        history=profile.get("history"),
         next_challenge=profile["next_challenge"],
         recommended_next_challenge=profile.get("recommended_next_challenge"),
         recommendation_reason=profile.get("recommendation_reason"),
@@ -484,8 +561,11 @@ def register_user(req: RegisterRequest):
         raise HTTPException(status_code=400, detail="An account with this email already exists. Please log in.")
 
     user = create_user(name=req.name or email.split("@")[0], email=email, password=req.password)
+    token = create_jwt_token(user_id=user["id"], email=user["email"], name=user["name"])
     return AuthResponse(
         success=True,
+        token=token,
+        token_type="Bearer",
         user=UserProfile(id=user["id"], name=user["name"], email=user["email"]),
         message="Registration successful! Welcome to Debug Dojo."
     )
@@ -498,21 +578,43 @@ def login_user(req: LoginRequest):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password. Please try again.")
 
+    token = create_jwt_token(user_id=user["id"], email=user["email"], name=user["name"])
     return AuthResponse(
         success=True,
+        token=token,
+        token_type="Bearer",
         user=UserProfile(id=user["id"], name=user["name"], email=user["email"], created_at=user.get("created_at")),
         message="Login successful."
     )
 
 
 @router.get("/auth/me")
-def get_current_user(email: Optional[str] = None):
-    if not email:
-        return {"user": None}
-    user = get_user_by_email(email.strip().lower())
-    if not user:
-        return {"user": None}
-    return {"user": user}
+def get_current_user(
+    authorization: Optional[str] = Header(None),
+    email: Optional[str] = None
+):
+    # 1. Check Bearer token from header
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+        user = verify_jwt_token(token)
+        if user:
+            return {"user": user, "authenticated": True}
+
+    # 2. Fallback to email query parameter
+    if email:
+        user = get_user_by_email(email.strip().lower())
+        if user:
+            return {"user": user, "authenticated": True}
+
+    return {"user": None, "authenticated": False}
+
+
+@router.post("/auth/logout")
+def logout_user(authorization: Optional[str] = Header(None)):
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+        revoke_jwt_token(token)
+    return {"success": True, "message": "Logged out successfully."}
 
 
 # --- Agentic Python Code & Document Verification ---
@@ -673,11 +775,17 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @router.post("/analyze-custom", response_model=CustomDebugResponse)
-def analyze_custom_code(req: CustomDebugRequest):
+def analyze_custom_code(req: CustomDebugRequest, authorization: Optional[str] = Header(None)):
     """
     Analyzes and executes learner-pasted Python code or extracted document code in an isolated
     subprocess sandbox. Explains errors in plain language with progressive non-revealing hints.
     """
+    effective_learner_id = req.learner_id or "demo-learner"
+    if authorization and authorization.lower().startswith("bearer "):
+        auth_user = verify_jwt_token(authorization[7:].strip())
+        if auth_user:
+            effective_learner_id = auth_user["id"]
+
     raw_code = req.code or ""
     extracted_from_doc = False
 
@@ -785,6 +893,49 @@ def analyze_custom_code(req: CustomDebugRequest):
         response=explanation_res["explanation"],
         context=f"custom_debug:{error_type or 'success'}"
     )
+
+    # 5. Persist interaction into submissions and learner_events
+    custom_sub_id = f"custom_{uuid.uuid4().hex[:10]}"
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO submissions (
+                id, learner_id, challenge_id, code,
+                visible_results, hidden_results, mistake_tags,
+                explanation, passed
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                custom_sub_id,
+                effective_learner_id,
+                "custom-code",
+                raw_code,
+                json.dumps([{"outcome": outcome, "error_type": error_type, "error_line": error_line, "error_msg": error_msg}]),
+                "[]",
+                json.dumps(mistake_tags),
+                explanation_res["explanation"],
+                1 if success else 0
+            )
+        )
+        cursor.execute(
+            """
+            INSERT INTO learner_events (learner_id, event_type, payload)
+            VALUES (?, ?, ?)
+            """,
+            (
+                effective_learner_id,
+                "custom_code_analysis",
+                json.dumps({
+                    "submission_id": custom_sub_id,
+                    "outcome": outcome,
+                    "error_type": error_type,
+                    "mistake_tags": mistake_tags,
+                    "extracted_from_doc": extracted_from_doc
+                })
+            )
+        )
+        conn.commit()
 
     return CustomDebugResponse(
         success=success,

@@ -260,15 +260,13 @@ body>.wrap{position:relative;z-index:1}
 
 <canvas id="bg3d" aria-hidden="true"></canvas>
 <div class="nav"><div class="nav-in">
-  <a class="logo" href="#home"><span class="logo-mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>Debug Dojo</a>
-  <span class="live-pill" title="Connected to isolated Python execution judge"><i></i>Live Sandbox Judge: Active</span>
-  <nav class="links" id="links">
+  <a class="logo" href="#home" id="nav-logo"><span class="logo-mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>Debug Dojo</a>
+  <nav class="links" id="links" style="display:none">
     <a href="#home" data-r="home">Home</a>
     <a href="#custom-debug" data-r="custom-debug" style="color:var(--cyan)">Debug Your Code</a>
     <a href="#challenges" data-r="challenges">Challenges</a>
     <a href="#dashboard" data-r="dashboard">Dashboard</a>
     <a href="#how" data-r="how">How It Works</a>
-    <a href="/docs" target="_blank" style="color:var(--violet)">Swagger API ↗</a>
   </nav>
   <div id="auth-nav-area" style="display:flex;align-items:center;gap:8px;margin-left:auto"></div>
 </div></div>
@@ -497,13 +495,13 @@ const S={
   tab:'all',
   consoleOpen:true,
   filter:{q:'',diff:'All',concept:'All',status:'All',sort:'recommended'},
-  mastery:{Lists:58,Loops:66,Functions:61,Conditions:72,Indexing:41,Strings:35,'Input handling':44,Recursion:50,Stacks:50,Sets:55},
-  status:{'last-k-total':'new','count-passes':'solved','first-n-squares':'attempted','clamp-score':'new','count-vowels':'new','find-index-of':'new','middle-three':'new','running-total':'new','second-largest':'new','safe-average':'new','remove-duplicates':'new','title-case-words':'new','compress-runs':'new','balanced-brackets':'new','longest-streak':'new','flatten-nested-list':'new'},
+  mastery:{Lists:50,Loops:50,Functions:50,Conditions:50,Indexing:50,Strings:50,'Input handling':50,Recursion:50,Stacks:50,Sets:50},
+  status:{},
   recurringList:[],
   recommendedChallenge:null,
   recommendationReason:"",
   history:[],
-  streak:3,
+  streak:1,
   customCode:`def calculate_average(numbers):
     total = sum(numbers)
     # Bug: What happens if numbers is empty?
@@ -529,17 +527,23 @@ print(calculate_average([]))
   customResult:null,
   customHintsShown:1,
   customRunning:false,
+  token:localStorage.getItem('debug_dojo_jwt')||null,
+  authTab:'login',
   user:(function(){
     try{
+      const jwt=localStorage.getItem('debug_dojo_jwt');
       const u=localStorage.getItem('debug_dojo_user');
-      return u?JSON.parse(u):null;
+      if(!jwt || !u) return null;
+      return JSON.parse(u);
     }catch(e){return null;}
   })(),
-  challenges_attempted:null,
-  challenges_solved:null,
-  challenges_failed:null,
-  total_submissions:null,
-  overall_mastery:null,
+  challenges_attempted:0,
+  challenges_solved:0,
+  challenges_failed:0,
+  custom_debug_count:0,
+  total_interactions:0,
+  total_submissions:0,
+  overall_mastery:50,
   user_history:[]
 };
 
@@ -571,30 +575,41 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const chOf=id=>CH.find(c=>c.id===id)||CH[0];
 function getCode(id){ if(S.code[id]==null) S.code[id]=chOf(id).starter; return S.code[id]; }
 
+function isLoggedIn(){
+  return !!(S.user && S.token);
+}
+
 async function fetchProfile(){
-  const learnerId = (S.user && S.user.email) ? S.user.email : 'demo-learner';
+  const learnerId = (S.user && S.user.id) ? S.user.id : ((S.user && S.user.email) ? S.user.email : 'demo-learner');
   try{
-    const res = await fetch(`/api/learner/${encodeURIComponent(learnerId)}`);
+    const headers = {};
+    if(S.token) headers['Authorization'] = `Bearer ${S.token}`;
+    const res = await fetch(`/api/learner/${encodeURIComponent(learnerId)}`, { headers });
     if(res.ok){
       const data = await res.json();
       S.mastery = data.mastery_per_concept || S.mastery;
-      S.streak = data.streak_days || S.streak || 3;
+      S.streak = data.streak_days || S.streak || 1;
       S.recurringList = data.recurring_mistakes || [];
       S.recommendedChallenge = data.recommended_next_challenge || data.next_challenge || null;
       S.recommendationReason = data.recommendation_reason || data.reason || "";
       S.challenges_attempted = data.challenges_attempted != null ? data.challenges_attempted : 0;
       S.challenges_solved = data.challenges_solved != null ? data.challenges_solved : 0;
       S.challenges_failed = data.challenges_failed != null ? data.challenges_failed : 0;
+      S.custom_debug_count = data.custom_debug_count != null ? data.custom_debug_count : 0;
+      S.total_interactions = data.total_interactions != null ? data.total_interactions : 0;
       S.total_submissions = data.total_submissions != null ? data.total_submissions : 0;
       S.overall_mastery = data.overall_mastery != null ? data.overall_mastery : 50;
       S.user_history = data.history || [];
+
+      // Update S.status accurately from real SQLite database history
+      CH.forEach(c => { S.status[c.id] = 'new'; });
       if(data.history && data.history.length){
-        S.history = data.history.map(s=>({
-          ch: s.challenge_id,
-          when: s.created_at ? s.created_at.split(' ')[1] || 'Today' : 'Today',
-          res: s.outcome || (s.passed ? 'Passed' : 'Failed'),
-          cls: s.passed ? 'passed' : 'wrong'
-        }));
+        data.history.forEach(h => {
+          if(h.challenge_id && h.challenge_id !== 'custom-code'){
+            if(h.passed) S.status[h.challenge_id] = 'solved';
+            else if(S.status[h.challenge_id] !== 'solved') S.status[h.challenge_id] = 'attempted';
+          }
+        });
       }
     }
   }catch(e){
@@ -606,8 +621,10 @@ const overall=()=>Math.round(CONCEPTS.reduce((a,k)=>a+(S.mastery[k]||50),0)/CONC
 
 function renderAuthNav(){
   const el = $('#auth-nav-area');
+  const navLinks = $('#links');
   if(!el) return;
-  if(S.user){
+  if(isLoggedIn()){
+    if(navLinks) navLinks.style.display = 'flex';
     el.innerHTML = `
       <span class="pill" style="color:var(--cyan);border-color:rgba(100,216,236,.3);max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${esc(S.user.email)}">
         👤 ${esc(S.user.name || S.user.email.split('@')[0])}
@@ -616,36 +633,54 @@ function renderAuthNav(){
     `;
     const logoutBtn = $('#btn-logout');
     if(logoutBtn){
-      logoutBtn.addEventListener('click', ()=>{
+      logoutBtn.addEventListener('click', async ()=>{
+        try{
+          if(S.token){
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${S.token}` }
+            });
+          }
+        }catch(e){}
         localStorage.removeItem('debug_dojo_user');
+        localStorage.removeItem('debug_dojo_jwt');
         S.user = null;
+        S.token = null;
         renderAuthNav();
-        fetchProfile();
         toast('You have been signed out.');
         route(true);
       });
     }
   } else {
+    if(navLinks) navLinks.style.display = 'none';
     el.innerHTML = `
-      <button class="btn sm primary" id="btn-open-auth">Sign In / Register</button>
+      <span class="pill" style="color:var(--violet);border-color:rgba(168,140,255,.3)">Sign In Required</span>
     `;
-    const openBtn = $('#btn-open-auth');
-    if(openBtn){
-      openBtn.addEventListener('click', ()=>{
-        const m = $('#auth-modal');
-        if(m) m.style.display = 'grid';
-      });
-    }
   }
 }
 
 /* ---------- router ---------- */
-const ROUTES=['home','challenges','workspace','results','dashboard','how','custom-debug'];
+const ROUTES=['home','challenges','workspace','results','dashboard','how','custom-debug','auth'];
 function route(force){
+  if(!isLoggedIn()){
+    const navLinks = $('#links');
+    if(navLinks) navLinks.style.display = 'none';
+    GL.unmount();
+    const app = $('#app');
+    app.innerHTML = vAuthPortal();
+    bindAuthPortal();
+    renderAuthNav();
+    window.scrollTo(0,0);
+    return;
+  }
+
+  const navLinks = $('#links');
+  if(navLinks) navLinks.style.display = 'flex';
+
   let r=(location.hash||'#home').slice(1);
-  if(!ROUTES.includes(r)) r='home';
+  if(!ROUTES.includes(r) || r === 'auth') r='home';
   document.querySelectorAll('#links a').forEach(a=>a.classList.toggle('on',a.dataset.r===r||(r==='workspace'&&a.dataset.r==='challenges')||(r==='results'&&a.dataset.r==='dashboard')));
-  const v={home:vHome,challenges:vChallenges,workspace:vWorkspace,results:vResults,dashboard:vDashboard,how:vHow,'custom-debug':vCustomDebug}[r];
+  const v={home:vHome,challenges:vChallenges,workspace:vWorkspace,results:vResults,dashboard:vDashboard,how:vHow,'custom-debug':vCustomDebug,auth:vAuthPortal}[r];
   const changed=!!force||r!==S.lastRoute; S.lastRoute=r;
   GL.unmount();
   const app=$('#app'), sy=window.scrollY;
@@ -663,6 +698,65 @@ function go(r){ if(location.hash==='#'+r) route(true); else location.hash=r; }
 function toast(t){ const d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),3200); }
 
 /* ---------- views ---------- */
+function vAuthPortal(){
+  const isReg = S.authTab === 'register';
+  return `
+  <section class="hero" style="min-height:75vh;align-items:center;justify-content:center;grid-template-columns:1fr;max-width:520px;margin:10px auto 40px">
+    <div style="text-align:center">
+      <div style="width:68px;height:68px;border-radius:20px;background:linear-gradient(135deg,var(--violet-d),#5236b8);display:inline-grid;place-items:center;color:#fff;margin-bottom:16px;box-shadow:0 0 30px rgba(124,92,240,.6)">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
+      <h1 style="font-size:32px;margin-bottom:6px">Welcome to <span style="background:linear-gradient(135deg,var(--violet),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent">Debug Dojo</span></h1>
+      <p class="lead" style="font-size:14.5px;max-width:440px;margin:0 auto 24px;line-height:1.6">Sign in or create an account to start interactive Python challenges, test your code safely, and track your personalized mastery.</p>
+
+      <div class="card" style="text-align:left;border:1px solid rgba(168,140,255,.35);box-shadow:0 24px 60px rgba(0,0,0,.7);background:var(--card)">
+        <div style="display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:12px">
+          <button type="button" class="chip ${!isReg?'on':''}" id="portal-tab-login" style="font-weight:600;padding:7px 18px">Sign In</button>
+          <button type="button" class="chip ${isReg?'on':''}" id="portal-tab-register" style="font-weight:600;padding:7px 18px">Create Account</button>
+        </div>
+
+        <!-- Sign In Form -->
+        <form id="portal-form-login" style="display:${!isReg?'grid':'none'};gap:14px">
+          <div>
+            <label for="p-login-email" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Email Address</label>
+            <input type="email" id="p-login-email" required class="search" style="width:100%" placeholder="learner@example.com" autocomplete="email">
+          </div>
+          <div>
+            <label for="p-login-password" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Password</label>
+            <input type="password" id="p-login-password" required class="search" style="width:100%" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <div id="p-login-error" style="display:none;color:var(--coral);font-size:13px;background:rgba(255,136,120,.12);padding:10px 14px;border-radius:8px;border:1px solid rgba(255,136,120,.35)"></div>
+          <button type="submit" id="p-btn-login" class="btn primary" style="width:100%;margin-top:4px;padding:12px;font-size:15px">Sign In to Debug Dojo</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="portal-form-register" style="display:${isReg?'grid':'none'};gap:14px">
+          <div>
+            <label for="p-reg-name" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Full Name</label>
+            <input type="text" id="p-reg-name" required class="search" style="width:100%" placeholder="Your Name" autocomplete="name">
+          </div>
+          <div>
+            <label for="p-reg-email" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Email Address</label>
+            <input type="email" id="p-reg-email" required class="search" style="width:100%" placeholder="learner@example.com" autocomplete="email">
+          </div>
+          <div>
+            <label for="p-reg-password" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Password (min 4 characters)</label>
+            <input type="password" id="p-reg-password" required minlength="4" class="search" style="width:100%" placeholder="••••••••" autocomplete="new-password">
+          </div>
+          <div id="p-reg-error" style="display:none;color:var(--coral);font-size:13px;background:rgba(255,136,120,.12);padding:10px 14px;border-radius:8px;border:1px solid rgba(255,136,120,.35)"></div>
+          <button type="submit" id="p-btn-register" class="btn primary" style="width:100%;margin-top:4px;padding:12px;font-size:15px">Create Account &amp; Start Learning</button>
+        </form>
+
+        <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:14px;text-align:center">
+          <button type="button" id="p-btn-demo" class="btn sm" style="width:100%;background:var(--bg2);color:var(--cyan);border-color:rgba(100,216,236,.3)">
+            ⚡ Quick Start with Demo Student Account
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>`;
+}
+
 function vHome(){
  return `
  <section class="hero">
@@ -890,32 +984,34 @@ function vResults(){
 }
 
 function vDashboard(){
- const att=S.challenges_attempted != null ? S.challenges_attempted : Object.values(S.status).filter(s=>s!=='new').length;
- const sol=S.challenges_solved != null ? S.challenges_solved : Object.values(S.status).filter(s=>s==='solved').length;
- const failed=S.challenges_failed != null ? S.challenges_failed : Math.max(0, att - sol);
- const totalRuns=S.total_submissions != null ? S.total_submissions : S.history.length;
+ const att=S.challenges_attempted != null ? S.challenges_attempted : 0;
+ const sol=S.challenges_solved != null ? S.challenges_solved : 0;
+ const failed=S.challenges_failed != null ? S.challenges_failed : 0;
+ const customRuns=S.custom_debug_count != null ? S.custom_debug_count : 0;
+ const totalSubmissions=S.total_submissions != null ? S.total_submissions : 0;
+ const totalEvents=S.total_interactions != null ? S.total_interactions : totalSubmissions;
  const recCh=S.recommendedChallenge || chOf('last-k-total');
  const recReason=S.recommendationReason || "Practice this foundational challenge to boost your core indexing and lists skills.";
  const rc=S.recurringList || [];
  const mcol=v=>v>=70?'var(--green)':v>=50?'var(--violet)':'var(--amber)';
  const currentOverall=S.overall_mastery != null ? S.overall_mastery : overall();
- const displayName=S.user ? (S.user.name || S.user.email) : 'demo-learner';
- const displayEmail=S.user ? S.user.email : 'Guest Session · Register / Sign In to record your personal interactions &amp; history';
+ const displayName=S.user ? (S.user.name || S.user.email) : 'Student';
+ const displayEmail=S.user ? S.user.email : 'Personal Session';
 
  return `
  <div class="page-head">
   <div>
-    <span class="eyebrow">Learner Profile &amp; Interaction Tracking</span>
+    <span class="eyebrow">Personal Learner Dashboard</span>
     <h1>${esc(displayName)}</h1>
-    <p class="muted" style="margin-top:4px;font-size:14px">${esc(displayEmail)}</p>
+    <p class="muted" style="margin-top:4px;font-size:14px">${esc(displayEmail)} · SQLite Verified Interactions</p>
   </div>
-  <span class="live-pill"><i></i>Live Persistence &amp; Mastery Active</span>
  </div>
  <div class="grid sumgrid" style="margin-bottom:16px">
   <div class="card stat"><b>${sol}</b><span>Challenges Solved</span></div>
   <div class="card stat"><b>${att}</b><span>Challenges Attempted</span></div>
   <div class="card stat"><b>${failed}</b><span>Failed / Need Fix</span></div>
-  <div class="card stat"><b>${totalRuns}</b><span>Total Code Runs</span></div>
+  <div class="card stat"><b>${customRuns}</b><span>Custom Code Debugs</span></div>
+  <div class="card stat"><b>${totalEvents}</b><span>Measured Interactions</span></div>
   <div class="card stat"><b>${currentOverall}%</b><span>Overall Mastery</span><div class="bar" style="margin-top:8px"><i style="width:${currentOverall}%"></i></div></div>
  </div>
  <div class="grid two">
@@ -934,15 +1030,16 @@ function vDashboard(){
     <p class="muted" style="font-size:13px;margin-bottom:8px">A mistake counts as recurring once it appears across at least 2 distinct challenges.</p>
     ${rc.length?rc.map(r=>`<div class="rm"><div><span class="pill mistake">${r.mistake_tag||r.tag}</span><div class="muted" style="font-size:13px;margin-top:4px">Appeared across ${(r.challenges_involved||r.challenges||[]).length} challenges: ${(r.challenges_involved||r.challenges||[]).join(', ')}</div></div><span class="mono">${r.occurrence_count||r.count}×</span></div>`).join(''):'<div class="muted" style="font-size:14px">No recurring mistakes yet. Keep solving!</div>'}
    </div>
-   <div class="card"><h3 style="font-size:18px;margin-bottom:10px">Recent Submission History</h3>
+   <div class="card"><h3 style="font-size:18px;margin-bottom:10px">Submission &amp; Debug History</h3>
     ${(S.user_history && S.user_history.length) ? `
-      <div class="tbl" style="max-height:360px;overflow-y:auto">
+      <div class="tbl" style="max-height:420px;overflow-y:auto">
         <table>
           <thead>
             <tr>
-              <th>Challenge</th>
+              <th>Activity / Challenge</th>
               <th>Outcome</th>
               <th>Mistake Tags</th>
+              <th>Submitted Code</th>
               <th>Time</th>
             </tr>
           </thead>
@@ -952,15 +1049,19 @@ function vDashboard(){
                 <td><strong>${esc(h.title || h.challenge_id)}</strong> <span class="pill ${(h.difficulty||'easy').toLowerCase()}" style="font-size:11px">${esc(h.difficulty||'Easy')}</span></td>
                 <td><span class="o ${h.passed ? 'passed' : 'wrong'}">${h.outcome || (h.passed ? 'Passed' : 'Failed')}</span></td>
                 <td>${(h.mistake_tags && h.mistake_tags.length) ? h.mistake_tags.map(t => `<span class="pill mistake" style="font-size:10px">${esc(t)}</span>`).join(' ') : '<span class="muted">—</span>'}</td>
+                <td><code style="font-size:11px;color:var(--cyan);background:var(--bg2);padding:2px 6px;border-radius:4px;display:inline-block;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.code_snippet || 'code')}</code></td>
                 <td class="muted" style="font-size:11.5px">${esc(h.created_at || 'Recently')}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
       </div>
-    ` : (S.history && S.history.length) ? `
-      ${S.history.map(h=>`<div class="rm"><div>${chOf(h.ch).title}<div class="muted" style="font-size:12.5px">${h.when}</div></div><span class="o ${h.cls}">${h.res}</span></div>`).join('')}
-    ` : '<div class="muted" style="font-size:14px">No submissions recorded yet for this account. Run a challenge solution to track progress!</div>'}
+    ` : `
+      <div style="text-align:center;padding:32px 16px;color:var(--muted)">
+        <p style="font-size:15px;margin-bottom:6px">No submissions recorded yet for your account.</p>
+        <p style="font-size:13px">Run a challenge solution or debug custom Python code to start tracking your journey in the database!</p>
+      </div>
+    `}
    </div>
   </div>
  </div>`;
@@ -1484,12 +1585,14 @@ function initAuthModal(){
           return;
         }
         S.user = data.user;
+        S.token = data.token;
         localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+        localStorage.setItem('debug_dojo_jwt', data.token);
         if(modal) modal.style.display = 'none';
         renderAuthNav();
         await fetchProfile();
         toast(`Welcome back, ${data.user.name || data.user.email}!`);
-        go('dashboard');
+        go('home');
       }catch(err){
         if(loginErr){
           loginErr.textContent = 'Network error: ' + err.message;
@@ -1522,12 +1625,14 @@ function initAuthModal(){
           return;
         }
         S.user = data.user;
+        S.token = data.token;
         localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+        localStorage.setItem('debug_dojo_jwt', data.token);
         if(modal) modal.style.display = 'none';
         renderAuthNav();
         await fetchProfile();
         toast(`Account created! Welcome to Debug Dojo, ${data.user.name || data.user.email}!`);
-        go('dashboard');
+        go('home');
       }catch(err){
         if(regErr){
           regErr.textContent = 'Network error: ' + err.message;
@@ -1538,15 +1643,189 @@ function initAuthModal(){
   }
 }
 
+function bindAuthPortal(){
+  const tabLogin = $('#portal-tab-login');
+  const tabReg = $('#portal-tab-register');
+  const formLogin = $('#portal-form-login');
+  const formReg = $('#portal-form-register');
+  const loginErr = $('#p-login-error');
+  const regErr = $('#p-reg-error');
+  const demoBtn = $('#p-btn-demo');
+
+  if(tabLogin && tabReg){
+    tabLogin.addEventListener('click', ()=>{
+      S.authTab = 'login';
+      tabLogin.classList.add('on');
+      tabReg.classList.remove('on');
+      if(formLogin) formLogin.style.display = 'grid';
+      if(formReg) formReg.style.display = 'none';
+      if(loginErr) loginErr.style.display = 'none';
+    });
+    tabReg.addEventListener('click', ()=>{
+      S.authTab = 'register';
+      tabReg.classList.add('on');
+      tabLogin.classList.remove('on');
+      if(formReg) formReg.style.display = 'grid';
+      if(formLogin) formLogin.style.display = 'none';
+      if(regErr) regErr.style.display = 'none';
+    });
+  }
+
+  if(formLogin){
+    formLogin.addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = $('#p-login-email').value.trim();
+      const password = $('#p-login-password').value;
+      if(loginErr) loginErr.style.display = 'none';
+      const btn = $('#p-btn-login');
+      if(btn){
+        btn.disabled = true;
+        btn.textContent = 'Authenticating...';
+      }
+
+      try{
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if(!res.ok){
+          if(btn){
+            btn.disabled = false;
+            btn.textContent = 'Sign In to Debug Dojo';
+          }
+          if(loginErr){
+            loginErr.textContent = data.detail || 'Login failed. Please check your credentials.';
+            loginErr.style.display = 'block';
+          }
+          return;
+        }
+        S.user = data.user;
+        S.token = data.token;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+        localStorage.setItem('debug_dojo_jwt', data.token);
+        await fetchProfile();
+        renderAuthNav();
+        toast(`Welcome back, ${data.user.name || data.user.email}!`);
+        go('home');
+      }catch(err){
+        if(btn){
+          btn.disabled = false;
+          btn.textContent = 'Sign In to Debug Dojo';
+        }
+        if(loginErr){
+          loginErr.textContent = 'Network error: ' + err.message;
+          loginErr.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  if(formReg){
+    formReg.addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = $('#p-reg-name').value.trim();
+      const email = $('#p-reg-email').value.trim();
+      const password = $('#p-reg-password').value;
+      if(regErr) regErr.style.display = 'none';
+      const btn = $('#p-btn-register');
+      if(btn){
+        btn.disabled = true;
+        btn.textContent = 'Creating Account...';
+      }
+
+      try{
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json();
+        if(!res.ok){
+          if(btn){
+            btn.disabled = false;
+            btn.textContent = 'Create Account & Start Learning';
+          }
+          if(regErr){
+            regErr.textContent = data.detail || 'Registration failed.';
+            regErr.style.display = 'block';
+          }
+          return;
+        }
+        S.user = data.user;
+        S.token = data.token;
+        localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+        localStorage.setItem('debug_dojo_jwt', data.token);
+        await fetchProfile();
+        renderAuthNav();
+        toast(`Account created! Welcome, ${data.user.name || data.user.email}!`);
+        go('home');
+      }catch(err){
+        if(btn){
+          btn.disabled = false;
+          btn.textContent = 'Create Account & Start Learning';
+        }
+        if(regErr){
+          regErr.textContent = 'Network error: ' + err.message;
+          regErr.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  if(demoBtn){
+    demoBtn.addEventListener('click', async ()=>{
+      demoBtn.disabled = true;
+      demoBtn.textContent = 'Preparing demo student account...';
+      const demoEmail = 'student@debugdojo.dev';
+      const demoPass = 'dojopass2026';
+      try {
+        let res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ email: demoEmail, password: demoPass })
+        });
+        if(!res.ok){
+          res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: 'Demo Student', email: demoEmail, password: demoPass })
+          });
+        }
+        const data = await res.json();
+        if(data.success && data.token){
+          S.user = data.user;
+          S.token = data.token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
+          localStorage.setItem('debug_dojo_jwt', data.token);
+          await fetchProfile();
+          renderAuthNav();
+          toast(`Logged in as ${data.user.name || 'Demo Student'}!`);
+          go('home');
+        } else {
+          demoBtn.disabled = false;
+          demoBtn.textContent = '⚡ Quick Start with Demo Student Account';
+        }
+      } catch(err) {
+        demoBtn.disabled = false;
+        demoBtn.textContent = '⚡ Quick Start with Demo Student Account';
+      }
+    });
+  }
+}
+
 async function runLive(){
  const c=chOf(S.cur), btn=$('#run'); const code=$('#code').value; S.code[c.id]=code;
  btn.disabled=true; btn.innerHTML='<span class="spin"></span> Running in Sandbox...';
 
- const learnerId = (S.user && S.user.email) ? S.user.email : 'demo-learner';
+ const learnerId = (S.user && S.user.id) ? S.user.id : ((S.user && S.user.email) ? S.user.email : 'demo-learner');
  try{
+   const headers = {'Content-Type': 'application/json'};
+   if(S.token) headers['Authorization'] = `Bearer ${S.token}`;
    const res = await fetch('/api/submit', {
      method: 'POST',
-     headers: {'Content-Type': 'application/json'},
+     headers: headers,
      body: JSON.stringify({
        learner_id: learnerId,
        challenge_id: c.id,
@@ -1623,9 +1902,11 @@ async function requestHintLive(){
  btn.textContent = "Loading Hint...";
 
  try{
+   const headers = {'Content-Type': 'application/json'};
+   if(S.token) headers['Authorization'] = `Bearer ${S.token}`;
    const res = await fetch('/api/hint', {
      method: 'POST',
-     headers: {'Content-Type': 'application/json'},
+     headers: headers,
      body: JSON.stringify({ submission_id: sub.id })
    });
 
@@ -1663,12 +1944,14 @@ async function runCustomDebugLive(){
     btn.innerHTML = '<span class="spin"></span> Running in Sandbox...';
   }
 
-  const learnerId = (S.user && S.user.email) ? S.user.email : 'demo-learner';
+  const learnerId = (S.user && S.user.id) ? S.user.id : ((S.user && S.user.email) ? S.user.email : 'demo-learner');
   try{
     const payload = isDoc ? { document_text: content, learner_id: learnerId } : { code: content, learner_id: learnerId };
+    const headers = { 'Content-Type': 'application/json' };
+    if(S.token) headers['Authorization'] = `Bearer ${S.token}`;
     const res = await fetch('/api/analyze-custom', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify(payload)
     });
 

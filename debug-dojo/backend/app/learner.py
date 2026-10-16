@@ -44,16 +44,24 @@ def load_all_challenges() -> List[Dict[str, Any]]:
 
 
 def get_learner_history(learner_id: str) -> List[Dict[str, Any]]:
+    # Find both id and email for this learner if registered
+    identifiers = [learner_id]
     with get_db_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute("SELECT id, email FROM users WHERE id = ? OR email = ?", (learner_id, learner_id.strip().lower()))
+        u = cursor.fetchone()
+        if u:
+            identifiers = list(set([u["id"], u["email"]]))
+
+        placeholders = ",".join(["?"] * len(identifiers))
         cursor.execute(
-            """
-            SELECT id, learner_id, challenge_id, passed, mistake_tags, created_at
+            f"""
+            SELECT id, learner_id, challenge_id, code, visible_results, passed, mistake_tags, explanation, created_at
             FROM submissions
-            WHERE learner_id = ?
+            WHERE learner_id IN ({placeholders})
             ORDER BY created_at ASC
             """,
-            (learner_id,)
+            identifiers
         )
         rows = cursor.fetchall()
 
@@ -68,6 +76,7 @@ def get_learner_history(learner_id: str) -> List[Dict[str, Any]]:
         history.append({
             "id": r["id"],
             "challenge_id": r["challenge_id"],
+            "code": r["code"],
             "passed": bool(r["passed"]),
             "mistake_tags": tags,
             "created_at": r["created_at"]
@@ -237,11 +246,12 @@ def get_learner_profile(learner_id: str) -> Dict[str, Any]:
     next_c, reason = recommend_next_challenge(history, mastery, recurring, all_challenges)
 
     # Calculate challenges attempted / solved / failed
-    distinct_attempted_set = {s["challenge_id"] for s in history}
-    distinct_solved_set = {s["challenge_id"] for s in history if s["passed"]}
+    distinct_attempted_set = {s["challenge_id"] for s in history if s["challenge_id"] != "custom-code"}
+    distinct_solved_set = {s["challenge_id"] for s in history if s["passed"] and s["challenge_id"] != "custom-code"}
     distinct_attempted = len(distinct_attempted_set)
     distinct_solved = len(distinct_solved_set)
     distinct_failed = len(distinct_attempted_set - distinct_solved_set)
+    custom_debug_count = sum(1 for s in history if s["challenge_id"] == "custom-code")
     total_submissions = len(history)
     passed_count = sum(1 for s in history if s["passed"])
     failed_count = total_submissions - passed_count
@@ -249,28 +259,47 @@ def get_learner_profile(learner_id: str) -> Dict[str, Any]:
     # Fetch user details if registered
     user_name = learner_id.split("@")[0] if "@" in learner_id else learner_id
     user_email = learner_id if "@" in learner_id else None
+    identifiers = [learner_id]
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, email FROM users WHERE email = ? OR id = ?", (learner_id, learner_id))
+        cursor.execute("SELECT id, name, email FROM users WHERE email = ? OR id = ?", (learner_id, learner_id.strip().lower()))
         user_row = cursor.fetchone()
         if user_row:
             user_name = user_row["name"]
             user_email = user_row["email"]
+            identifiers = list(set([user_row["id"], user_row["email"]]))
 
-    # Build formatted submission history
+        # Count total measured interaction events (submissions, hints, custom debug runs)
+        placeholders = ",".join(["?"] * len(identifiers))
+        cursor.execute(f"SELECT COUNT(*) as cnt FROM learner_events WHERE learner_id IN ({placeholders})", identifiers)
+        row = cursor.fetchone()
+        total_interactions = row["cnt"] if row and row["cnt"] is not None else total_submissions
+
+    # Build formatted submission history from real SQLite rows
     submission_history = []
-    for s in reversed(history[-20:]):
+    for s in reversed(history[-25:]):
         cid = s["challenge_id"]
-        cdata = challenges_by_id.get(cid, {})
+        if cid == "custom-code":
+            title = "Custom Python Code Debug"
+            diff = "Practice"
+        else:
+            cdata = challenges_by_id.get(cid, {})
+            title = cdata.get("title", cid.replace("-", " ").title())
+            diff = cdata.get("difficulty", "Easy")
+
+        raw_code = s.get("code") or ""
+        code_preview = raw_code[:120] + "..." if len(raw_code) > 120 else raw_code
+
         submission_history.append({
             "id": s["id"],
             "challenge_id": cid,
-            "title": cdata.get("title", cid.replace("-", " ").title()),
-            "difficulty": cdata.get("difficulty", "Easy"),
+            "title": title,
+            "difficulty": diff,
             "passed": s["passed"],
             "outcome": "Passed" if s["passed"] else "Failed",
             "mistake_tags": s.get("mistake_tags", []),
+            "code_snippet": code_preview,
             "created_at": s.get("created_at")
         })
 
@@ -285,6 +314,8 @@ def get_learner_profile(learner_id: str) -> Dict[str, Any]:
         "challenges_attempted": distinct_attempted,
         "challenges_solved": distinct_solved,
         "challenges_failed": distinct_failed,
+        "custom_debug_count": custom_debug_count,
+        "total_interactions": max(total_interactions, total_submissions),
         "total_submissions": total_submissions,
         "passed_count": passed_count,
         "failed_count": failed_count,
