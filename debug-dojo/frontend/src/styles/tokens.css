@@ -1,0 +1,117 @@
+/* Design Tokens: Debug Dojo Dark Theme */
+:root {
+  /* Color Palette */
+  --color-bg: #0F1420;
+  --color-surface: #171E2E;
+  --color-surface-translucent: rgba(23, 30, 46, 0.72);
+  --color-surface-hover: rgba(30, 39, 60, 0.85);
+  --color-editor: #0B0F19;
+  --color-border: #2A3348;
+  --color-border-subtle: rgba(42, 51, 72, 0.6);
+  --color-border-focus: #2DD4BF;
+  
+  --color-text: #E6EAF2;
+  --color-text-muted: #8A94A8;
+  --color-text-dim: #606B82;
+  --color-text-inverse: #0F1420;
+
+  /* Brand Accents */
+  --color-primary: #FF6B4A;       /* Vermilion */
+  --color-primary-hover: #FF856B;
+  --color-primary-glow: rgba(255, 107, 74, 0.35);
+  --color-secondary: #2DD4BF;     /* Teal */
+  --color-secondary-hover: #5EEAD4;
+  --color-secondary-glow: rgba(45, 212, 191, 0.3);
+
+  /* Outcomes (never rely on color alone: add icon & label) */
+  --color-passed: #34D399;
+  --color-passed-bg: rgba(52, 211, 153, 0.12);
+  --color-wrong-output: #FBBF24;
+  --color-wrong-output-bg: rgba(251, 191, 36, 0.12);
+  --color-runtime-error: #F87171;
+  --color-runtime-error-bg: rgba(248, 113, 113, 0.12);
+  --color-timeout: #A78BFA;
+  --color-timeout-bg: rgba(167, 139, 250, 0.12);
+
+  /* Typography */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-code: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+
+  /* Spacing Scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  /* Glass Effects & Shadows */
+  --glass-blur: blur(16px);
+  --glass-inner-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.55);
+  --shadow-glow-vermilion: 0 0 24px rgba(255, 107, 74, 0.25);
+  --shadow-glow-teal: 0 0 24px rgba(45, 212, 191, 0.2);
+
+  /* Focus Indicator */
+  --focus-ring: 0 0 0 2px var(--color-border-focus);
+  --focus-offset: 2px;
+}
+
+/* Global Reset & Base Styles */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-editor);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Accessible focus outline */
+:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
