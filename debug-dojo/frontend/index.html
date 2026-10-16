@@ -650,29 +650,30 @@ async function fetchProfile(){
       const data = await safeFetchJson(res);
       if(data && !data.error && !data.nonJson){
         fetchedFromBackend = true;
-      S.mastery = data.mastery_per_concept || S.mastery;
-      S.streak = data.streak_days || S.streak || 1;
-      S.recurringList = data.recurring_mistakes || [];
-      S.recommendedChallenge = data.recommended_next_challenge || data.next_challenge || null;
-      S.recommendationReason = data.recommendation_reason || data.reason || "";
-      S.challenges_attempted = data.challenges_attempted != null ? data.challenges_attempted : 0;
-      S.challenges_solved = data.challenges_solved != null ? data.challenges_solved : 0;
-      S.challenges_failed = data.challenges_failed != null ? data.challenges_failed : 0;
-      S.custom_debug_count = data.custom_debug_count != null ? data.custom_debug_count : 0;
-      S.total_interactions = data.total_interactions != null ? data.total_interactions : 0;
-      S.total_submissions = data.total_submissions != null ? data.total_submissions : 0;
-      S.overall_mastery = data.overall_mastery != null ? data.overall_mastery : 50;
-      S.user_history = data.history || [];
+        S.mastery = data.mastery_per_concept || S.mastery;
+        S.streak = data.streak_days || S.streak || 1;
+        S.recurringList = data.recurring_mistakes || [];
+        S.recommendedChallenge = data.recommended_next_challenge || data.next_challenge || null;
+        S.recommendationReason = data.recommendation_reason || data.reason || "";
+        S.challenges_attempted = data.challenges_attempted != null ? data.challenges_attempted : 0;
+        S.challenges_solved = data.challenges_solved != null ? data.challenges_solved : 0;
+        S.challenges_failed = data.challenges_failed != null ? data.challenges_failed : 0;
+        S.custom_debug_count = data.custom_debug_count != null ? data.custom_debug_count : 0;
+        S.total_interactions = data.total_interactions != null ? data.total_interactions : 0;
+        S.total_submissions = data.total_submissions != null ? data.total_submissions : 0;
+        S.overall_mastery = data.overall_mastery != null ? data.overall_mastery : 50;
+        S.user_history = data.history || [];
 
-      // Update S.status accurately from real SQLite database history
-      CH.forEach(c => { S.status[c.id] = 'new'; });
-      if(data.history && data.history.length){
-        data.history.forEach(h => {
-          if(h.challenge_id && h.challenge_id !== 'custom-code'){
-            if(h.passed) S.status[h.challenge_id] = 'solved';
-            else if(S.status[h.challenge_id] !== 'solved') S.status[h.challenge_id] = 'attempted';
-          }
-        });
+        // Update S.status accurately from real SQLite database history
+        CH.forEach(c => { S.status[c.id] = 'new'; });
+        if(data.history && data.history.length){
+          data.history.forEach(h => {
+            if(h.challenge_id && h.challenge_id !== 'custom-code'){
+              if(h.passed) S.status[h.challenge_id] = 'solved';
+              else if(S.status[h.challenge_id] !== 'solved') S.status[h.challenge_id] = 'attempted';
+            }
+          });
+        }
       }
     }
   }catch(e){
@@ -3361,7 +3362,10 @@ const GL=(function(){
 
 GL.init();
 initAuthModal();
-fetchProfile().then(()=>route());
+route();
+if(isLoggedIn()){
+  fetchProfile().then(()=>route());
+}
 </script>
 </body>
 </html>
