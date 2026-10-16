@@ -4,8 +4,8 @@
   "function_name": "last_k_total",
   "difficulty": "Easy",
   "concepts": ["Lists", "Loops", "Indexing"],
-  "description": "Rohan's score tracker needs to compute the sum of the last `k` marks in a list of scores.\nIf `k <= 0`, return 0.\nIf `k > len(marks)`, sum all available marks in the list.",
-  "starter_code": "def last_k_total(marks, k):\n    # Write your solution here\n    if k <= 0:\n        return 0\n    if k > len(marks):\n        return sum(marks)\n    return sum(marks[-k:])\n",
+  "description": "A teacher keeps a list of marks. Write a function named last_k_total that returns the total of the last k marks in the list. If k is larger than the list, return the total of all marks. If k is 0 or marks is empty, return 0.",
+  "starter_code": "def last_k_total(marks, k):\n    # Return the total of the last k marks\n    pass\n",
   "visible_tests": [
     {
       "test": 1,
@@ -15,28 +15,28 @@
     },
     {
       "test": 2,
-      "call": "last_k_total([5, 10, 15], 1)",
-      "args": [[5, 10, 15], 1],
-      "expected": 15
+      "call": "last_k_total([5, 6], 5)",
+      "args": [[5, 6], 5],
+      "expected": 11
     },
     {
       "test": 3,
-      "call": "last_k_total([12, 18], 0)",
-      "args": [[12, 18], 0],
+      "call": "last_k_total([], 3)",
+      "args": [[], 3],
       "expected": 0
     }
   ],
   "hidden_tests": [
     {
       "test": 4,
-      "kind": "a case where k is larger than the list",
-      "args": [[10, 20, 30], 5],
-      "expected": 60
+      "kind": "a case where k is 0",
+      "args": [[10, 20, 30], 0],
+      "expected": 0
     },
     {
       "test": 5,
-      "kind": "an empty list input",
-      "args": [[], 3],
+      "kind": "an empty list with k=0",
+      "args": [[], 0],
       "expected": 0
     },
     {
@@ -48,8 +48,9 @@
   ],
   "hints": [
     "Slices and index ranges use boundaries that are easy to misjudge, especially when k is 0 or negative.",
-    "Inspect how you slice: in Python, marks[-0:] is equivalent to marks[0:], which selects the entire list!",
+    "Inspect how you slice: in Python, marks[-0:] selects the entire list instead of an empty slice!",
     "When k is larger than len(marks), you should clamp the number of summed items to the list length.",
-    "Add explicit checks for k <= 0 returning 0, and clamp k = min(k, len(marks)) before slicing or summing."
+    "Add explicit checks for k <= 0 returning 0, and clamp k = min(k, len(marks)) before slicing or summing.",
+    "Use sum(marks[-k:]) only when k > 0, guarding with an if condition beforehand."
   ]
 }

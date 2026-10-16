@@ -1,0 +1,55 @@
+{
+  "id": "second-largest",
+  "title": "Second Largest",
+  "function_name": "second_largest",
+  "difficulty": "Medium",
+  "concepts": ["Lists", "Conditions", "Sets"],
+  "description": "Write a function named second_largest that returns the second largest distinct number in a list. Return None when the list has fewer than two distinct values.",
+  "starter_code": "def second_largest(nums):\n    # Return the second largest distinct value, or None\n    pass\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "second_largest([4, 9, 7])",
+      "args": [[4, 9, 7]],
+      "expected": 7
+    },
+    {
+      "test": 2,
+      "call": "second_largest([5, 5, 5])",
+      "args": [[5, 5, 5]],
+      "expected": null
+    },
+    {
+      "test": 3,
+      "call": "second_largest([])",
+      "args": [[]],
+      "expected": null
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 4,
+      "kind": "duplicates of the maximum value",
+      "args": [[10, 10, 8, 5]],
+      "expected": 8
+    },
+    {
+      "test": 5,
+      "kind": "negative numbers with repeats",
+      "args": [[-10, -3, -5, -3]],
+      "expected": -5
+    },
+    {
+      "test": 6,
+      "kind": "a single element list",
+      "args": [[42]],
+      "expected": null
+    }
+  ],
+  "hints": [
+    "Finding the second distinct largest requires filtering out duplicate occurrences of the maximum value.",
+    "Look at how you handle duplicates: sorting [5, 5, 5] yields 5 at index -2, but there is no distinct second value.",
+    "Converting the list to a set eliminates duplicates. Check if len(unique) < 2, returning None.",
+    "Filter unique = sorted(set(nums)). If len(unique) >= 2, return unique[-2], else return None."
+  ]
+}

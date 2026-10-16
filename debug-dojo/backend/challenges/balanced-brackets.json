@@ -1,0 +1,54 @@
+{
+  "id": "balanced-brackets",
+  "title": "Balanced Brackets",
+  "function_name": "balanced_brackets",
+  "difficulty": "Hard",
+  "concepts": ["Stacks", "Strings", "Conditions"],
+  "description": "Write a function named balanced_brackets that takes a string composed of bracket characters '()[]{}' and returns True if every opening bracket is matched and closed in the correct order, or False otherwise. An empty string is considered balanced.",
+  "starter_code": "def balanced_brackets(s):\n    # Return True if brackets are balanced, False otherwise\n    pass\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "balanced_brackets('([]){}')",
+      "args": ["([]){}"],
+      "expected": true
+    },
+    {
+      "test": 2,
+      "call": "balanced_brackets('([)]')",
+      "args": ["([)]"],
+      "expected": false
+    },
+    {
+      "test": 3,
+      "call": "balanced_brackets('')",
+      "args": [""],
+      "expected": true
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 4,
+      "kind": "an unclosed opening bracket at end",
+      "args": ["(()"],
+      "expected": false
+    },
+    {
+      "test": 5,
+      "kind": "a solitary closing bracket with empty stack",
+      "args": [")"],
+      "expected": false
+    },
+    {
+      "test": 6,
+      "kind": "deeply nested matching bracket pairs",
+      "args": ["{[()]}"],
+      "expected": true
+    }
+  ],
+  "hints": [
+    "Bracket validation is a classic Last-In-First-Out (LIFO) stack problem.",
+    "Inspect the stack state when encountering closing brackets: check if stack is empty, and verify stack.pop() matches the expected pair.",
+    "After scanning the entire string, the stack must be completely empty (len(stack) == 0) for the string to be valid."
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "id": "compress-runs",
+  "title": "Compress Runs",
+  "function_name": "compress_runs",
+  "difficulty": "Hard",
+  "concepts": ["Strings", "Loops", "Indexing"],
+  "description": "Write a function named compress_runs that compresses a string by replacing each contiguous run of the same character with the character followed by the length of the run. Return an empty string if text is empty.",
+  "starter_code": "def compress_runs(text):\n    # Return the run-length encoded string\n    pass\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "compress_runs('aaabcc')",
+      "args": ["aaabcc"],
+      "expected": "a3b1c2"
+    },
+    {
+      "test": 2,
+      "call": "compress_runs('')",
+      "args": [""],
+      "expected": ""
+    },
+    {
+      "test": 3,
+      "call": "compress_runs('z')",
+      "args": ["z"],
+      "expected": "z1"
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 4,
+      "kind": "a single long run of identical characters",
+      "args": ["aaaaa"],
+      "expected": "a5"
+    },
+    {
+      "test": 5,
+      "kind": "all distinct single characters",
+      "args": ["abcde"],
+      "expected": "a1b1c1d1e1"
+    },
+    {
+      "test": 6,
+      "kind": "alternating repeated runs",
+      "args": ["aabbaa"],
+      "expected": "a2b2a2"
+    }
+  ],
+  "hints": [
+    "Run-length encoding requires tracking the current active character and its consecutive frequency count.",
+    "Examine loop termination: the final run has no subsequent character change to trigger appending to the result.",
+    "Flush the final accumulated run after the loop completes: append f'{current_char}{count}' before returning."
+  ]
+}

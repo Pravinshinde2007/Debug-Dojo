@@ -1,0 +1,54 @@
+{
+  "id": "longest-streak",
+  "title": "Longest Streak",
+  "function_name": "longest_streak",
+  "difficulty": "Hard",
+  "concepts": ["Lists", "Loops", "State tracking"],
+  "description": "Write a function named longest_streak that finds the maximum number of consecutive identical elements in a list. If the list is empty, return 0.",
+  "starter_code": "def longest_streak(items):\n    # Return max consecutive streak of same value, 0 if empty\n    pass\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "longest_streak([1, 1, 2, 2, 2, 3])",
+      "args": [[1, 1, 2, 2, 2, 3]],
+      "expected": 3
+    },
+    {
+      "test": 2,
+      "call": "longest_streak([])",
+      "args": [[]],
+      "expected": 0
+    },
+    {
+      "test": 3,
+      "call": "longest_streak(['a', 'b', 'c'])",
+      "args": [["a", "b", "c"]],
+      "expected": 1
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 4,
+      "kind": "streak occurring at the very end of list",
+      "args": [[5, 5, 2, 4, 4, 4, 4]],
+      "expected": 4
+    },
+    {
+      "test": 5,
+      "kind": "all elements identical",
+      "args": [[9, 9, 9]],
+      "expected": 3
+    },
+    {
+      "test": 6,
+      "kind": "alternating non-consecutive elements",
+      "args": [[1, 2, 1, 2, 1]],
+      "expected": 1
+    }
+  ],
+  "hints": [
+    "Streak counting requires maintaining two variables: the current streak length and the global maximum streak seen so far.",
+    "Inspect the transition when items[i] != items[i-1]: update max_streak = max(max_streak, current_streak) and reset current_streak to 1.",
+    "Remember to update max_streak one final time after exiting the loop in case the longest streak extends to the end of the list."
+  ]
+}

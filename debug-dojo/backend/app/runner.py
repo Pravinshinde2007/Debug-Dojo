@@ -99,7 +99,9 @@ def execute_single_test(code: str, function_name: str, test_def: Dict[str, Any],
                     "got": str(return_val) if return_val is not None else "",
                     "stdout": stdout,
                     "mutated_input": mutated_input,
-                    "error_msg": runtime_err
+                    "error_msg": runtime_err,
+                    "error_type": result_data.get("error_type") or "RuntimeError",
+                    "error_line": result_data.get("error_line")
                 }
 
             # Check argument mutation restriction if prohibited
@@ -110,7 +112,9 @@ def execute_single_test(code: str, function_name: str, test_def: Dict[str, Any],
                     "got": str(return_val),
                     "stdout": stdout,
                     "mutated_input": True,
-                    "error_msg": "Function illegally mutated input argument"
+                    "error_msg": "Function illegally mutated input argument",
+                    "error_type": None,
+                    "error_line": None
                 }
 
             # Compare return value with expected
@@ -126,7 +130,9 @@ def execute_single_test(code: str, function_name: str, test_def: Dict[str, Any],
                 "stdout": stdout,
                 "mutated_input": mutated_input,
                 "return_val": return_val,
-                "error_msg": None
+                "error_msg": None,
+                "error_type": None,
+                "error_line": None
             }
 
         except subprocess.TimeoutExpired:
@@ -137,7 +143,9 @@ def execute_single_test(code: str, function_name: str, test_def: Dict[str, Any],
                 "got": "",
                 "stdout": "",
                 "mutated_input": False,
-                "error_msg": f"Execution timed out (exceeded {timeout}s limit)"
+                "error_msg": f"Execution timed out (exceeded {timeout}s limit)",
+                "error_type": "TimeoutError",
+                "error_line": None
             }
         except Exception as ex:
             return {
@@ -146,7 +154,9 @@ def execute_single_test(code: str, function_name: str, test_def: Dict[str, Any],
                 "got": "",
                 "stdout": "",
                 "mutated_input": False,
-                "error_msg": f"Sandbox execution error: {str(ex)}"
+                "error_msg": f"Sandbox execution error: {str(ex)}",
+                "error_type": type(ex).__name__,
+                "error_line": getattr(ex, "lineno", None)
             }
 
 
@@ -172,19 +182,46 @@ def run_submission(code: str, challenge: Dict[str, Any]) -> Dict[str, Any]:
     detailed_test_data = []  # Used internally by tagger, never exposed to user
 
     all_passed = True
+    first_error = None
+    first_failed_test = None
+    has_timeout = False
+    has_runtime = False
+    has_wrong = False
 
     # 1. Run Visible Tests
     for idx, t in enumerate(visible_tests, 1):
         res = execute_single_test(code, function_name, t)
         if res["outcome"] != "passed":
             all_passed = False
+            if not first_failed_test:
+                first_failed_test = {
+                    "test": idx,
+                    "call": t.get("call", f"{function_name}()"),
+                    "expected": str(t.get("expected", "")),
+                    "got": res["got"],
+                    "outcome": res["outcome"],
+                    "kind": t.get("kind", "")
+                }
+            if res["outcome"] == "timeout":
+                has_timeout = True
+            elif res["outcome"] == "runtime_error":
+                has_runtime = True
+                if not first_error:
+                    first_error = {
+                        "error_type": res.get("error_type") or "RuntimeError",
+                        "error_line": res.get("error_line"),
+                        "error_msg": res.get("error_msg")
+                    }
+            else:
+                has_wrong = True
 
         visible_results.append({
             "test": idx,
             "call": t.get("call", f"{function_name}()"),
             "expected": str(t.get("expected", "")),
             "got": res["got"],
-            "outcome": res["outcome"]
+            "outcome": res["outcome"],
+            "error_msg": res.get("error_msg")
         })
 
         detailed_test_data.append({
@@ -198,7 +235,9 @@ def run_submission(code: str, challenge: Dict[str, Any]) -> Dict[str, Any]:
             "outcome": res["outcome"],
             "mutated_input": res.get("mutated_input", False),
             "kind": t.get("kind", ""),
-            "error_msg": res.get("error_msg")
+            "error_msg": res.get("error_msg"),
+            "error_type": res.get("error_type"),
+            "error_line": res.get("error_line")
         })
 
     # 2. Run Hidden Tests (Strict Confidentiality Guard)
@@ -206,6 +245,27 @@ def run_submission(code: str, challenge: Dict[str, Any]) -> Dict[str, Any]:
         res = execute_single_test(code, function_name, t)
         if res["outcome"] != "passed":
             all_passed = False
+            if not first_failed_test:
+                first_failed_test = {
+                    "test": idx,
+                    "call": f"{function_name}(...)",
+                    "expected": "confidential",
+                    "got": "confidential",
+                    "outcome": res["outcome"],
+                    "kind": t.get("kind", "")
+                }
+            if res["outcome"] == "timeout":
+                has_timeout = True
+            elif res["outcome"] == "runtime_error":
+                has_runtime = True
+                if not first_error:
+                    first_error = {
+                        "error_type": res.get("error_type") or "RuntimeError",
+                        "error_line": res.get("error_line"),
+                        "error_msg": res.get("error_msg")
+                    }
+            else:
+                has_wrong = True
 
         # Rule 2: Never reveal hidden test's input, expected, got, or exception message!
         hidden_results.append({
@@ -224,13 +284,27 @@ def run_submission(code: str, challenge: Dict[str, Any]) -> Dict[str, Any]:
             "outcome": res["outcome"],
             "mutated_input": res.get("mutated_input", False),
             "kind": t.get("kind", ""),  # e.g. "a case where k is larger than the list"
-            "error_msg": res.get("error_msg")
+            "error_msg": res.get("error_msg"),
+            "error_type": res.get("error_type"),
+            "error_line": res.get("error_line")
         })
+
+    if all_passed:
+        overall_outcome = "passed"
+    elif has_timeout:
+        overall_outcome = "timeout"
+    elif has_runtime:
+        overall_outcome = "runtime error"
+    else:
+        overall_outcome = "wrong output"
 
     return {
         "visible": visible_results,
         "hidden": hidden_results,
         "all_passed": all_passed,
+        "overall_outcome": overall_outcome,
+        "first_error": first_error,
+        "first_failed_test": first_failed_test,
         "_detailed_data": detailed_test_data  # Internal only for tagger / explain
     }
 

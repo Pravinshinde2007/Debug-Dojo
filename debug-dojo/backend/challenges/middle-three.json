@@ -4,8 +4,8 @@
   "function_name": "middle_three",
   "difficulty": "Medium",
   "concepts": ["Lists", "Indexing", "Input handling"],
-  "description": "Write a function `middle_three(items)` that returns the middle three elements of a list of odd length >= 3 as a new list.\nIf `len(items) < 3`, return an empty list `[]`.\nYour function must not mutate or alter the original input list.",
-  "starter_code": "def middle_three(items):\n    # Write your solution here\n    if len(items) < 3:\n        return []\n    mid = len(items) // 2\n    return items[mid - 1 : mid + 2]\n",
+  "description": "Write a function `middle_three(items)` that returns the middle three elements of a list of odd length >= 3 as a new list. If `len(items) < 3`, return an empty list `[]`. Your function must not mutate or alter the original input list.",
+  "starter_code": "def middle_three(items):\n    # Return the middle three items without mutating input\n    pass\n",
   "visible_tests": [
     {
       "test": 1,
@@ -18,23 +18,29 @@
       "call": "middle_three(['a', 'b', 'c'])",
       "args": [["a", "b", "c"]],
       "expected": ["a", "b", "c"]
+    },
+    {
+      "test": 3,
+      "call": "middle_three([1])",
+      "args": [[1]],
+      "expected": []
     }
   ],
   "hidden_tests": [
     {
-      "test": 3,
+      "test": 4,
       "kind": "a short list with 2 elements",
       "args": [[10, 20]],
       "expected": []
     },
     {
-      "test": 4,
+      "test": 5,
       "kind": "an empty list",
       "args": [[]],
       "expected": []
     },
     {
-      "test": 5,
+      "test": 6,
       "kind": "a list with 7 elements checking mutation",
       "args": [[10, 20, 30, 40, 50, 60, 70]],
       "expected": [30, 40, 50],

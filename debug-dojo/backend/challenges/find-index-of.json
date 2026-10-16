@@ -4,8 +4,8 @@
   "function_name": "find_index_of",
   "difficulty": "Easy",
   "concepts": ["Lists", "Loops", "Indexing"],
-  "description": "Write a function `find_index_of(items, target)` that returns the zero-based index of the first occurrence of `target` in `items`.\nIf `target` is not found, return `-1`.\nDo not use the built-in `.index()` method.",
-  "starter_code": "def find_index_of(items, target):\n    # Write your solution here\n    for i, x in enumerate(items):\n        if x == target:\n            return i\n    return -1\n",
+  "description": "Write a function `find_index_of(items, target)` that returns the zero-based index of the first occurrence of `target` in `items`. If `target` is not found, return `-1`.",
+  "starter_code": "def find_index_of(items, target):\n    # Return first index of target, or -1\n    pass\n",
   "visible_tests": [
     {
       "test": 1,
@@ -18,15 +18,15 @@
       "call": "find_index_of(['a', 'b', 'c'], 'z')",
       "args": [["a", "b", "c"], "z"],
       "expected": -1
+    },
+    {
+      "test": 3,
+      "call": "find_index_of([], 5)",
+      "args": [[], 5],
+      "expected": -1
     }
   ],
   "hidden_tests": [
-    {
-      "test": 3,
-      "kind": "an empty list input",
-      "args": [[], 42],
-      "expected": -1
-    },
     {
       "test": 4,
       "kind": "target at index 0 (first element)",
@@ -35,6 +35,12 @@
     },
     {
       "test": 5,
+      "kind": "duplicate targets returning first occurrence",
+      "args": [[5, 2, 5, 5], 5],
+      "expected": 0
+    },
+    {
+      "test": 6,
       "kind": "target at the very last index",
       "args": [[1, 2, 3, 4], 4],
       "expected": 3
@@ -42,8 +48,9 @@
   ],
   "hints": [
     "Linear searching examines each element along with its numeric position.",
-    "Make sure you track index from 0 rather than 1, and only return once a match is confirmed.",
-    "If your loop completes without finding a match, the fallback return must be -1.",
-    "Use enumerate(items) to check each index and item pair, returning the index on match and -1 after the loop."
+    "Inspect how you iterate: Python lists are 0-indexed, so the first element is at index 0.",
+    "Make sure your function returns immediately as soon as the first match is found, not after checking the entire list.",
+    "If the loop finishes without finding any match, return -1 as the fallback.",
+    "Use 'for i in range(len(items)):' or 'for i, val in enumerate(items):' to track the current index."
   ]
 }

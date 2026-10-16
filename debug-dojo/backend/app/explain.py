@@ -23,6 +23,23 @@ def explain_failure(test_run_data: Dict[str, Any], mistake_tags: List[str], chal
     if test_run_data.get("all_passed", True):
         return "All tests passed! Excellent work sharpening your logic."
 
+    first_error = test_run_data.get("first_error")
+    if first_error and first_error.get("error_type"):
+        line_part = f" on line {first_error.get('error_line')}" if first_error.get("error_line") else ""
+        err_msg = first_error.get("error_msg", "")
+        # Remove redundant exception prefix if already in error_msg
+        return f"Runtime error ({first_error.get('error_type')}){line_part}: {err_msg}"
+
+    first_failed = test_run_data.get("first_failed_test")
+    if first_failed:
+        outcome = first_failed.get("outcome")
+        if outcome == "timeout":
+            return "Your solution took too long to complete. Check for an infinite loop or an unadvancing index variable."
+        if first_failed.get("kind"):
+            return f"Your code passed visible tests, but failed on hidden boundary case: {first_failed.get('kind')}."
+        if outcome == "wrong_output" and first_failed.get("call"):
+            return f"Incorrect output on test #{first_failed.get('test', 1)}: calling {first_failed.get('call')} returned {first_failed.get('got')} instead of {first_failed.get('expected')}."
+
     detailed_tests = test_run_data.get("_detailed_data", [])
     
     # Find first failing test
@@ -37,9 +54,6 @@ def explain_failure(test_run_data: Dict[str, Any], mistake_tags: List[str], chal
 
     kind = first_failure.get("kind", "")
     outcome = first_failure.get("outcome")
-
-    # If it failed on a specific KIND of test case, refer to the kind in plain English
-    explanation_parts = []
 
     if outcome == "timeout":
         return "Your solution took too long to complete. Check for an infinite loop or an unadvancing index variable."
@@ -67,69 +81,113 @@ def explain_failure(test_run_data: Dict[str, Any], mistake_tags: List[str], chal
     return "A test case did not produce the expected result. Check your loop boundaries and return condition."
 
 
-def get_progressive_hints(challenge: Dict[str, Any], mistake_tags: List[str], test_run_data: Dict[str, Any]) -> List[str]:
+def get_progressive_hints(
+    challenge: Dict[str, Any],
+    mistake_tags: List[str],
+    test_run_data: Dict[str, Any],
+    code: str = ""
+) -> List[str]:
     """
-    Builds the 4 progressive hint levels for a failure.
-    Level 1: General concept
-    Level 2: Where to investigate
-    Level 3: Underlying cause
-    Level 4: Debugging strategy
+    Builds level-scaled progressive hints:
+    - Beginner (Easy): 5 hints
+    - Intermediate (Medium): 4 hints
+    - Advanced (Hard): 3 hints
+
+    Hint 2 explicitly highlights the line number where the error or decision occurs.
     """
-    challenge_id = challenge.get("id", "")
-    challenge_hints = challenge.get("hints", {})
+    difficulty = str(challenge.get("difficulty") or "Easy").lower()
+    max_hints = 5 if difficulty == "easy" else 4 if difficulty == "medium" else 3
+
+    # Extract error line if a runtime or syntax error occurred
+    error_line = None
+    error_type = None
+    first_error = test_run_data.get("first_error") if isinstance(test_run_data, dict) else None
+    if first_error:
+        error_line = first_error.get("error_line")
+        error_type = first_error.get("error_type")
+
+    # If no runtime crash line, inspect code for return statement or condition
+    if not error_line and code:
+        lines = code.split("\n")
+        for idx, l in enumerate(lines, 1):
+            s = l.strip()
+            if s.startswith("return ") or s.startswith("if ") or s.startswith("for ") or s.startswith("while "):
+                error_line = idx
+                break
+
+    first_failed = test_run_data.get("first_failed_test", {}) if isinstance(test_run_data, dict) else {}
+    kind = first_failed.get("kind", "")
 
     # Check if challenge has pre-authored custom hints
-    if isinstance(challenge_hints, list) and len(challenge_hints) >= 4:
-        return [leak_guard(h) for h in challenge_hints[:4]]
+    challenge_hints = challenge.get("hints", [])
+    if isinstance(challenge_hints, list) and len(challenge_hints) >= max_hints:
+        hints = list(challenge_hints[:max_hints])
+        # Inject line number into hint 2 if available
+        if error_line and len(hints) >= 2:
+            hints[1] = f"Look at Line {error_line} in your code: {hints[1]}"
+        return [leak_guard(h) for h in hints]
 
-    # Otherwise synthesize progressive hints based on mistake tags and challenge
+    # Synthesize hints based on mistake tags and failure context
     hints = []
+
+    # Hint 2 line reference
+    where_to_look = (
+        f"Look at Line {error_line} in your code: inspect the expressions and operations evaluated on this line."
+        if error_line
+        else "Inspect the loop termination and return statements inside your function body."
+    )
 
     if "print_not_return" in mistake_tags:
         hints = [
-            "In Python functions, producing console output is distinct from delivering data to the program that called the function.",
-            "Inspect the last statement of your function body. Look at whether you are printing or returning.",
+            "In Python functions, producing console output with print() is distinct from returning a value to the caller.",
+            where_to_look,
             "The calling test expects to receive an object via 'return', but currently receives None because print() has no return value.",
+            "Functions evaluated by an automated judge must return their result so the test runner can compare it with the expected answer.",
             "Replace the call to print(...) with a return statement that hands the computed value back to the caller."
         ]
     elif "mutates_input" in mistake_tags:
         hints = [
-            "Functions that process collections should ideally avoid side-effects on their input arguments.",
-            "Look for list methods that remove elements or alter the list directly (such as .pop(), .remove(), or del).",
-            "When you mutate the argument in-place, subsequent tests or callers find the original data destroyed.",
-            "Instead of modifying the argument list, use slicing or build a fresh result list to return."
+            "Functions that process collections should avoid modifying their input arguments directly.",
+            where_to_look,
+            "When you mutate an argument in-place with methods like .pop() or del, subsequent callers find the original data destroyed.",
+            "Operating on a slice copy or accumulating into a new list guarantees the original input remains untouched.",
+            "Instead of modifying the argument list, construct and return a fresh new list or use non-mutating operations."
         ]
     elif "unhandled_short_input" in mistake_tags:
         hints = [
-            "Algorithms must guard against inputs that are smaller than the standard case or completely empty.",
-            "Check what happens before entering your main loop or calculation: what if the input length is 0 or less than expected?",
-            "Attempting to slice with negative indices or access indices without checking length can trigger unexpected behavior.",
-            "Add a guard clause at the very beginning of your function that explicitly checks for empty collections or non-positive sizes."
+            "Algorithms must handle boundary cases gracefully, such as empty collections or inputs smaller than expected.",
+            where_to_look,
+            f"Pay special attention to {kind or 'boundary conditions'}: what happens when the length is 0 or less than the required amount?",
+            "Attempting to slice with negative indices or accessing elements without checking length can return unexpected values.",
+            "Add an early guard clause at the start of your function that explicitly handles empty inputs or small sizes."
         ]
     elif "boundary_comparison" in mistake_tags:
         hints = [
             "Threshold decisions often hinge on whether a value meeting the exact boundary is included or excluded.",
-            "Examine your relational comparison operators (such as '>' versus '>=') inside the condition.",
-            "A student with a score exactly equal to the pass mark should qualify, but strict inequality treats them as failed.",
-            "Change the strict comparison to an inclusive comparison so that values exactly matching the boundary are counted."
+            where_to_look,
+            "Check what happens when an input value exactly matches the threshold (such as 40 in a pass mark).",
+            "Relational operators like '>' exclude the boundary value, whereas '>=' includes it.",
+            "Change the strict inequality to an inclusive comparison so that values exactly matching the boundary are counted."
         ]
     elif "off_by_one" in mistake_tags:
         hints = [
             "Loop ranges and slices in Python use half-open intervals: the upper boundary is excluded.",
-            "Trace the start and stop arguments of your range(...) or slice [start:stop].",
-            "If your range starts at 0 instead of 1, or stops one item too early, your list will either miss the final item or include an unwanted zero.",
+            where_to_look,
+            "Trace the start and stop arguments: Python range(n) produces 0 through n-1, not 1 through n.",
+            "If your range starts at 0 instead of 1, or stops one item too early, your list will either miss the final item or include an unwanted element.",
             "Adjust the range start or stop parameter by 1 so the sequence covers precisely the intended elements."
         ]
     else:
         hints = [
             "Review the problem specification carefully and consider what assumptions your logic makes about the inputs.",
-            "Check the variable initialization and the condition governing when the computation ends.",
-            "Trace your code manually on a 2-element example to verify the intermediate values.",
-            "Add temporary assertions or verify that each edge case (0, 1, empty) produces the desired output."
+            where_to_look,
+            f"Consider how your function behaves on edge cases such as {kind or 'empty inputs, single items, or boundary thresholds'}.",
+            "Trace your code manually on a 2-element example to verify the intermediate values at each step.",
+            "Add temporary assertions or check variable state before returning to verify all logic branches."
         ]
 
-    # Ensure all hints pass leak guard
-    return [leak_guard(h) for h in hints]
+    # Ensure all hints pass leak guard and match difficulty max_hints
+    return [leak_guard(h) for h in hints[:max_hints]]
 
 
 def explain_custom_code_error(

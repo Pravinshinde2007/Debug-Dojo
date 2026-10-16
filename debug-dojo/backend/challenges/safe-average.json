@@ -2,42 +2,54 @@
   "id": "safe-average",
   "title": "Safe Average",
   "function_name": "safe_average",
-  "difficulty": "Easy",
-  "concepts": ["Lists", "Conditions", "Input handling"],
-  "description": "Write a function `safe_average(readings)` that computes the float average of a list of numbers.\nIf the list is empty, safely return `0.0` to avoid zero-division errors.",
-  "starter_code": "def safe_average(readings):\n    # Write your solution here\n    if not readings:\n        return 0.0\n    return sum(readings) / len(readings)\n",
+  "difficulty": "Medium",
+  "concepts": ["Functions", "Input handling", "Conditions"],
+  "description": "Sensor readings arrive as a list, and a missing reading is None. Write a function named safe_average that returns the average of the valid readings, or 0.0 when there are none.",
+  "starter_code": "def safe_average(readings):\n    # Average the readings that are not None, or return 0.0\n    pass\n",
   "visible_tests": [
     {
       "test": 1,
+      "call": "safe_average([2, None, 4])",
+      "args": [[2, null, 4]],
+      "expected": 3.0
+    },
+    {
+      "test": 2,
       "call": "safe_average([10, 20, 30])",
       "args": [[10, 20, 30]],
       "expected": 20.0
     },
     {
-      "test": 2,
-      "call": "safe_average([5])",
-      "args": [[5]],
-      "expected": 5.0
+      "test": 3,
+      "call": "safe_average([])",
+      "args": [[]],
+      "expected": 0.0
     }
   ],
   "hidden_tests": [
     {
-      "test": 3,
-      "kind": "an empty list of sensor readings",
-      "args": [[]],
+      "test": 4,
+      "kind": "a list containing only None values",
+      "args": [[null, null]],
       "expected": 0.0
     },
     {
-      "test": 4,
-      "kind": "a list with negative values",
-      "args": [[-10, 10]],
+      "test": 5,
+      "kind": "a list with negative values and None",
+      "args": [[-10, null, 10]],
       "expected": 0.0
+    },
+    {
+      "test": 6,
+      "kind": "single reading with None elements",
+      "args": [[null, 5.0]],
+      "expected": 5.0
     }
   ],
   "hints": [
-    "Averaging requires dividing by the number of elements, which is undefined when empty.",
-    "Examine what happens when len(readings) is zero: Python will raise ZeroDivisionError.",
-    "You must guard against an empty list before computing the division.",
-    "Add an initial check: if len(readings) == 0, return 0.0 immediately."
+    "Averaging requires filtering valid numeric values and guarding against zero denominators.",
+    "Inspect how you filter: you must exclude None values before calculating length or summing.",
+    "Attempting sum() on a list containing None will raise a TypeError: unsupported operand type.",
+    "Filter valid readings with a list comprehension: valid = [x for x in readings if x is not None]. If not valid, return 0.0."
   ]
 }

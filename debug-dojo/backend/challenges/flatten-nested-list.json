@@ -1,0 +1,54 @@
+{
+  "id": "flatten-nested-list",
+  "title": "Flatten Nested List",
+  "function_name": "flatten_nested_list",
+  "difficulty": "Hard",
+  "concepts": ["Recursion", "Lists"],
+  "description": "Write a recursive function named flatten_nested_list that accepts an arbitrarily nested list of integers and returns a flat 1D list containing all the numbers in order. Empty sublists should simply contribute no elements.",
+  "starter_code": "def flatten_nested_list(nested):\n    # Return flat list of integers from arbitrarily nested list\n    pass\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "flatten_nested_list([1, [2, [3, 4]], 5])",
+      "args": [[[1, [2, [3, 4]], 5]]],
+      "expected": [1, 2, 3, 4, 5]
+    },
+    {
+      "test": 2,
+      "call": "flatten_nested_list([])",
+      "args": [[]],
+      "expected": []
+    },
+    {
+      "test": 3,
+      "call": "flatten_nested_list([1, 2, 3])",
+      "args": [[1, 2, 3]],
+      "expected": [1, 2, 3]
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 4,
+      "kind": "empty nested lists interspersed",
+      "args": [[[[], [1, []], [[2]]]]],
+      "expected": [1, 2]
+    },
+    {
+      "test": 5,
+      "kind": "single deeply nested element",
+      "args": [[[[[42]]]]],
+      "expected": [42]
+    },
+    {
+      "test": 6,
+      "kind": "mixed nesting depths",
+      "args": [[[[1, 2], 3, [4, [5, 6]]]]],
+      "expected": [1, 2, 3, 4, 5, 6]
+    }
+  ],
+  "hints": [
+    "Arbitrarily nested structures require recursive traversal or an iterative stack to unwrap each nesting level.",
+    "Inspect how you distinguish list containers from leaf elements: use isinstance(item, list) to choose between recursion and appending.",
+    "Iterate through items: if isinstance(item, list), recursively extend the accumulator with flatten_nested_list(item); otherwise append the item."
+  ]
+}

@@ -78,6 +78,17 @@ class SubmitResponse(BaseModel):
     mistake_tags: List[str]
     explanation: str
     passed: Optional[bool] = None
+    overall_outcome: Optional[str] = "passed"
+    error_type: Optional[str] = None
+    error_line: Optional[int] = None
+    error_msg: Optional[str] = None
+    total_hints: Optional[int] = 4
+    failed_test_num: Optional[int] = None
+    failed_test_call: Optional[str] = None
+    failed_test_expected: Optional[str] = None
+    failed_test_got: Optional[str] = None
+    visible_test_results: Optional[List[VisibleTestResult]] = None
+    hidden_test_outcomes: Optional[List[HiddenTestResult]] = None
 
 
 class HintRequest(BaseModel):
@@ -133,11 +144,17 @@ class CustomDebugResponse(BaseModel):
 
 def find_challenge(challenge_id: str) -> Optional[Dict[str, Any]]:
     challenges_dir = BASE_DIR / "challenges"
+    cid = challenge_id.strip()
     candidates = [
-        challenges_dir / f"{challenge_id}.json",
-        challenges_dir / f"{challenge_id.replace('_', '-')}.json",
-        challenges_dir / f"{challenge_id.replace('-', '_')}.json"
+        challenges_dir / f"{cid}.json",
+        challenges_dir / f"{cid.replace('_', '-')}.json",
+        challenges_dir / f"{cid.replace('-', '_')}.json"
     ]
+    if "vowel" in cid:
+        candidates.extend([
+            challenges_dir / "count-vowels.json",
+            challenges_dir / "vowel-count.json"
+        ])
     for p in candidates:
         if p.exists():
             try:
@@ -227,6 +244,12 @@ def submit_code(req: SubmitRequest):
     ]
 
     all_passed = run_result.get("all_passed", False)
+    overall_outcome = run_result.get("overall_outcome", "passed" if all_passed else "wrong output")
+    first_error = run_result.get("first_error") or {}
+    first_failed = run_result.get("first_failed_test") or {}
+
+    diff = str(challenge.get("difficulty") or "Easy").lower()
+    total_hints = 5 if diff == "easy" else 4 if diff == "medium" else 3
 
     # 4. Persist in SQLite
     with get_db_connection() as conn:
@@ -261,14 +284,29 @@ def submit_code(req: SubmitRequest):
         hidden=hidden_tests,
         mistake_tags=mistake_tags,
         explanation=explanation,
-        passed=all_passed
+        passed=all_passed,
+        overall_outcome=overall_outcome,
+        error_type=first_error.get("error_type"),
+        error_line=first_error.get("error_line"),
+        error_msg=first_error.get("error_msg"),
+        total_hints=total_hints,
+        failed_test_num=first_failed.get("test"),
+        failed_test_call=first_failed.get("call"),
+        failed_test_expected=str(first_failed.get("expected", "")) if first_failed.get("expected") is not None else None,
+        failed_test_got=str(first_failed.get("got", "")) if first_failed.get("got") is not None else None,
+        visible_test_results=visible_tests,
+        hidden_test_outcomes=hidden_tests
     )
 
 
 @router.post("/hint", response_model=HintResponse)
 def request_hint(req: HintRequest):
-    # Fetch existing hints count for this submission
     hint_index = 1
+    challenge = None
+    mistake_tags = []
+    sub_code = ""
+    visible_res = []
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -279,28 +317,41 @@ def request_hint(req: HintRequest):
         if row and row["count"] is not None:
             hint_index = row["count"] + 1
 
-    # Clamp hint_index to maximum 4
-    hint_level = min(hint_index, 4)
-
-    # Query submission to inspect challenge and mistake tags
-    challenge = None
-    mistake_tags = []
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
         cursor.execute(
-            "SELECT challenge_id, mistake_tags FROM submissions WHERE id = ?",
+            "SELECT challenge_id, code, visible_results, mistake_tags FROM submissions WHERE id = ?",
             (req.submission_id,)
         )
         sub_row = cursor.fetchone()
         if sub_row:
+            sub_code = sub_row["code"] or ""
             challenge = find_challenge(sub_row["challenge_id"])
             try:
                 mistake_tags = json.loads(sub_row["mistake_tags"])
             except Exception:
                 pass
+            try:
+                visible_res = json.loads(sub_row["visible_results"])
+            except Exception:
+                pass
+
+    diff = str(challenge.get("difficulty") or "Easy").lower() if challenge else "easy"
+    total_hints = 5 if diff == "easy" else 4 if diff == "medium" else 3
+    hint_level = min(hint_index, total_hints)
+
+    test_run_data = {}
+    if visible_res:
+        for vr in visible_res:
+            if vr.get("outcome") != "passed":
+                test_run_data["first_failed_test"] = vr
+                if vr.get("outcome") == "runtime_error":
+                    test_run_data["first_error"] = {
+                        "error_type": "RuntimeError",
+                        "error_msg": vr.get("error_msg") or vr.get("outcome")
+                    }
+                break
 
     if challenge:
-        hints_ladder = get_progressive_hints(challenge, mistake_tags, {})
+        hints_ladder = get_progressive_hints(challenge, mistake_tags, test_run_data, code=sub_code)
         hint_text = hints_ladder[min(hint_level - 1, len(hints_ladder) - 1)]
     else:
         hint_text = generate_hint({"id": req.submission_id}, hint_level)
@@ -319,20 +370,35 @@ def request_hint(req: HintRequest):
         )
         conn.commit()
 
-    HINT_TYPES = {
-        1: "General concept",
-        2: "Where to investigate",
-        3: "Underlying cause",
-        4: "Debugging strategy"
-    }
+    if total_hints == 5:
+        HINT_TYPES = {
+            1: "General concept",
+            2: "Line of error & where to look",
+            3: "Input boundary trap",
+            4: "Underlying cause",
+            5: "Debugging strategy"
+        }
+    elif total_hints == 4:
+        HINT_TYPES = {
+            1: "Core invariant & concept",
+            2: "Line & variable inspection",
+            3: "Underlying mechanism",
+            4: "Debugging strategy"
+        }
+    else:
+        HINT_TYPES = {
+            1: "Algorithmic invariant",
+            2: "Line of state transition",
+            3: "Correction strategy"
+        }
 
     return HintResponse(
         submission_id=req.submission_id,
         hint=hint_text,
         level=hint_level,
-        total_levels=4,
+        total_levels=total_hints,
         hint_index=hint_level,
-        total_hints=4,
+        total_hints=total_hints,
         hint_level=hint_level,
         hint_type=HINT_TYPES.get(hint_level, "Guidance")
     )

@@ -1,0 +1,56 @@
+{
+  "id": "count-vowels",
+  "title": "Vowel Counter",
+  "function_name": "count_vowels",
+  "difficulty": "Easy",
+  "concepts": ["Strings", "Loops", "Conditions"],
+  "description": "Write a function named count_vowels that returns how many vowels appear in a string. Treat capital letters the same as lowercase ones.",
+  "starter_code": "def count_vowels(text):\n    # Return the number of vowels in text\n    pass\n",
+  "visible_tests": [
+    {
+      "test": 1,
+      "call": "count_vowels('Dojo')",
+      "args": ["Dojo"],
+      "expected": 2
+    },
+    {
+      "test": 2,
+      "call": "count_vowels('')",
+      "args": [""],
+      "expected": 0
+    },
+    {
+      "test": 3,
+      "call": "count_vowels('AEIOU xyz')",
+      "args": ["AEIOU xyz"],
+      "expected": 5
+    }
+  ],
+  "hidden_tests": [
+    {
+      "test": 4,
+      "kind": "a string without vowels",
+      "args": ["rhythm py"],
+      "expected": 0
+    },
+    {
+      "test": 5,
+      "kind": "an all-uppercase vowel string",
+      "args": ["HELLO WORLD"],
+      "expected": 3
+    },
+    {
+      "test": 6,
+      "kind": "mixed characters and repeated vowels",
+      "args": ["aAeEiIoOuU"],
+      "expected": 10
+    }
+  ],
+  "hints": [
+    "String iteration checks characters one by one against a vowel collection.",
+    "Inspect how you check character membership: uppercase and lowercase characters have different ASCII values.",
+    "If your check only looks for 'aeiou', uppercase vowels like 'A' or 'E' will be skipped.",
+    "Convert each character to lowercase with .lower() before testing membership, or compare against a set containing both.",
+    "Maintain a counter variable that increments whenever a character belongs to the vowel collection, and return it."
+  ]
+}

@@ -4,8 +4,8 @@
   "function_name": "first_n_squares",
   "difficulty": "Easy",
   "concepts": ["Loops", "Lists"],
-  "description": "Write a function `first_n_squares(n)` that returns a list of squares of the first `n` positive integers, starting from 1 up to and including `n` (i.e. [1, 4, 9, ...]).\nIf `n <= 0`, return an empty list `[]`.",
-  "starter_code": "def first_n_squares(n):\n    # Write your solution here\n    if n <= 0:\n        return []\n    return [i * i for i in range(1, n + 1)]\n",
+  "description": "Write a function `first_n_squares(n)` that returns a list of squares of the first `n` positive integers, starting from 1 up to and including `n` (i.e. [1, 4, 9, ...]). If `n <= 0`, return an empty list `[]`.",
+  "starter_code": "def first_n_squares(n):\n    # Return [1, 4, 9, ..., n*n]\n    pass\n",
   "visible_tests": [
     {
       "test": 1,
@@ -15,6 +15,12 @@
     },
     {
       "test": 2,
+      "call": "first_n_squares(0)",
+      "args": [0],
+      "expected": []
+    },
+    {
+      "test": 3,
       "call": "first_n_squares(1)",
       "args": [1],
       "expected": [1]
@@ -22,19 +28,19 @@
   ],
   "hidden_tests": [
     {
-      "test": 3,
+      "test": 4,
       "kind": "a non-positive integer n=0",
       "args": [0],
       "expected": []
     },
     {
-      "test": 4,
+      "test": 5,
       "kind": "a negative integer n=-5",
       "args": [-5],
       "expected": []
     },
     {
-      "test": 5,
+      "test": 6,
       "kind": "a larger positive integer n=5",
       "args": [5],
       "expected": [1, 4, 9, 16, 25]
@@ -44,6 +50,7 @@
     "Python range() starts at 0 by default and excludes the upper bound.",
     "Inspect the start and end arguments passed to range(): does your loop begin at 0 or 1?",
     "If you write range(n), your loop generates 0 through n-1, starting with 0^2 and missing n^2.",
-    "Use range(1, n + 1) to generate integers strictly from 1 through n inclusive."
+    "Use range(1, n + 1) to generate integers strictly from 1 through n inclusive.",
+    "Guard with an early check: if n <= 0, return an empty list [] immediately."
   ]
 }
