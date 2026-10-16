@@ -103,77 +103,73 @@ p{margin:0}
 footer{margin-top:80px;border-top:1px solid var(--line);padding-block:30px 44px;color:var(--muted);font-size:13.5px;display:flex;gap:20px;justify-content:space-between;flex-wrap:wrap}
 
 /* challenge explorer UI */
-.page-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:end;margin-bottom:24px}
-.page-head h1{font-size:clamp(28px,4vw,42px)}
-.filters{display:grid;gap:14px;margin-bottom:26px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
-.search{width:100%;max-width:440px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:11px 16px;color:var(--fg);font:inherit;font-size:14px}
-.search::placeholder{color:var(--faint)}
-.chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.chips small{color:var(--faint);font-size:12px;text-transform:uppercase;letter-spacing:.1em;width:82px;font-weight:600}
-.chip{border:1px solid var(--line);background:var(--bg2);color:var(--muted);padding:6px 14px;border-radius:99px;font-size:13px;font-weight:500;transition:all .15s ease}
-.chip:hover{color:var(--fg);border-color:#5c4d72}
-.chip.on{background:var(--violet-d);border-color:var(--violet-d);color:#fff;font-weight:600}
-.cards{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
-.ch{background:linear-gradient(180deg,var(--card2) 0%,var(--card) 100%);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0;overflow:hidden;box-shadow:0 8px 24px -10px rgba(0,0,0,.6);transition:all .2s ease}
+.page-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:end;margin-bottom:20px}
+.page-head h1{font-size:clamp(28px,4vw,38px)}
+
+/* Single-line highlighted sorting & filter toolbar */
+.filters-toolbar{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(28,20,44,.95),rgba(17,14,26,.95));border:1px solid rgba(168,140,255,.3);box-shadow:0 8px 30px -8px rgba(124,92,240,.25);border-radius:14px;padding:10px 16px;margin-bottom:24px;flex-wrap:wrap}
+.search-wrap{display:flex;align-items:center;gap:10px;flex:1;min-width:220px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:0 12px;transition:all .15s ease}
+.search-wrap:focus-within{border-color:var(--violet);box-shadow:0 0 0 3px rgba(168,140,255,.18)}
+.search-wrap .search-icon{font-size:14px;opacity:.7}
+.search-wrap .search-input{width:100%;background:transparent;border:0;color:var(--fg);font:inherit;font-size:13.5px;padding:9px 0;outline:none}
+.search-wrap .search-input::placeholder{color:var(--faint)}
+
+.selects-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.select-control{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:3px 10px;transition:all .15s ease}
+.select-control:focus-within{border-color:var(--violet)}
+.select-control label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700;white-space:nowrap}
+.custom-select{background:transparent;border:0;color:var(--fg);font:inherit;font-size:13px;font-weight:500;outline:none;cursor:pointer;padding:6px 2px}
+.custom-select option{background:#1a1426;color:#efe9f5}
+
+/* Highlighted Sort Part in one line */
+.select-control.sort-highlight{background:linear-gradient(135deg,rgba(124,92,240,.22),rgba(100,216,236,.12));border:1.5px solid var(--violet);box-shadow:0 0 16px rgba(124,92,240,.35)}
+.select-control.sort-highlight label{color:var(--cyan);font-weight:700}
+.select-control.sort-highlight .custom-select{color:#fff;font-weight:700}
+
+.cards{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
+.ch{background:linear-gradient(180deg,var(--card2) 0%,var(--card) 100%);border:1px solid var(--line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0;overflow:hidden;box-shadow:0 8px 24px -10px rgba(0,0,0,.6);transition:all .2s ease}
 .ch:hover{border-color:var(--violet);box-shadow:0 16px 36px -12px rgba(124,92,240,.3);transform:translateY(-2px)}
-.ch h3{font-size:20px;letter-spacing:-.01em}
-.ch-statement{background:var(--bg2);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:13px 15px;font-size:14px;line-height:1.65;color:#ded5e8;overflow-wrap:break-word;word-break:normal;flex:1}
+.ch h3{font-size:19px;letter-spacing:-.01em}
+.ch-statement{background:var(--bg2);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.6;color:#ded5e8;overflow-wrap:break-word;word-break:normal;flex:1}
 .ch-sig{font-family:var(--mono);font-size:12px;color:var(--cyan);background:rgba(100,216,236,.08);border:1px solid rgba(100,216,236,.22);border-radius:6px;padding:4px 9px;display:inline-block;overflow-wrap:break-word;word-break:break-all}
-.ch .foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:auto;padding-top:6px}
+.ch .foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:auto;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}
 .status{font-size:12.5px;display:flex;align-items:center;gap:6px;color:var(--muted);font-weight:500}
 .status i{width:8px;height:8px;border-radius:50%;background:var(--faint)}
 .status.solved i{background:var(--green);box-shadow:0 0 6px var(--green)}.status.attempted i{background:var(--amber)}
 .rec{font-size:12px;color:var(--violet);font-weight:700;display:inline-flex;align-items:center;gap:4px}
 
-/* workspace */
-.ws{display:grid;grid-template-columns:minmax(330px,400px) minmax(0,1fr) minmax(310px,390px);gap:16px;align-items:start}
+/* simplified workspace */
+.ws{display:grid;grid-template-columns:minmax(380px,460px) minmax(0,1fr);gap:18px;align-items:start}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;min-width:0;overflow:hidden;box-shadow:0 10px 30px -15px rgba(0,0,0,.5)}
-.panel-h{padding:13px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:700;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;background:rgba(255,255,255,.01)}
-.panel-b{padding:18px;display:grid;gap:15px}
-.desc h2{font-size:24px}
-.ws-statement{background:linear-gradient(135deg,rgba(168,140,255,.09),rgba(100,216,236,.04));border:1px solid rgba(168,140,255,.25);border-left:4px solid var(--violet);border-radius:12px;padding:14px 16px;font-size:14.5px;line-height:1.65;color:#efe9f5;overflow-wrap:break-word;word-break:normal}
-.sig{font-family:var(--mono);font-size:13px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;color:var(--cyan)}
-.rules-list{margin:0;padding-left:18px;display:grid;gap:5px;font-size:13.5px;color:var(--muted);line-height:1.55}
-.rules-list li{overflow-wrap:break-word}
-.sample{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-family:var(--mono);font-size:12.5px;display:grid;gap:7px}
+.panel-h{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:700;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;background:rgba(255,255,255,.01)}
+.panel-b{padding:18px;display:grid;gap:14px}
+.ws-statement{background:linear-gradient(135deg,rgba(168,140,255,.08),rgba(100,216,236,.03));border:1px solid rgba(168,140,255,.2);border-left:4px solid var(--violet);border-radius:12px;padding:13px 15px;font-size:14px;line-height:1.65;color:#efe9f5;overflow-wrap:break-word;word-break:normal}
+.sig{font-family:var(--mono);font-size:13px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;color:var(--cyan)}
+.rules-list{margin:0;padding-left:18px;display:grid;gap:4px;font-size:13px;color:var(--muted);line-height:1.55}
+.sample{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:12.5px;display:grid;gap:6px}
 .sample-row{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.05)}
 .sample-row:last-child{border-bottom:0;padding-bottom:0}
-details.more{border:1px solid var(--line);border-radius:10px;padding:9px 13px;background:var(--bg2)}
-details.more summary{cursor:pointer;font-weight:600;font-size:13.5px}
-details.more p{margin-top:8px;font-size:13.5px;color:var(--muted);line-height:1.55}
-.navrow{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
-.editor{display:grid;grid-template-columns:46px 1fr;background:var(--bg2);height:360px;overflow:hidden;position:relative}
+.coach-box{background:linear-gradient(180deg,rgba(124,92,240,.07),rgba(20,16,31,.5));border:1px solid rgba(168,140,255,.22);border-radius:12px;padding:14px;display:grid;gap:10px}
+.hint{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--bg2);display:grid;gap:4px}
+.hint b{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--violet)}
+.hint p{font-size:13.5px;line-height:1.55;color:#efe9f5}
+.editor{display:grid;grid-template-columns:44px 1fr;background:var(--bg2);height:360px;overflow:hidden;position:relative}
 .gutter{font-family:var(--mono);font-size:13.5px;line-height:22px;color:var(--faint);text-align:right;padding:14px 8px 14px 0;overflow:hidden;white-space:pre;border-right:1px solid var(--line);user-select:none}
 .editor textarea{font-family:var(--mono);font-size:13.5px;line-height:22px;color:var(--fg);background:transparent;border:0;resize:none;outline:0;padding:14px;white-space:pre;overflow:auto;tab-size:4;width:100%;height:100%}
-.ed-bar{display:flex;gap:10px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--line);align-items:center;background:rgba(255,255,255,.01)}
-.ed-bar .sp{flex:1}
-.hist{padding:0 18px 16px;display:grid;gap:6px}
-.hist button{display:flex;justify-content:space-between;gap:8px;align-items:center;text-align:left;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-size:13px;transition:border-color .15s}
-.hist button:hover{border-color:#5c4d72}
-.coach .msg{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.65}
-.coach .note{font-size:13px;color:var(--amber);background:rgba(248,199,108,.08);border:1px solid rgba(248,199,108,.28);border-radius:10px;padding:11px 13px;line-height:1.55}
-.hint{border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:var(--bg2);display:grid;gap:4px}
-.hint b{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--violet)}
-.hint p{font-size:14px;line-height:1.6}
-.tip{display:flex;gap:10px;font-size:13.5px;color:var(--muted);line-height:1.55}
-.tip svg{flex:none;width:18px;height:18px;color:var(--cyan);margin-top:2px}
-.console{margin-top:16px}
-.console-h{display:flex;align-items:center;gap:6px;padding:9px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:rgba(255,255,255,.01)}
-.tab{border:0;background:transparent;color:var(--muted);padding:6px 13px;border-radius:8px;font-size:13.5px;font-weight:600;transition:all .15s}
+.tab{border:0;background:transparent;color:var(--muted);padding:5px 11px;border-radius:8px;font-size:12.5px;font-weight:600;transition:all .15s;cursor:pointer}
 .tab.on{background:var(--card2);color:var(--fg)}
-.console-h .sp{flex:1}
 .tbl{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:13px}
-th{text-align:left;color:var(--faint);font-weight:700;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;padding:11px 16px;border-bottom:1px solid var(--line)}
-td{padding:10px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px;vertical-align:top}
+th{text-align:left;color:var(--faint);font-weight:700;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;padding:10px 14px;border-bottom:1px solid var(--line)}
+td{padding:9px 14px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px;vertical-align:top}
 td.num{color:var(--faint)}
 tr:last-child td{border-bottom:0}
-.hidden-list{display:flex;flex-wrap:wrap;gap:8px;padding:16px}
-.hid{display:flex;gap:8px;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-size:13px}
-.empty{padding:22px 18px;color:var(--muted);font-size:14px}
+.hidden-list{display:flex;flex-wrap:wrap;gap:8px;padding:14px}
+.hid{display:flex;gap:8px;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px}
+.empty{padding:20px 16px;color:var(--muted);font-size:13.5px}
 .spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
 @keyframes sp{to{transform:rotate(360deg)}}
-.banner{padding:10px 14px;border-radius:8px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.banner{padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
 .banner.ok{background:rgba(111,231,169,.12);border:1px solid rgba(111,231,169,.35);color:var(--green)}
 .banner.bad{background:rgba(255,136,120,.12);border:1px solid rgba(255,136,120,.35);color:var(--coral)}
 
@@ -943,32 +939,101 @@ function vChallenges(){
    (f.diff==='All'||c.diff===f.diff)&&(f.concept==='All'||c.concepts.includes(f.concept))&&
    (f.status==='All'||(f.status==='Not started'?S.status[c.id]==='new':f.status==='In progress'?S.status[c.id]==='attempted':S.status[c.id]==='solved'))&&
    (!f.q||(c.title+' '+c.short+' '+c.concepts.join(' ')).toLowerCase().includes(f.q.toLowerCase())));
- const chips=(key,opts)=>opts.map(o=>`<button class="chip ${f[key]===o?'on':''}" data-f="${key}" data-v="${esc(o)}">${esc(o)}</button>`).join('');
+
+ if(f.sort === 'easy-first'){
+   const diffOrder = { 'Easy': 1, 'Medium': 2, 'Hard': 3 };
+   list.sort((a,b) => (diffOrder[a.diff]||2) - (diffOrder[b.diff]||2));
+ } else if(f.sort === 'hard-first'){
+   const diffOrder = { 'Easy': 1, 'Medium': 2, 'Hard': 3 };
+   list.sort((a,b) => (diffOrder[b.diff]||2) - (diffOrder[a.diff]||2));
+ } else if(f.sort === 'title'){
+   list.sort((a,b) => a.title.localeCompare(b.title));
+ }
+
  const stLabel={new:'Not started',attempted:'In progress',solved:'Solved'};
  const diffBadge={
-   'Easy': '<span class="pill easy">Beginner · 5 Hints</span>',
-   'Medium': '<span class="pill medium">Intermediate · 4 Hints</span>',
-   'Hard': '<span class="pill hard">Advanced · 3 Hints</span>'
+   'Easy': '<span class="pill easy">Beginner</span>',
+   'Medium': '<span class="pill medium">Intermediate</span>',
+   'Hard': '<span class="pill hard">Advanced</span>'
  };
+
  return `
- <div class="page-head"><div><span class="eyebrow">Challenge Library</span><h1>Python Coding Challenges</h1></div></div>
- <div class="filters">
-  <input class="search" id="q" type="search" placeholder="Search challenges or concepts..." value="${esc(f.q)}" aria-label="Search challenges">
-  <div class="chips"><small>Difficulty</small>${chips('diff',['All','Easy','Medium','Hard'])}</div>
-  <div class="chips"><small>Concept</small>${chips('concept',['All',...CONCEPTS])}</div>
-  <div class="chips"><small>Status</small>${chips('status',['All','Not started','In progress','Solved'])}</div>
+ <div class="page-head">
+   <div>
+     <span class="eyebrow">Challenge Library</span>
+     <h1>Python Coding Challenges</h1>
+     <p class="muted" style="margin-top:6px;font-size:14px">Choose a problem to practice, debug errors step-by-step, and earn mastery points.</p>
+   </div>
+   <div class="pill" style="font-size:13px;border-color:rgba(168,140,255,.3);color:var(--violet)">
+     ${list.length} of ${CH.length} challenges shown
+   </div>
  </div>
- <div class="muted" style="margin-bottom:14px;font-size:13.5px">${list.length} of ${CH.length} challenges available across Beginner (5 Hints), Intermediate (4 Hints), and Advanced (3 Hints). Click "Start Challenge" to open the interactive coding workspace.</div>
+
+ <!-- Single-Line Highlighted Sorting & Filter Toolbar -->
+ <div class="filters-toolbar">
+  <div class="search-wrap">
+   <span class="search-icon">🔍</span>
+   <input class="search-input" id="q" type="search" placeholder="Search challenges by title, concept, or keywords..." value="${esc(f.q)}" aria-label="Search challenges">
+  </div>
+
+  <div class="selects-bar">
+   <div class="select-control">
+     <label for="f-diff">Difficulty</label>
+     <select class="custom-select" id="f-diff" data-f="diff">
+       <option value="All" ${f.diff==='All'?'selected':''}>All Levels</option>
+       <option value="Easy" ${f.diff==='Easy'?'selected':''}>Beginner</option>
+       <option value="Medium" ${f.diff==='Medium'?'selected':''}>Intermediate</option>
+       <option value="Hard" ${f.diff==='Hard'?'selected':''}>Advanced</option>
+     </select>
+   </div>
+
+   <div class="select-control">
+     <label for="f-concept">Concept</label>
+     <select class="custom-select" id="f-concept" data-f="concept">
+       <option value="All" ${f.concept==='All'?'selected':''}>All Concepts</option>
+       ${CONCEPTS.map(c=>`<option value="${esc(c)}" ${f.concept===c?'selected':''}>${esc(c)}</option>`).join('')}
+     </select>
+   </div>
+
+   <div class="select-control">
+     <label for="f-status">Status</label>
+     <select class="custom-select" id="f-status" data-f="status">
+       <option value="All" ${f.status==='All'?'selected':''}>All Status</option>
+       <option value="Not started" ${f.status==='Not started'?'selected':''}>Not started</option>
+       <option value="In progress" ${f.status==='In progress'?'selected':''}>In progress</option>
+       <option value="Solved" ${f.status==='Solved'?'selected':''}>Solved</option>
+     </select>
+   </div>
+
+   <!-- Highlighted Sort Dropdown in the same line -->
+   <div class="select-control sort-highlight">
+     <label for="f-sort">⚡ Sort By</label>
+     <select class="custom-select" id="f-sort" data-f="sort">
+       <option value="recommended" ${(f.sort==='recommended'||!f.sort)?'selected':''}>Recommended</option>
+       <option value="easy-first" ${f.sort==='easy-first'?'selected':''}>Difficulty: Low → High</option>
+       <option value="hard-first" ${f.sort==='hard-first'?'selected':''}>Difficulty: High → Low</option>
+       <option value="title" ${f.sort==='title'?'selected':''}>Name (A–Z)</option>
+     </select>
+   </div>
+  </div>
+ </div>
+
  <div class="grid cards">${list.map(c=>`
   <article class="ch tilt" data-tilt="3">
-   <div class="row" style="justify-content:space-between">${diffBadge[c.diff] || `<span class="pill ${c.diff.toLowerCase()}">${c.diff}</span>`}${(S.recommendedChallenge&&(S.recommendedChallenge.challenge_id===c.id||S.recommendedChallenge.id===c.id))?'<span class="rec">Recommended next</span>':''}</div>
-   <h3>${c.title}</h3>
+   <div class="row" style="justify-content:space-between;align-items:center">
+     ${diffBadge[c.diff] || `<span class="pill ${c.diff.toLowerCase()}">${c.diff}</span>`}
+     ${(S.recommendedChallenge&&(S.recommendedChallenge.challenge_id===c.id||S.recommendedChallenge.id===c.id))?'<span class="rec">⭐ Recommended Next</span>':''}
+   </div>
+   <h3 style="font-size:19px;margin:2px 0">${c.title}</h3>
    <div class="ch-sig">${esc(c.sig)}</div>
    <div class="ch-statement"><b>Task:</b> ${esc(c.short)}</div>
-   <div class="row">${c.concepts.map(k=>`<span class="pill tag">${k}</span>`).join('')}</div>
-   <div class="bar" title="Mastery of these concepts"><i style="width:${Math.round(c.concepts.reduce((a,k)=>a+(S.mastery[k]||50),0)/c.concepts.length)}%"></i></div>
-   <div class="foot"><span class="status ${S.status[c.id]||'new'}"><i></i>${stLabel[S.status[c.id]||'new']}</span><button class="btn sm primary" data-open="${c.id}">Start Challenge ${IC.arrow}</button></div>
-  </article>`).join('')||'<div class="empty">No challenge matches these filters.</div>'}</div>`;
+   <div class="row" style="gap:6px">${c.concepts.map(k=>`<span class="pill tag">${k}</span>`).join('')}</div>
+   <div class="foot" style="margin-top:auto;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+     <span class="status ${S.status[c.id]||'new'}"><i></i>${stLabel[S.status[c.id]||'new']}</span>
+     <button class="btn sm primary" data-open="${c.id}">Start Challenge ${IC.arrow}</button>
+   </div>
+  </article>`).join('')||'<div class="empty" style="grid-column:1/-1;text-align:center;padding:48px 20px">No challenges match your selected filters. Try choosing different options above.</div>'}
+ </div>`;
 }
 
 function curSub(){ return S.subs.find(s=>s.id===S.active&&s.ch===S.cur)||S.subs.find(s=>s.ch===S.cur)||null; }
@@ -983,105 +1048,159 @@ function vWorkspace(){
 
  return `
  <div class="ws">
-  <section class="panel desc" aria-label="Challenge description">
-   <div class="panel-h"><span>Challenge ${i+1} of ${CH.length}</span><span class="pill ${c.diff.toLowerCase()}">${diffName} · ${maxHints} Hints</span></div>
-   <div class="panel-b">
-    <h2>${c.title}</h2>
-    <div class="row">${c.concepts.map(k=>`<span class="pill tag">${k}</span>`).join('')}</div>
-    <div class="ws-statement">${c.desc}</div>
-    <div><b style="font-size:13px;display:block;margin-bottom:6px">Function Signature</b><div class="sig">${c.sig}</div></div>
-    <div><b style="font-size:13px;display:block;margin-bottom:6px">Requirements &amp; Constraints</b><ul class="rules-list">${c.rules.map(r=>`<li>${r}</li>`).join('')}</ul></div>
-    <div><b style="font-size:13px;display:block;margin-bottom:6px">Sample Tests</b>
-     <div class="sample">${c.visible.map(t=>`<div class="sample-row"><span>${esc(t.call)}</span><span style="color:var(--cyan)">➞ ${esc(t.exp)}</span></div>`).join('')}</div>
+  <!-- LEFT COLUMN: Problem description, sample cases & AI Coach Guidance -->
+  <section class="panel" aria-label="Problem and Guidance">
+   <div class="panel-h">
+    <div style="display:flex;align-items:center;gap:10px">
+     <span class="pill ${c.diff.toLowerCase()}">${diffName}</span>
+     <span style="font-size:12.5px;color:var(--muted);text-transform:none">Challenge ${i+1} of ${CH.length}</span>
     </div>
-    <details class="more"><summary>Sandbox Security &amp; Evaluation</summary><p>Your code is executed in an isolated Python subprocess with network sockets disabled, strict CPU wall-clock timeouts, memory caps, and independent hidden test evaluation.</p></details>
-    <div class="navrow"><button class="btn sm" data-open="${prev.id}">Previous</button><button class="btn sm" data-open="${next.id}">Next</button></div>
+    <div style="display:flex;gap:6px">
+     <button class="btn sm" data-open="${prev.id}" title="Previous Challenge">← Prev</button>
+     <button class="btn sm" data-open="${next.id}" title="Next Challenge">Next →</button>
+    </div>
    </div>
-  </section>
 
-  <section class="panel" aria-label="Code editor">
-   <div class="panel-h"><span class="mono" style="text-transform:none;letter-spacing:0">${c.id.replace(/-/g,'_')}.py</span><span id="runstate" class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">${sub?('Status: '+(sub.overall||'').toUpperCase()):'Ready to execute'}</span></div>
-   <div class="editor"><div class="gutter" id="gutter"></div><textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python code">${esc(code)}</textarea></div>
-   ${sub && sub.overall !== 'passed' ? `
-   <div style="padding:10px 18px;background:rgba(255,136,120,.09);border-top:1px solid rgba(255,136,120,.3);display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--coral)">
-     <span style="font-size:16px;line-height:1">⚠</span>
-     <div style="display:grid;gap:2px;flex:1">
-       <div><b>${esc(sub.error_type || (sub.overall==='runtime error'?'Runtime / Syntax Error':sub.overall==='timeout'?'Timeout Error':'Assertion Failure'))}:</b> ${sub.error_line ? `<span class="pill mistake" style="font-size:11px;padding:1px 7px;margin-left:4px">Line ${sub.error_line}</span>` : ''}</div>
-       <div class="mono" style="font-size:12px;opacity:.95;white-space:pre-wrap;word-break:break-all">${esc(sub.error_msg || sub.explain || 'Test execution failed')}</div>
-     </div>
-   </div>` : ''}
-   <div class="ed-bar">
-    <button class="btn primary" id="run">${IC.play} Run Code</button>
-    <button class="btn" id="reset">${IC.reset} Reset Starter Code</button>
-    <span class="sp"></span>
-    <a class="btn sm" href="#results" ${sub?'':'style="display:none"'}>Full Results</a>
-   </div>
-   <div class="hist"><b style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)">Submission History</b>
-    ${S.subs.filter(s=>s.ch===c.id).map(s=>`<button data-sub="${s.id}"><span>${s.id} <span class="muted">${s.time}</span></span><span class="o ${s.cls}">${s.overall}</span></button>`).join('')||'<span class="muted" style="font-size:13px">No submissions yet for this challenge. Click "Run Code" to execute.</span>'}
-   </div>
-  </section>
+   <div class="panel-b" style="gap:16px">
+    <div>
+     <h2 style="font-size:22px;margin:0 0 8px">${c.title}</h2>
+     <div class="row" style="gap:6px">${c.concepts.map(k=>`<span class="pill tag">${k}</span>`).join('')}</div>
+    </div>
 
-  <section class="panel coach coach-p" aria-label="Debug Coach">
-   <div class="panel-h"><span>Debug Coach</span><span class="mono" style="text-transform:none;letter-spacing:0">Hint ${shown}/${maxHints}</span></div>
-   <div class="panel-b">
-    ${sub?`
-     ${sub.overall==='passed'?'<div class="banner ok">✓ All visible and hidden tests passed!</div>':sub.overall==='runtime error'?`
-      <div class="banner bad" style="flex-direction:column;align-items:flex-start;gap:4px">
-        <div style="display:flex;align-items:center;gap:8px"><span>⚠</span><b>${esc(sub.error_type || 'Runtime / Syntax Error')}${sub.error_line ? ` on Line ${sub.error_line}` : ''}</b></div>
-        ${sub.error_msg ? `<div class="mono" style="font-size:12px;opacity:.95;white-space:pre-wrap;word-break:break-all">${esc(sub.error_msg)}</div>` : ''}
-      </div>` : sub.overall==='timeout'?'<div class="banner bad">⏱ Execution Timed Out (&gt; 3.0s limit exceeded)</div>':`
-      <div class="banner bad" style="flex-direction:column;align-items:flex-start;gap:4px">
-        <div style="display:flex;align-items:center;gap:8px"><span>✕</span><b>Incorrect Output${sub.failed_test_num ? ` on Test #${sub.failed_test_num}` : ''}</b></div>
-        ${sub.failed_test_call ? `<div class="mono" style="font-size:12px;opacity:.95">${esc(sub.failed_test_call)} returned <code>${esc(sub.failed_test_got || 'None')}</code>, expected <code>${esc(sub.failed_test_expected || '')}</code></div>` : ''}
-      </div>`}
-     <div class="msg">${sub.explain}</div>
-     <div class="row">${sub.tags && sub.tags.length?sub.tags.map(t=>`<span class="pill mistake">${t}</span>`).join(''):'<span class="pill">No taxonomy mistakes detected</span>'}</div>`
-     :`<div class="msg">Write your Python function in the editor and click <b>Run Code</b>. The Debug Coach will execute it against test cases in the sandbox and guide your debugging here.</div>`}
-    <div class="row" style="justify-content:space-between"><b style="font-size:13px">Progressive Hint Ladder (${diffName} · ${maxHints} Hints)</b></div>
-    ${shown?hints.map((h,k)=>`
-      <div class="hint" ${k === 1 ? 'style="border-color:var(--violet);background:rgba(168,140,255,.07)"' : ''}>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <b>Hint ${k+1} · ${esc(h.hint_type || ('Level ' + (k+1)))}</b>
-          ${k === 1 ? '<span class="pill" style="font-size:10.5px;color:var(--violet);border-color:rgba(168,140,255,.3)">Line &amp; Error Diagnostic</span>' : ''}
+    <div class="ws-statement" style="font-size:14px;line-height:1.6">
+     ${c.desc}
+    </div>
+
+    <div>
+     <b style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);display:block;margin-bottom:6px">Function to Implement</b>
+     <div class="sig">${esc(c.sig)}</div>
+    </div>
+
+    <div>
+     <b style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);display:block;margin-bottom:6px">Sample Cases</b>
+     <div class="sample">
+      ${c.visible.map(t=>`
+        <div class="sample-row">
+          <span>${esc(t.call)}</span>
+          <span style="color:var(--cyan);font-weight:600">➞ ${esc(t.exp)}</span>
         </div>
-        <p>${esc(h.hint)}</p>
-      </div>`).join(''):'<div class="muted" style="font-size:13.5px">No hints requested yet. If you get stuck, reveal hints progressively below.</div>'}
-    <button class="btn" id="hint" ${(!sub || sub.overall==='passed' || shown>=maxHints)?'disabled':''}>${IC.key} ${shown>=maxHints?'All hints revealed':'Reveal Next Hint'}</button>
-    <div class="tip">${IC.bulb}<span>${c.tip}</span></div>
-    <div class="note">The fix is yours to write. Debug Dojo never reveals complete solution code.</div>
+      `).join('')}
+     </div>
+    </div>
+
+    ${c.rules && c.rules.length ? `
+    <div>
+     <b style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);display:block;margin-bottom:6px">Key Rules</b>
+     <ul class="rules-list" style="font-size:13px;line-height:1.5">
+      ${c.rules.map(r=>`<li>${r}</li>`).join('')}
+     </ul>
+    </div>` : ''}
+
+    <!-- Simplified AI Debug Coach & Progressive Hints Section -->
+    <div class="coach-box">
+     <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,.07);padding-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+       <span style="font-size:16px">💡</span>
+       <b style="font-size:13.5px">AI Debug Coach</b>
+      </div>
+      <span class="pill" style="font-size:11px;color:var(--violet);border-color:rgba(168,140,255,.3)">${shown} of ${maxHints} Hints</span>
+     </div>
+
+     ${sub ? `
+       ${sub.overall==='passed' ? `
+         <div class="banner ok" style="margin-top:10px">✓ All tests passed! Great job fixing the bug.</div>
+       ` : `
+         <div class="banner bad" style="margin-top:10px;flex-direction:column;align-items:flex-start;gap:4px">
+           <div style="display:flex;align-items:center;gap:8px">
+             <span>⚠</span>
+             <b>${esc(sub.error_type || (sub.overall==='runtime error'?'Runtime / Syntax Error':sub.overall==='timeout'?'Timeout Error':'Incorrect Output'))}${sub.error_line ? ` on Line ${sub.error_line}` : ''}</b>
+           </div>
+           <div style="font-size:13px;font-weight:normal;opacity:.95">${esc(sub.explain || sub.error_msg || 'One or more tests failed.')}</div>
+         </div>
+       `}
+     ` : `
+       <div style="font-size:13.5px;color:var(--muted);margin-top:10px;line-height:1.55">
+         Type your code in the editor and click <b>Run Code</b>. If you get stuck, request progressive hints below!
+       </div>
+     `}
+
+     <!-- Revealed Hints -->
+     ${shown ? hints.map((h, k) => `
+       <div class="hint" style="margin-top:8px">
+         <b>Hint ${k+1} · ${esc(h.hint_type || ('Guidance Step ' + (k+1)))}</b>
+         <p style="margin:4px 0 0;font-size:13.5px;color:#efe9f5">${esc(h.hint)}</p>
+       </div>
+     `).join('') : ''}
+
+     <div style="margin-top:12px">
+       <button class="btn sm" id="hint" style="width:100%;justify-content:center;background:rgba(124,92,240,.12);color:var(--violet);border-color:rgba(168,140,255,.35)" ${(!sub || sub.overall==='passed' || shown>=maxHints)?'disabled':''}>
+         ${IC.bulb} ${shown>=maxHints?'All Hints Revealed':shown===0?'Reveal Hint 1 (Where to start)':'Reveal Next Hint (' + (shown+1) + '/' + maxHints + ')'}
+       </button>
+     </div>
+     ${c.tip ? `<div class="subtle-tip" style="margin-top:10px;font-size:12.5px;color:var(--muted);display:flex;gap:6px"><span>💡</span><span><b>Tip:</b> ${c.tip}</span></div>` : ''}
+    </div>
    </div>
   </section>
- </div>
 
- <section class="panel console" aria-label="Test results">
-  <div class="console-h">
-   ${[['all','All Tests'],['passed','Passed'],['failed','Failed'],['hidden','Hidden Tests']].map(([k,l])=>`<button class="tab ${S.tab===k?'on':''}" data-tab="${k}">${l}</button>`).join('')}
-   <span class="sp"></span><button class="btn sm" id="toggle">${S.consoleOpen?'Collapse':'Expand'}</button>
+  <!-- RIGHT COLUMN: Editor & Test Results directly below -->
+  <div style="display:grid;gap:16px">
+   <!-- Code Editor -->
+   <section class="panel" aria-label="Code editor">
+    <div class="panel-h">
+     <div style="display:flex;align-items:center;gap:8px">
+      <span class="mono" style="text-transform:none;letter-spacing:0;font-weight:600">${c.id.replace(/-/g,'_')}.py</span>
+     </div>
+     <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn sm" id="reset" title="Reset starter code">${IC.reset} Reset</button>
+      <button class="btn sm primary" id="run" style="padding:6px 16px;font-weight:600">${IC.play} Run Code</button>
+     </div>
+    </div>
+
+    <div class="editor" style="height:360px">
+     <div class="gutter" id="gutter"></div>
+     <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Python code">${esc(code)}</textarea>
+    </div>
+   </section>
+
+   <!-- Test Results (Clean & Clear) -->
+   <section class="panel" aria-label="Test results">
+    <div class="panel-h">
+     <div style="display:flex;align-items:center;gap:10px">
+      <span>Test Results</span>
+      ${sub ? `<span class="o ${sub.cls}">${(sub.overall || '').toUpperCase()}</span>` : '<span class="muted" style="text-transform:none;font-weight:normal;font-size:12px">Ready to test</span>'}
+     </div>
+     <div style="display:flex;gap:4px">
+      ${[['all','All Tests'],['passed','Passed'],['failed','Failed'],['hidden','Hidden Tests']].map(([k,l])=>`
+        <button class="tab sm ${S.tab===k?'on':''}" data-tab="${k}" style="padding:4px 10px;font-size:12.5px">${l}</button>
+      `).join('')}
+     </div>
+    </div>
+    ${consoleBody(c, sub)}
+   </section>
   </div>
-  ${S.consoleOpen?consoleBody(c,sub):''}
- </section>`;
+ </div>`;
 }
 
 function consoleBody(c,sub){
- if(!sub) return `<div class="empty">Results appear here after executing your code. You have ${c.visible.length} visible and ${c.hidden} hidden tests.</div>`;
+ if(!sub) return `<div class="empty" style="padding:24px;text-align:center;color:var(--muted)">Click <b>Run Code</b> above to execute your solution against ${c.visible.length} visible and ${c.hidden} hidden test cases.</div>`;
  const vis=sub.visible||[], hid=sub.hidden||[];
  const vp=vis.filter(t=>t.o==='passed').length;
  const hp=hid.filter(h=>h.o==='passed').length;
 
- const banner = `<div style="padding:10px 16px;border-bottom:1px solid var(--line);font-size:13.5px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.02)">
+ const banner = `<div style="padding:10px 16px;border-bottom:1px solid var(--line);font-size:13px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.02)">
    <span>Visible: <b style="color:${vp===vis.length?'var(--green)':'var(--coral)'}">${vp}/${vis.length} passed</b> · Hidden: <b style="color:${hp===hid.length?'var(--green)':'var(--coral)'}">${hp}/${hid.length} passed</b></span>
    <span class="o ${sub.cls}">${(sub.overall || '').toUpperCase()}</span>
  </div>`;
 
- const rows=l=>l.length?`<div class="tbl"><table><thead><tr><th>#</th><th>Input</th><th>Expected</th><th>Actual Returned</th><th>Outcome</th></tr></thead><tbody>${l.map(t=>`<tr><td class="num">${t.n}</td><td>${esc(t.call)}</td><td>${esc(t.exp)}</td><td>${esc(t.act)}</td><td><span class="o ${OUT[t.o]||'passed'}">${t.o}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">All visible sample tests passed! The failure occurred on a hidden edge case.</div>';
- const hidChips=l=>`<div class="hidden-list">${l.map(h=>`<div class="hid"><span class="mono muted">Hidden #${h.n}</span><span class="o ${OUT[h.o]||'passed'}">${h.o}</span></div>`).join('')}</div><div class="empty" style="padding-top:0">Confidentiality Guarantee: Hidden inputs and expected outputs are evaluated securely on the server and never sent to the browser.</div>`;
+ const rows=l=>l.length?`<div class="tbl"><table><thead><tr><th>Test</th><th>Input</th><th>Expected</th><th>Actual Output</th><th>Status</th></tr></thead><tbody>${l.map(t=>`<tr><td class="num">#${t.n}</td><td><code>${esc(t.call)}</code></td><td style="color:var(--cyan)"><code>${esc(t.exp)}</code></td><td><code>${esc(t.act)}</code></td><td><span class="o ${OUT[t.o]||'passed'}">${t.o}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">All visible sample tests passed! The failure occurred on a hidden edge case.</div>';
+ const hidChips=l=>`<div class="hidden-list" style="padding:14px">${l.map(h=>`<div class="hid"><span class="mono muted">Hidden #${h.n}</span><span class="o ${OUT[h.o]||'passed'}">${h.o}</span></div>`).join('')}</div><div class="empty" style="padding:0 14px 14px;font-size:12px;color:var(--faint)">Hidden tests are evaluated securely in the sandbox to verify edge cases without spoiling test cases.</div>`;
 
  if(S.tab==='all') return banner + rows(vis) + hidChips(hid);
  if(S.tab==='passed') return banner + rows(vis.filter(t=>t.o==='passed')) + hidChips(hid.filter(h=>h.o==='passed'));
  if(S.tab==='failed'){
    const fVis = vis.filter(t=>t.o!=='passed');
    const fHid = hid.filter(h=>h.o!=='passed');
-   return banner + (fVis.length?rows(fVis):`<div class="empty"><b>✓ All ${vis.length} visible sample tests passed!</b><br><span class="muted" style="font-size:13px">Your function produced the expected results on standard sample inputs, but failed on hidden boundary/edge-case tests below (such as k=0, empty inputs, or boundary values). Read the Debug Coach on the right for guidance.</span></div>`) + hidChips(fHid);
+   return banner + (fVis.length?rows(fVis):`<div class="empty" style="padding:16px"><b>✓ All ${vis.length} visible sample tests passed!</b><br><span class="muted" style="font-size:13px">The failure occurred on hidden boundary/edge-case tests below. Check the Debug Coach on the left for guidance.</span></div>`) + hidChips(fHid);
  }
  return banner + hidChips(hid);
 }
@@ -1487,7 +1606,8 @@ function bind(r){
  document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault(); S.cur=b.dataset.open; S.tab='all'; go('workspace');}));
  document.querySelectorAll('[data-start]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault(); go('workspace');}));
  if(r==='challenges'){
-  document.querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{S.filter[b.dataset.f]=b.dataset.v; route();}));
+  document.querySelectorAll('select[data-f]').forEach(sel=>sel.addEventListener('change',()=>{S.filter[sel.dataset.f]=sel.value; route();}));
+  document.querySelectorAll('button[data-f]').forEach(b=>b.addEventListener('click',()=>{S.filter[b.dataset.f]=b.dataset.v; route();}));
   const q=$('#q'); if(q){ q.addEventListener('input',()=>{S.filter.q=q.value; const pos=q.selectionStart; route(); const n=$('#q'); if(n){n.focus(); n.setSelectionRange(pos,pos);}}); }
  }
  if(r==='workspace'){
@@ -1511,7 +1631,8 @@ function bind(r){
   $('#run').addEventListener('click',runLive);
   $('#hint').addEventListener('click',requestHintLive);
   document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{S.tab=b.dataset.tab; route();}));
-  $('#toggle').addEventListener('click',()=>{S.consoleOpen=!S.consoleOpen; route();});
+  const toggle = $('#toggle');
+  if(toggle) toggle.addEventListener('click',()=>{S.consoleOpen=!S.consoleOpen; route();});
  }
  if(r==='custom-debug'){
   const ta=$('#custom-code'), g=$('#custom-gutter');
