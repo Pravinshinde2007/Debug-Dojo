@@ -161,3 +161,162 @@ def test_sandbox_history():
     assert "problem_title" in attempt
     assert "code" in attempt
     assert "mode" in attempt
+
+
+def test_dynamic_model_tiering_selection():
+    from app.llm import get_optimal_gemini_model, is_complex_problem, DEFAULT_FLASH_MODEL, DEFAULT_PRO_MODEL
+
+    # Standard straightforward problem -> Flash model
+    simple_prompt = "Given an integer N, return whether it is even or odd."
+    assert is_complex_problem(simple_prompt) is False
+    assert get_optimal_gemini_model(simple_prompt) == DEFAULT_FLASH_MODEL
+
+    # Complex problem: Dynamic Programming -> Pro model
+    dp_prompt = "Find the maximum weight knapsack using dynamic programming with memoization."
+    assert is_complex_problem(dp_prompt) is True
+    assert get_optimal_gemini_model(dp_prompt) == DEFAULT_PRO_MODEL
+
+    # Complex problem: Large constraints scale N <= 10^5 -> Pro model
+    scale_prompt = "Given an array of size up to 10^5, find the longest contiguous subarray sum."
+    assert is_complex_problem(scale_prompt) is True
+    assert get_optimal_gemini_model(scale_prompt) == DEFAULT_PRO_MODEL
+
+    # Complex problem: Graph Dijkstra -> Pro model
+    graph_prompt = "Compute shortest path from node S to T using Dijkstra's algorithm."
+    assert is_complex_problem(graph_prompt) is True
+    assert get_optimal_gemini_model(graph_prompt) == DEFAULT_PRO_MODEL
+
+
+def test_time_limit_exceeded_identification():
+    spec = {
+        "title": "Infinite Loop Challenge",
+        "summary": "Process numbers within time limit.",
+        "sample_test_cases": [
+            {"input": "5", "expected_output": "5"}
+        ],
+        "hidden_test_cases": []
+    }
+
+    # Code that runs infinitely
+    infinite_py = """import sys
+import time
+while True:
+    time.sleep(0.1)
+"""
+
+    res = client.post("/api/run-code", json={
+        "code": infinite_py,
+        "language": "python",
+        "problem_spec": spec,
+        "mode": "run",
+        "user_id": "test_user_tle"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    test_results = data["test_results"]
+    assert test_results["overall_status"] == "timeout"
+    assert test_results["timeout_count"] >= 1
+    t = test_results["tests"][0]
+    assert t["status"] == "timeout"
+    assert "Time Limit Exceeded" in t["status_desc"]
+    assert "Time Limit Exceeded" in t["stderr"]
+
+    # Verify AI Feedback identifies TLE
+    feedback = data["feedback"]
+    assert "Time Limit Exceeded" in feedback["summary"] or "Time Limit Exceeded" in feedback.get("error_hint", "")
+    hints = feedback.get("hints", {})
+    assert "loop" in hints.get("level_1", "").lower() or "progress" in hints.get("level_1", "").lower()
+    assert "Simpler Clue" in hints.get("level_2", "") or "loop" in hints.get("level_2", "").lower()
+
+
+def test_runtime_error_line_number_and_explanation():
+    from app.llm import explain_runtime_error
+
+    # Test ZeroDivisionError extraction
+    sample_traceback = """Traceback (most recent call last):
+  File "solution.py", line 7, in solve
+    res = total / count
+ZeroDivisionError: division by zero"""
+
+    info = explain_runtime_error(sample_traceback, "python")
+    assert info["line_number"] == 7
+    assert info["error_type"] == "ZeroDivisionError"
+    assert "Line 7:" in info["message"]
+    assert "ZeroDivisionError" in info["message"]
+    assert "divide by zero" in info["message"]
+
+    # Test execution in sandbox with runtime crash on line 4
+    crash_py = """import sys
+tokens = sys.stdin.read().split()
+# Line 3 comment
+x = 10 / 0
+"""
+    spec = {
+        "title": "Division Test",
+        "summary": "Read and divide.",
+        "sample_test_cases": [{"input": "5", "expected_output": "5"}],
+        "hidden_test_cases": []
+    }
+    res = client.post("/api/run-code", json={
+        "code": crash_py,
+        "language": "python",
+        "problem_spec": spec,
+        "mode": "run",
+        "user_id": "test_user_crash"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    feedback = data["feedback"]
+    assert feedback["error_hint"] is not None
+    assert "Line 4:" in feedback["error_hint"]
+    assert "ZeroDivisionError" in feedback["error_hint"]
+
+
+def test_chronological_progressive_hints_order():
+    spec = {"title": "Arithmetic", "summary": "Sum items"}
+    test_results = {
+        "all_passed": False,
+        "tests": [
+            {"status": "failed", "input": "3 5", "expected": "8", "got": "15"}
+        ]
+    }
+
+    # Request Level 1: Conceptual Invariant
+    res1 = client.post("/api/get-feedback", json={
+        "code": "print(3 * 5)",
+        "language": "python",
+        "problem_spec": spec,
+        "test_results": test_results,
+        "hint_level": 1
+    })
+    f1 = res1.json()
+    assert f1["hint_level"] == 1
+    assert "Invariant" in f1["active_hint"] or "Conceptual" in f1["active_hint"] or len(f1["active_hint"]) > 0
+
+    # Request Level 2: Simpler Clue Towards Fix
+    res2 = client.post("/api/get-feedback", json={
+        "code": "print(3 * 5)",
+        "language": "python",
+        "problem_spec": spec,
+        "test_results": test_results,
+        "hint_level": 2
+    })
+    f2 = res2.json()
+    assert f2["hint_level"] == 2
+    # Hint 2 is different and simpler, directly guiding towards the fix (e.g. accumulator / comparison / line)
+    assert "Simpler Clue" in f2["active_hint"] or "Line" in f2["active_hint"] or len(f2["active_hint"]) > 0
+    assert f2["active_hint"] != f1["active_hint"]
+
+    # Request Level 3: Algorithmic Blueprint
+    res3 = client.post("/api/get-feedback", json={
+        "code": "print(3 * 5)",
+        "language": "python",
+        "problem_spec": spec,
+        "test_results": test_results,
+        "hint_level": 3
+    })
+    f3 = res3.json()
+    assert f3["hint_level"] == 3
+    assert "Algorithmic Approach" in f3["active_hint"]
+    assert f3["active_hint"] != f2["active_hint"]
+

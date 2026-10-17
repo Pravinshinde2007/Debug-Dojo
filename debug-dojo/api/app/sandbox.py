@@ -160,6 +160,9 @@ async def execute_via_judge0(
             outcome = "failed"
         elif status_id == 5:
             outcome = "timeout"
+            status_desc = "Time Limit Exceeded (TLE)"
+            if not stderr:
+                stderr = f"Time Limit Exceeded (TLE): Process exceeded CPU time limit of {timeout_s}s. Check for infinite loops or inefficient time complexity (O(N^2) or higher)."
         elif status_id == 6:
             outcome = "error"
             stderr = compile_output or stderr
@@ -296,13 +299,13 @@ def execute_via_isolated_subprocess(
         except subprocess.TimeoutExpired:
             return {
                 "status": "timeout",
-                "status_desc": "Time Limit Exceeded",
+                "status_desc": "Time Limit Exceeded (TLE)",
                 "stdout": "",
-                "stderr": f"Process exceeded timeout limit of {timeout_s} seconds.",
+                "stderr": f"Time Limit Exceeded (TLE): Process exceeded allowable time limit of {timeout_s} seconds. This typically indicates an infinite loop (e.g., missing loop variable increment) or quadratic/exponential complexity O(N^2) on large input cases.",
                 "compile_output": "",
                 "time_s": timeout_s,
                 "memory_kb": 0,
-                "got": "",
+                "got": "[Execution Timed Out]",
                 "expected": norm_expected
             }
         except Exception as e:

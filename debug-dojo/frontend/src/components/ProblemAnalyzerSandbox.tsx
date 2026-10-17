@@ -391,6 +391,10 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {testResults.all_passed ? (
                   <Badge variant="teal">✓ ALL PASSED</Badge>
+                ) : testResults.overall_status === 'timeout' ? (
+                  <Badge variant="cyan">⏱ TIME LIMIT EXCEEDED (TLE)</Badge>
+                ) : testResults.overall_status === 'runtime_error' ? (
+                  <Badge variant="amber">⚠ RUNTIME ERROR</Badge>
                 ) : (
                   <Badge variant="vermilion">✕ FAILED ({testResults.passed_count}/{testResults.total_tests})</Badge>
                 )}
@@ -405,15 +409,15 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
                   onClick={() => setActiveTab(idx + 1)}
                   style={{
                     background: activeTab === idx + 1 ? '#2b2046' : '#181326',
-                    border: '1.5px solid ' + (t.status === 'passed' ? '#1e523f' : '#5a2630'),
-                    color: t.status === 'passed' ? '#6fe7a9' : '#ff8878',
+                    border: '1.5px solid ' + (t.status === 'passed' ? '#1e523f' : t.status === 'timeout' ? '#1c4b5c' : '#5a2630'),
+                    color: t.status === 'passed' ? '#6fe7a9' : t.status === 'timeout' ? '#64d8ec' : '#ff8878',
                     padding: '4px 10px',
                     borderRadius: '6px',
                     fontSize: '0.75rem',
                     cursor: 'pointer'
                   }}
                 >
-                  Test {idx + 1} {t.is_hidden ? '(Hidden)' : '(Sample)'}
+                  Test {idx + 1} {t.is_hidden ? '(Hidden)' : '(Sample)'} {t.status === 'timeout' ? '· TLE' : ''}
                 </button>
               ))}
             </div>
@@ -421,9 +425,25 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
             {/* Active Test Case Detail */}
             {testResults.tests[activeTab - 1] && (
               <div style={{ background: '#181326', border: '1.5px solid #48386b', padding: '14px', borderRadius: '10px', fontSize: '0.85rem', display: 'grid', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, color: '#f3edfa' }}>Test Case {activeTab} Details:</span>
+                  <span style={{ fontSize: '0.75rem', color: testResults.tests[activeTab - 1].status === 'passed' ? '#6fe7a9' : testResults.tests[activeTab - 1].status === 'timeout' ? '#64d8ec' : '#ff8878', fontWeight: 600 }}>
+                    {testResults.tests[activeTab - 1].status_desc || (testResults.tests[activeTab - 1].status === 'timeout' ? 'Time Limit Exceeded (TLE)' : testResults.tests[activeTab - 1].status.toUpperCase())}
+                  </span>
+                </div>
                 <div><span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Input: </span><code style={{ background: '#120e1e', border: '1px solid #3c2f57', padding: '3px 8px', borderRadius: '5px', color: '#efe9f5', display: 'inline-block' }}>{testResults.tests[activeTab - 1].input}</code></div>
                 <div><span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Expected: </span><code style={{ background: '#0f1d26', border: '1px solid #1c4b5c', padding: '3px 8px', borderRadius: '5px', color: '#64d8ec', display: 'inline-block' }}>{testResults.tests[activeTab - 1].expected}</code></div>
-                <div><span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Your Output: </span><code style={{ background: testResults.tests[activeTab - 1].status === 'passed' ? '#0d241d' : '#25141a', border: '1px solid ' + (testResults.tests[activeTab - 1].status === 'passed' ? '#1e523f' : '#5a2630'), padding: '3px 8px', borderRadius: '5px', color: testResults.tests[activeTab - 1].status === 'passed' ? '#6fe7a9' : '#fb7185', display: 'inline-block' }}>{testResults.tests[activeTab - 1].got || '[No Output]'}</code></div>
+                <div><span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Your Output: </span><code style={{ background: testResults.tests[activeTab - 1].status === 'passed' ? '#0d241d' : testResults.tests[activeTab - 1].status === 'timeout' ? '#0e2229' : '#25141a', border: '1px solid ' + (testResults.tests[activeTab - 1].status === 'passed' ? '#1e523f' : testResults.tests[activeTab - 1].status === 'timeout' ? '#1c4b5c' : '#5a2630'), padding: '3px 8px', borderRadius: '5px', color: testResults.tests[activeTab - 1].status === 'passed' ? '#6fe7a9' : testResults.tests[activeTab - 1].status === 'timeout' ? '#67e8f9' : '#fb7185', display: 'inline-block' }}>{testResults.tests[activeTab - 1].got || (testResults.tests[activeTab - 1].status === 'timeout' ? '[Time Limit Exceeded (TLE)]' : '[No Output]')}</code></div>
+                {testResults.tests[activeTab - 1].stderr && (
+                  <div style={{ marginTop: '6px' }}>
+                    <span style={{ color: testResults.tests[activeTab - 1].status === 'timeout' ? '#64d8ec' : '#ff8878', fontWeight: 600, fontSize: '0.75rem' }}>
+                      {testResults.tests[activeTab - 1].status === 'timeout' ? '⏱ Time Limit Exceeded Diagnostics:' : '⚠ Error Diagnostics:'}
+                    </span>
+                    <pre style={{ background: testResults.tests[activeTab - 1].status === 'timeout' ? '#0d1f26' : '#251319', border: '1px solid ' + (testResults.tests[activeTab - 1].status === 'timeout' ? '#1c4b5c' : '#5a2630'), padding: '6px 10px', borderRadius: '6px', color: testResults.tests[activeTab - 1].status === 'timeout' ? '#67e8f9' : '#fb7185', fontSize: '0.75rem', overflowX: 'auto', margin: '4px 0 0' }}>
+                      {testResults.tests[activeTab - 1].stderr}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
 
@@ -443,19 +463,34 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
                   </div>
                 ) : (
                   <div>
-                    {feedback.logic_explanation && (
+                    {(testResults.overall_status === 'timeout' || (feedback.error_hint && feedback.error_hint.includes('Time Limit Exceeded'))) ? (
+                      <div style={{ background: '#0e2229', border: '1.5px solid #1c4b5c', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#64d8ec', marginBottom: '8px' }}>
+                        <strong>⏱ Time Limit Exceeded (TLE) Identified: </strong>
+                        {feedback.error_hint || 'Execution timed out. Check for infinite loops or O(N^2) quadratic algorithms.'}
+                      </div>
+                    ) : feedback.error_hint ? (
+                      <div style={{ background: '#251319', border: '1.5px solid #5a2630', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#fb7185', marginBottom: '8px' }}>
+                        <strong>⚠ Runtime Error Diagnosis: </strong>
+                        {feedback.error_hint}
+                      </div>
+                    ) : feedback.logic_explanation ? (
                       <div style={{ background: '#25141a', border: '1.5px solid #5a2630', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#fb7185', marginBottom: '8px' }}>
+                        <strong>🔍 Logic Issue: </strong>
                         {feedback.logic_explanation}
                       </div>
-                    )}
+                    ) : null}
+
                     {feedback.active_hint && (
                       <div style={{ background: '#1a152d', border: '1.5px solid #4a3a6e', borderLeft: '3px solid #a88cff', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#efe9f5' }}>
-                        <strong style={{ color: '#a88cff' }}>Hint: </strong>{feedback.active_hint}
+                        <div style={{ fontSize: '0.75rem', color: '#a88cff', fontWeight: 700, marginBottom: '2px', textTransform: 'uppercase' }}>
+                          {hintLevel === 1 ? 'Hint 1: Conceptual Invariant' : hintLevel === 2 ? 'Hint 2: Simpler Clue Towards Fix' : 'Hint 3: Algorithmic Approach Blueprint'}
+                        </div>
+                        {feedback.active_hint}
                       </div>
                     )}
                     <div style={{ marginTop: '10px' }}>
                       <Button variant="ghost" size="sm" onClick={handleRequestMoreHelp} disabled={hintLevel >= 3}>
-                        💡 {hintLevel >= 3 ? 'All 3 Hints Revealed' : `More Help · Level ${hintLevel + 1}`}
+                        💡 {hintLevel >= 3 ? 'All 3 Hints Revealed' : `More Help · Reveal Hint ${hintLevel + 1}: ${hintLevel === 1 ? 'Simpler Clue' : 'Algorithmic Blueprint'}`}
                       </Button>
                     </div>
                   </div>

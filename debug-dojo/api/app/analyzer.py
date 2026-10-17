@@ -11,9 +11,12 @@ from typing import Dict, Any, List, Optional
 import httpx
 
 from .sandbox import run_single_test_isolated
-
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("AI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+from .llm import (
+    get_gemini_api_key,
+    get_optimal_gemini_model,
+    PRO_FALLBACKS,
+    FLASH_FALLBACKS
+)
 
 
 SYSTEM_PROMPT = """You are an expert competitive programming problem designer and judge.
@@ -142,11 +145,19 @@ if __name__ == '__main__':
 
 
 async def _call_gemini_api(problem_statement: str) -> Optional[Dict[str, Any]]:
-    """Calls Gemini REST API via httpx using GEMINI_API_KEY."""
-    if not GEMINI_API_KEY:
+    """
+    Calls Gemini REST API via httpx using dynamic free-tier model selection.
+    Uses Gemini Pro for complex algorithmic problems (DP, graphs, large scale)
+    and Gemini Flash for standard challenges.
+    """
+    api_key = get_gemini_api_key()
+    if not api_key:
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    target_model = get_optimal_gemini_model(problem_statement)
+    candidate_models = PRO_FALLBACKS if target_model in PRO_FALLBACKS else FLASH_FALLBACKS
+    ordered_models = [target_model] + [m for m in candidate_models if m != target_model]
+
     payload = {
         "contents": [
             {
@@ -162,25 +173,34 @@ async def _call_gemini_api(problem_statement: str) -> Optional[Dict[str, Any]]:
         }
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code != 200:
-                return None
-            data = resp.json()
-            candidates = data.get("candidates", [])
-            if not candidates:
-                return None
-            text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-            if not text:
-                return None
+    for model_name in ordered_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        try:
+            async with httpx.AsyncClient(timeout=35.0) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if not candidates:
+                        continue
+                    text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if not text:
+                        continue
 
-            # Clean markdown code fences if returned
-            text = re.sub(r"^```json\s*", "", text.strip())
-            text = re.sub(r"\s*```$", "", text.strip())
-            return json.loads(text)
-    except Exception:
-        return None
+                    # Clean markdown code fences if returned
+                    text = re.sub(r"^```json\s*", "", text.strip())
+                    text = re.sub(r"\s*```$", "", text.strip())
+                    parsed = json.loads(text)
+                    if parsed:
+                        parsed["model_used"] = model_name
+                        return parsed
+                elif resp.status_code in (429, 404, 503):
+                    # Rate limit or model unavailable, try fallback model
+                    continue
+        except Exception:
+            continue
+
+    return None
 
 
 async def verify_tests_against_reference(

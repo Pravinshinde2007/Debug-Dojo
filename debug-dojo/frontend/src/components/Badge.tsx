@@ -2,7 +2,7 @@ import React from 'react';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'default' | 'vermilion' | 'teal' | 'muted';
+  variant?: 'default' | 'vermilion' | 'teal' | 'muted' | 'amber' | 'cyan';
   size?: 'sm' | 'md';
 }
 
@@ -13,6 +13,18 @@ export const Badge: React.FC<BadgeProps> = ({
 }) => {
   const getStyles = (): React.CSSProperties => {
     switch (variant) {
+      case 'amber':
+        return {
+          backgroundColor: 'rgba(248, 199, 108, 0.15)',
+          color: '#f8c76c',
+          borderColor: 'rgba(248, 199, 108, 0.4)',
+        };
+      case 'cyan':
+        return {
+          backgroundColor: 'rgba(100, 216, 236, 0.15)',
+          color: '#64d8ec',
+          borderColor: 'rgba(100, 216, 236, 0.4)',
+        };
       case 'vermilion':
         return {
           backgroundColor: 'rgba(255, 107, 74, 0.15)',

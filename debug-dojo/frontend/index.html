@@ -2179,7 +2179,7 @@ function vAnalyzerContent(){
                 ${results ? (
                   results.all_passed ? '<span class="badge-pass">✓ ALL PASSED</span>' :
                   results.overall_status === 'runtime_error' ? '<span class="badge-err">⚠ RUNTIME ERROR</span>' :
-                  results.overall_status === 'timeout' ? '<span class="badge-timeout">⏱ TIMEOUT</span>' :
+                  results.overall_status === 'timeout' ? '<span class="badge-timeout">⏱ TIME LIMIT EXCEEDED (TLE)</span>' :
                   '<span class="badge-fail">✕ FAILED</span>'
                 ) : '<span class="muted" style="text-transform:none;font-weight:normal;font-size:12px">Click Run or Submit to test</span>'}
               </div>
@@ -2197,8 +2197,8 @@ function vAnalyzerContent(){
                   ${results.tests.map((t, idx) => `
                     <button type="button" class="tab sm test-tab-btn ${activeTab === (idx+1) ? 'on' : ''}" data-test-tab="${idx+1}" style="font-size:12px;white-space:nowrap;padding:4px 10px">
                       Test ${idx + 1} ${t.is_hidden ? '(Hidden)' : '(Sample)'}
-                      <span class="${t.status==='passed'?'badge-pass':t.status==='failed'?'badge-fail':'badge-err'}" style="margin-left:4px;padding:1px 6px;font-size:10px">
-                        ${t.status.toUpperCase()}
+                      <span class="${t.status==='passed'?'badge-pass':t.status==='failed'?'badge-fail':t.status==='timeout'?'badge-timeout':'badge-err'}" style="margin-left:4px;padding:1px 6px;font-size:10px">
+                        ${t.status === 'timeout' ? 'TLE' : t.status.toUpperCase()}
                       </span>
                     </button>
                   `).join('')}
@@ -2212,7 +2212,7 @@ function vAnalyzerContent(){
                     <div style="background:#181326;border:1.5px solid #48386b;border-radius:12px;padding:14px;font-size:13px">
                       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                         <b style="color:var(--fg)">Test Case ${activeTab} Details:</b>
-                        <span class="${t.status==='passed'?'badge-pass':t.status==='failed'?'badge-fail':'badge-err'}">${t.status_desc || t.status}</span>
+                        <span class="${t.status==='passed'?'badge-pass':t.status==='failed'?'badge-fail':t.status==='timeout'?'badge-timeout':'badge-err'}">${t.status_desc || (t.status === 'timeout' ? 'Time Limit Exceeded (TLE)' : t.status)}</span>
                       </div>
                       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                         <div>
@@ -2226,12 +2226,14 @@ function vAnalyzerContent(){
                       </div>
                       <div style="margin-top:10px">
                         <span class="muted" style="font-size:11.5px;display:block;font-weight:600">Your Output (stdout / return):</span>
-                        <pre class="mono" style="background:${t.status==='passed'?'#0d241d':'#25141a'};border:1.5px solid ${t.status==='passed'?'#1e523f':'#5a2630'};padding:8px 10px;border-radius:8px;margin:4px 0 0;color:${t.status==='passed'?'#4ade80':'#fb7185'};overflow-x:auto;max-height:100px">${esc(t.got || (t.status==='passed' ? t.expected : '[No Output]'))}</pre>
+                        <pre class="mono" style="background:${t.status==='passed'?'#0d241d':t.status==='timeout'?'#0e2229':'#25141a'};border:1.5px solid ${t.status==='passed'?'#1e523f':t.status==='timeout'?'#1b4c5c':'#5a2630'};padding:8px 10px;border-radius:8px;margin:4px 0 0;color:${t.status==='passed'?'#4ade80':t.status==='timeout'?'#67e8f9':'#fb7185'};overflow-x:auto;max-height:100px">${esc(t.got || (t.status==='passed' ? t.expected : t.status==='timeout' ? '[Time Limit Exceeded (TLE)]' : '[No Output]'))}</pre>
                       </div>
                       ${t.stderr ? `
                         <div style="margin-top:10px">
-                          <span style="color:var(--coral);font-size:11.5px;font-weight:600;display:block">Error Diagnostics:</span>
-                          <pre class="mono" style="background:#251319;border:1.5px solid #5a2630;color:#fb7185;padding:8px 10px;border-radius:8px;margin:4px 0 0;overflow-x:auto;max-height:120px">${esc(t.stderr)}</pre>
+                          <span style="color:${t.status==='timeout'?'var(--cyan)':'var(--coral)'};font-size:11.5px;font-weight:600;display:block">
+                            ${t.status==='timeout' ? '⏱ Time Limit Exceeded Diagnostics:' : '⚠ Error Diagnostics:'}
+                          </span>
+                          <pre class="mono" style="background:${t.status==='timeout'?'#0d1f26':'#251319'};border:1.5px solid ${t.status==='timeout'?'#1c4b5c':'#5a2630'};color:${t.status==='timeout'?'#67e8f9':'#fb7185'};padding:8px 10px;border-radius:8px;margin:4px 0 0;overflow-x:auto;max-height:120px">${esc(t.stderr)}</pre>
                         </div>
                       ` : ''}
                     </div>
@@ -2246,9 +2248,12 @@ function vAnalyzerContent(){
                         <span style="font-size:16px">💡</span>
                         <b style="font-size:14px">AI Feedback &amp; Debugging Coach</b>
                       </div>
-                      <span class="pill" style="font-size:11px;color:var(--violet);border-color:rgba(168,140,255,.3)">
-                        Hint Level ${hintLevel} of 3
-                      </span>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        ${feedback.model_used ? `<span class="pill" style="font-size:10.5px;color:var(--cyan);border-color:rgba(100,216,236,.3)">🤖 ${esc(feedback.model_used)}</span>` : ''}
+                        <span class="pill" style="font-size:11px;color:var(--violet);border-color:rgba(168,140,255,.3)">
+                          Hint Level ${hintLevel} of 3
+                        </span>
+                      </div>
                     </div>
 
                     ${results.all_passed ? `
@@ -2256,31 +2261,48 @@ function vAnalyzerContent(){
                         <b>🎉 Solved! All test cases passed.</b>
                         ${feedback.complexity_tip ? `<p style="margin:4px 0 0;font-size:13px">${esc(feedback.complexity_tip)}</p>` : ''}
                       </div>
+                    ` : (results.overall_status === 'timeout' || (feedback.error_hint && feedback.error_hint.includes('Time Limit Exceeded'))) ? `
+                      <div class="banner" style="margin-top:10px;background:rgba(100,216,236,0.12);border:1.5px solid rgba(100,216,236,0.35);color:var(--cyan);flex-direction:column;align-items:flex-start">
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <span style="font-size:16px">⏱</span>
+                          <b style="color:var(--cyan);font-size:13.5px">Time Limit Exceeded (TLE) Identified</b>
+                        </div>
+                        <p style="margin:4px 0 0;font-size:13px;color:#d5ebf5">${esc(feedback.error_hint || 'Execution exceeded 2.0s timeout limit. Check loop increments or algorithmic complexity.')}</p>
+                      </div>
                     ` : feedback.error_hint ? `
                       <div class="banner bad" style="margin-top:10px;flex-direction:column;align-items:flex-start">
-                        <b>⚠ Error Diagnosis</b>
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <span style="font-size:15px">⚠</span>
+                          <b>Runtime Error Diagnosis</b>
+                        </div>
                         <p style="margin:4px 0 0;font-size:13px">${esc(feedback.error_hint)}</p>
                       </div>
                     ` : feedback.logic_explanation ? `
                       <div class="banner bad" style="margin-top:10px;flex-direction:column;align-items:flex-start">
-                        <b>🔍 Logic Discrepancy Found</b>
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <span style="font-size:15px">🔍</span>
+                          <b>Logic Discrepancy Found</b>
+                        </div>
                         <p style="margin:4px 0 0;font-size:13px">${esc(feedback.logic_explanation)}</p>
                       </div>
                     ` : ''}
 
-                    <!-- Progressive More Help Hint Card -->
+                    <!-- Progressive More Help Hint Card (Chronological Order) -->
                     <div class="hint" style="margin-top:10px">
                       <div style="display:flex;justify-content:space-between;align-items:center">
-                        <b style="color:var(--violet)">Level ${hintLevel} Hint: ${hintLevel===1?'Conceptual Nudge':hintLevel===2?'Targeted Logic Clue':'Algorithmic Approach Outline'}</b>
+                        <b style="color:var(--violet)">
+                          ${hintLevel===1 ? 'Hint 1 (Conceptual Invariant)' : hintLevel===2 ? 'Hint 2 (Simpler Clue Towards Fix)' : 'Hint 3 (Algorithmic Approach Blueprint)'}
+                        </b>
+                        <span style="font-size:11px;color:var(--faint)">Progressive Order</span>
                       </div>
-                      <p style="margin:4px 0 0;font-size:13.5px;color:#efe9f5">${esc(feedback.active_hint || '')}</p>
+                      <p style="margin:6px 0 0;font-size:13.5px;color:#efe9f5;line-height:1.6">${esc(feedback.active_hint || '')}</p>
                     </div>
 
                     <!-- More Help Button -->
                     ${!results.all_passed ? `
                       <div style="margin-top:12px">
                         <button type="button" class="btn sm" id="btn-sandbox-more-help" style="width:100%;justify-content:center;background:rgba(124,92,240,.12);color:var(--violet);border-color:rgba(168,140,255,.35)" ${hintLevel>=3?'disabled':''}>
-                          💡 ${hintLevel>=3 ? 'All 3 Hint Levels Revealed (You got this!)' : `More Help · Reveal Level ${hintLevel+1} Hint`}
+                          💡 ${hintLevel>=3 ? 'All 3 Hint Levels Revealed (You got this!)' : `More Help · Reveal Hint ${hintLevel+1}: ${hintLevel===1 ? 'Simpler Clue Towards Fix' : 'Algorithmic Blueprint'}`}
                         </button>
                       </div>
                     ` : ''}

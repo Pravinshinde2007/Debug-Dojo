@@ -29,15 +29,16 @@ def explain_failure(test_run_data: Dict[str, Any], mistake_tags: List[str], chal
 
     first_error = test_run_data.get("first_error")
     if first_error and first_error.get("error_type"):
-        line_part = f" on line {first_error.get('error_line')}" if first_error.get("error_line") else ""
+        line_num = first_error.get("error_line")
+        line_prefix = f"Line {line_num}: " if line_num else ""
         err_msg = first_error.get("error_msg", "")
-        return f"Python stopped with an error ({first_error.get('error_type')}){line_part}: {err_msg}"
+        return f"{line_prefix}{first_error.get('error_type')} — {err_msg}"
 
     first_failed = test_run_data.get("first_failed_test")
     if first_failed:
         outcome = first_failed.get("outcome")
         if outcome == "timeout":
-            return "Your code took too long to finish (over 2.0s). Check if your while or for loop is running infinitely."
+            return "Time Limit Exceeded (TLE): Your code took too long to finish (over 2.0s). Check if your while or for loop is running infinitely or if your time complexity needs optimization."
         if first_failed.get("kind"):
             return f"Your code passed the visible tests, but did not work on the edge case: {first_failed.get('kind')}."
         if outcome == "wrong_output" and first_failed.get("call"):
