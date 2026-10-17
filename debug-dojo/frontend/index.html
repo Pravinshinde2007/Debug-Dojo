@@ -421,6 +421,86 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
   background: #191428 !important;
   border: 1.5px solid #453765 !important;
 }
+
+/* Solid, clean, beautiful chips and mode buttons (eliminating raw grey buttonface boxes) */
+.chip, button.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #191428 !important;
+  border: 1.5px solid #4a3b68 !important;
+  border-radius: 9px !important;
+  padding: 7px 14px !important;
+  font-family: var(--body);
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #efe9f8 !important;
+  cursor: pointer;
+  outline: none;
+  transition: all .15s ease;
+  white-space: nowrap;
+  box-shadow: none !important;
+}
+.chip:hover, button.chip:hover {
+  background: #261c3d !important;
+  border-color: #9d7df8 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+.chip.on, button.chip.on {
+  background: #32215c !important;
+  border: 1.5px solid #9d7df8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(124, 92, 240, 0.28) !important;
+}
+.chip.sm, button.chip.sm {
+  padding: 5px 11px !important;
+  font-size: 12px !important;
+  border-radius: 8px !important;
+}
+.chips {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Sample Bug Specific Buttons */
+.chip[data-sample], button.chip[data-sample] {
+  background: #1b152d !important;
+  border: 1.5px solid #4e3c70 !important;
+  color: #f3ecfb !important;
+  border-radius: 8px !important;
+  padding: 6px 13px !important;
+}
+.chip[data-sample]:hover, button.chip[data-sample]:hover {
+  background: #2b1f48 !important;
+  border-color: #a88cff !important;
+  color: #ffffff !important;
+}
+
+/* Tab buttons solid styles */
+.tab {
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: all .15s;
+  cursor: pointer;
+}
+.tab:hover {
+  color: var(--fg);
+  background: #1c152a;
+}
+.tab.on {
+  background: #2b1f48 !important;
+  border-color: #7c5cf0 !important;
+  color: #ffffff !important;
+}
 </style>
 
 </head>

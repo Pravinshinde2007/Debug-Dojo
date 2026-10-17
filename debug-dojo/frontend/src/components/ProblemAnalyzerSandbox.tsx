@@ -222,14 +222,14 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
           <button
             type="button"
             onClick={() => setProblemText('Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\nInput Format: First line contains target. Second line contains integers.\nOutput Format: Print the two zero-based indices separated by space.')}
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--color-text)', borderRadius: '6px', padding: '4px 10px', fontSize: '0.8rem', cursor: 'pointer' }}
+            style={{ background: '#191428', border: '1.5px solid #4a3b68', color: '#efe9f8', borderRadius: '8px', padding: '5px 12px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}
           >
             Two Sum
           </button>
           <button
             type="button"
             onClick={() => setProblemText('Given a string s, return true if it is a palindrome, considering only alphanumeric characters and ignoring cases.\nInput Format: Single line containing string s.\nOutput Format: Print true or false.')}
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--color-text)', borderRadius: '6px', padding: '4px 10px', fontSize: '0.8rem', cursor: 'pointer' }}
+            style={{ background: '#191428', border: '1.5px solid #4a3b68', color: '#efe9f8', borderRadius: '8px', padding: '5px 12px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}
           >
             Valid Palindrome
           </button>
