@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Play, Send, RotateCcw, HelpCircle, Code2 } from 'lucide-react';
+import { Sparkles, Play, Send, RotateCcw, HelpCircle } from 'lucide-react';
 import { GlassPanel } from './GlassPanel';
 import { Button } from './Button';
 import { Badge } from './Badge';
@@ -15,6 +15,8 @@ interface TestCase {
 interface ProblemSpec {
   title: string;
   summary: string;
+  function_name?: string;
+  starter_code?: string;
   input_format: string;
   output_format: string;
   constraints: string[];
@@ -44,58 +46,13 @@ interface FeedbackData {
 }
 
 const TEMPLATES: Record<string, string> = {
-  python: `import sys
-
-def solve():
-    tokens = sys.stdin.read().split()
-    if not tokens:
-        return
+  python: `def two_sum(nums: list[int], target: int) -> list[int]:
+    """
+    Given an array of integers nums and an integer target,
+    return indices of the two numbers such that they add up to target.
+    """
     # Write your solution here
-    print(" ".join(tokens))
-
-if __name__ == '__main__':
-    solve()
-`,
-  javascript: `const fs = require('fs');
-
-function solve() {
-    const input = fs.readFileSync(0, 'utf-8').trim();
-    if (!input) return;
-    // Write your solution here
-    console.log(input);
-}
-
-solve();
-`,
-  cpp: `#include <iostream>
-#include <string>
-#include <vector>
-
-using namespace std;
-
-int main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    
-    // Write your solution here
-    string token;
-    while (cin >> token) {
-        cout << token << " ";
-    }
-    return 0;
-}
-`,
-  java: `import java.util.Scanner;
-
-public class Main {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        // Write your solution here
-        while (sc.hasNext()) {
-            System.out.print(sc.next() + " ");
-        }
-    }
-}
+    pass
 `
 };
 
@@ -106,20 +63,22 @@ function fallbackAnalyzeProblem(text: string): ProblemSpec {
     return {
       title: "Two Sum",
       summary: "Given an array of integers and a target value, find and return the two indices whose values sum to the target.",
-      input_format: "Line 1: Target integer. Line 2: Space-separated integers.",
-      output_format: "Two zero-based space-separated indices in ascending order.",
+      function_name: "two_sum",
+      starter_code: "def two_sum(nums: list[int], target: int) -> list[int]:\n    # Write your solution here\n    pass\n",
+      input_format: "nums: list[int], target: int",
+      output_format: "list[int] containing two indices",
       constraints: ["2 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9", "Exactly one valid solution exists."],
       sample_test_cases: [
-        { input: "9\n2 7 11 15", expected_output: "0 1", explanation: "nums[0] + nums[1] = 2 + 7 = 9" },
-        { input: "6\n3 2 4", expected_output: "1 2", explanation: "nums[1] + nums[2] = 2 + 4 = 6" }
+        { input: "nums = [2,7,11,15], target = 9", expected_output: "[0, 1]", explanation: "nums[0] + nums[1] = 2 + 7 = 9" },
+        { input: "nums = [3,2,4], target = 6", expected_output: "[1, 2]", explanation: "nums[1] + nums[2] = 2 + 4 = 6" }
       ],
       hidden_test_cases: [
-        { input: "6\n3 3", expected_output: "0 1", is_edge_case: true },
-        { input: "0\n-3 4 3 90", expected_output: "0 2", is_edge_case: true },
-        { input: "10\n1 2 3 4 6", expected_output: "3 4", is_edge_case: false },
-        { input: "-8\n-1 -2 -3 -4 -5", expected_output: "2 4", is_edge_case: true },
-        { input: "100\n5 20 35 80 95", expected_output: "1 3", is_edge_case: false },
-        { input: "4\n1 2 3", expected_output: "0 2", is_edge_case: false }
+        { input: "nums = [3,3], target = 6", expected_output: "[0, 1]", is_edge_case: true },
+        { input: "nums = [-3,4,3,90], target = 0", expected_output: "[0, 2]", is_edge_case: true },
+        { input: "nums = [1,2,3,4,6], target = 10", expected_output: "[3, 4]", is_edge_case: false },
+        { input: "nums = [-1,-2,-3,-4,-5], target = -8", expected_output: "[2, 4]", is_edge_case: true },
+        { input: "nums = [5,20,35,80,95], target = 100", expected_output: "[1, 3]", is_edge_case: false },
+        { input: "nums = [1,2,3], target = 4", expected_output: "[0, 2]", is_edge_case: false }
       ]
     };
   }
@@ -127,20 +86,22 @@ function fallbackAnalyzeProblem(text: string): ProblemSpec {
     return {
       title: "Valid Palindrome",
       summary: "Determine if a string reads the same forwards and backwards, ignoring non-alphanumeric characters and case.",
-      input_format: "A single line containing string s.",
-      output_format: "Print true if s is a palindrome, otherwise print false.",
+      function_name: "is_palindrome",
+      starter_code: "def is_palindrome(s: str) -> bool:\n    # Write your solution here\n    pass\n",
+      input_format: "s: str",
+      output_format: "bool (True or False)",
       constraints: ["1 <= s.length <= 2 * 10^5", "s consists only of printable ASCII characters."],
       sample_test_cases: [
-        { input: "A man, a plan, a canal: Panama", expected_output: "true", explanation: "\"amanaplanacanalpanama\" is a palindrome." },
-        { input: "race a car", expected_output: "false", explanation: "\"raceacar\" is not a palindrome." }
+        { input: 's = "A man, a plan, a canal: Panama"', expected_output: "true", explanation: "\"amanaplanacanalpanama\" is a palindrome." },
+        { input: 's = "race a car"', expected_output: "false", explanation: "\"raceacar\" is not a palindrome." }
       ],
       hidden_test_cases: [
-        { input: " ", expected_output: "true", is_edge_case: true },
-        { input: "0P", expected_output: "false", is_edge_case: false },
-        { input: "a", expected_output: "true", is_edge_case: true },
-        { input: "ab_a", expected_output: "true", is_edge_case: true },
-        { input: "Madam, in Eden, I'm Adam", expected_output: "true", is_edge_case: false },
-        { input: "Never odd or even", expected_output: "true", is_edge_case: false }
+        { input: 's = " "', expected_output: "true", is_edge_case: true },
+        { input: 's = "0P"', expected_output: "false", is_edge_case: false },
+        { input: 's = "a"', expected_output: "true", is_edge_case: true },
+        { input: 's = "ab_a"', expected_output: "true", is_edge_case: true },
+        { input: 's = "Madam, in Eden, I\'m Adam"', expected_output: "true", is_edge_case: false },
+        { input: 's = "Never odd or even"', expected_output: "true", is_edge_case: false }
       ]
     };
   }
@@ -149,20 +110,22 @@ function fallbackAnalyzeProblem(text: string): ProblemSpec {
   return {
     title: title || "Custom Algorithmic Challenge",
     summary: t.slice(0, 240) + (t.length > 240 ? '...' : ''),
-    input_format: "Line 1: Integer N. Line 2: Space-separated elements.",
-    output_format: "Print the calculated result on a single line.",
+    function_name: "solve",
+    starter_code: "def solve(nums: list[int]) -> int:\n    # Write your solution here\n    pass\n",
+    input_format: "nums: list[int]",
+    output_format: "int: calculated result",
     constraints: ["1 <= N <= 10^5", "-10^6 <= element <= 10^6", "Time Limit: 2.0s, Memory Limit: 128MB"],
     sample_test_cases: [
-      { input: "5\n1 2 3 4 5", expected_output: "15", explanation: "Sum/processing of input elements." },
-      { input: "3\n10 20 30", expected_output: "60", explanation: "Processing of 3 elements." }
+      { input: "nums = [1, 2, 3, 4, 5]", expected_output: "15", explanation: "Sum/processing of input elements." },
+      { input: "nums = [10, 20, 30]", expected_output: "60", explanation: "Processing of 3 elements." }
     ],
     hidden_test_cases: [
-      { input: "1\n42", expected_output: "42", is_edge_case: true },
-      { input: "2\n-5 5", expected_output: "0", is_edge_case: true },
-      { input: "4\n0 0 0 0", expected_output: "0", is_edge_case: true },
-      { input: "3\n-1 -2 -3", expected_output: "-6", is_edge_case: true },
-      { input: "5\n100 200 300 400 500", expected_output: "1500", is_edge_case: false },
-      { input: "6\n2 4 6 8 10 12", expected_output: "42", is_edge_case: false }
+      { input: "nums = [42]", expected_output: "42", is_edge_case: true },
+      { input: "nums = [-5, 5]", expected_output: "0", is_edge_case: true },
+      { input: "nums = [0, 0, 0, 0]", expected_output: "0", is_edge_case: true },
+      { input: "nums = [-1, -2, -3]", expected_output: "-6", is_edge_case: true },
+      { input: "nums = [100, 200, 300, 400, 500]", expected_output: "1500", is_edge_case: false },
+      { input: "nums = [2, 4, 6, 8, 10, 12]", expected_output: "42", is_edge_case: false }
     ]
   };
 }
@@ -173,7 +136,7 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
   const [inputError, setInputError] = useState('');
   const [spec, setSpec] = useState<ProblemSpec | null>(null);
 
-  const [language, setLanguage] = useState<'python' | 'javascript' | 'cpp' | 'java'>('python');
+  const language = 'python';
   const [code, setCode] = useState(TEMPLATES.python);
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -200,7 +163,7 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
         const data = await res.json();
         if (data && !data.error && data.title) {
           setSpec(data);
-          setCode(TEMPLATES[language]);
+          setCode(data.starter_code || (data.function_name ? `def ${data.function_name}(*args):\n    # Write your solution here\n    pass\n` : TEMPLATES.python));
           setTestResults(null);
           setFeedback(null);
           setHintLevel(1);
@@ -210,7 +173,7 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
       // If response not ok or error, fallback to client analyzer
       const fb = fallbackAnalyzeProblem(problemText);
       setSpec(fb);
-      setCode(TEMPLATES[language]);
+      setCode(fb.starter_code || TEMPLATES.python);
       setTestResults(null);
       setFeedback(null);
       setHintLevel(1);
@@ -218,7 +181,7 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
       // Offline fallback
       const fb = fallbackAnalyzeProblem(problemText);
       setSpec(fb);
-      setCode(TEMPLATES[language]);
+      setCode(fb.starter_code || TEMPLATES.python);
       setTestResults(null);
       setFeedback(null);
       setHintLevel(1);
@@ -416,25 +379,13 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
         <GlassPanel style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Code2 size={16} />
-              <select
-                value={language}
-                onChange={(e) => {
-                  const newL = e.target.value as any;
-                  setLanguage(newL);
-                  setCode(TEMPLATES[newL]);
-                }}
-                style={{ background: '#181326', color: '#f7f3fc', border: '1.5px solid #48386b', borderRadius: '8px', padding: '5px 10px', fontSize: '0.85rem' }}
-              >
-                <option value="python">Python 3</option>
-                <option value="javascript">JavaScript</option>
-                <option value="cpp">C++</option>
-                <option value="java">Java</option>
-              </select>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(100,216,236,0.12)', border: '1.5px solid rgba(100,216,236,0.35)', color: '#64d8ec', fontSize: '0.85rem', fontWeight: 700, padding: '5px 12px', borderRadius: '8px' }}>
+                🐍 Python 3 · LeetCode Mode
+              </span>
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>
-              <Button variant="ghost" size="sm" onClick={() => setCode(TEMPLATES[language])}>
+              <Button variant="ghost" size="sm" onClick={() => setCode(spec?.starter_code || TEMPLATES.python)}>
                 <RotateCcw size={14} /> Reset
               </Button>
               <Button variant="secondary" size="sm" onClick={() => handleRunCode('run')} disabled={isRunning || isSubmitting}>

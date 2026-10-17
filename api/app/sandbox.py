@@ -28,18 +28,13 @@ LANGUAGE_IDS = {
 }
 
 STARTER_TEMPLATES = {
-    "python": """import sys
-
-def solve():
-    # Read all input from standard input
-    input_data = sys.stdin.read().split()
-    if not input_data:
-        return
+    "python": """def two_sum(nums: list[int], target: int) -> list[int]:
+    \"\"\"
+    Given an array of integers nums and an integer target,
+    return indices of the two numbers such that they add up to target.
+    \"\"\"
     # Write your solution here
-    print(" ".join(input_data))
-
-if __name__ == '__main__':
-    solve()
+    pass
 """,
     "javascript": """const fs = require('fs');
 
@@ -182,6 +177,148 @@ async def execute_via_judge0(
         }
 
 
+def _check_match(got: str, expected: str) -> bool:
+    g = got.strip()
+    e = expected.strip()
+    if g == e:
+        return True
+    if g.lower() in ("true", "false") and e.lower() in ("true", "false"):
+        return g.lower() == e.lower()
+    try:
+        import ast
+        g_val = ast.literal_eval(g)
+        e_val = ast.literal_eval(e)
+        if g_val == e_val:
+            return True
+        if isinstance(g_val, (list, tuple)) and isinstance(e_val, (list, tuple)):
+            if sorted(list(g_val)) == sorted(list(e_val)):
+                return True
+    except Exception:
+        pass
+    import re
+    if re.sub(r'\s+', '', g) == re.sub(r'\s+', '', e):
+        return True
+    return False
+
+
+def _build_python_harness(user_code: str, raw_stdin: str) -> tuple:
+    """
+    Constructs an isolated execution script that wraps user code,
+    executing their LeetCode-style function or class Solution,
+    while capturing outputs and mapping traceback line numbers back to user code.
+    Returns (harness_code, user_code_start_line).
+    """
+    header = "import sys, io, json, ast, re, traceback\n\n"
+    user_start_line = 3  # Line where user_code begins
+    
+    footer = f"""
+def _normalize_result(val):
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    if isinstance(val, (list, tuple)):
+        return json.dumps(list(val))
+    if isinstance(val, dict):
+        return json.dumps(val, sort_keys=True)
+    if val is None:
+        return ""
+    return str(val)
+
+def _extract_user_callable():
+    if "Solution" in globals() and isinstance(globals()["Solution"], type):
+        inst = globals()["Solution"]()
+        methods = [m for m in dir(inst) if not m.startswith("_") and callable(getattr(inst, m))]
+        if methods:
+            return getattr(inst, methods[0])
+    internal = {{
+        "_normalize_result", "_extract_user_callable", "_parse_args",
+        "sys", "io", "json", "ast", "re", "traceback"
+    }}
+    candidates = []
+    for name, obj in list(globals().items()):
+        if name not in internal and not name.startswith("_") and callable(obj):
+            if hasattr(obj, "__code__"):
+                candidates.append((obj.__code__.co_firstlineno, obj))
+    if candidates:
+        candidates.sort(key=lambda x: x[0])
+        return candidates[-1][1]
+    return None
+
+def _parse_args(raw):
+    if not raw:
+        return []
+    inp = str(raw).strip()
+    try:
+        val = json.loads(inp)
+        if isinstance(val, list):
+            return val
+        return [val]
+    except Exception:
+        pass
+    try:
+        parts = re.split(r'\\s*,\\s*(?=[a-zA-Z_]\\w*\\s*=)', inp)
+        vals = []
+        for part in parts:
+            if '=' in part:
+                _, v = part.split('=', 1)
+                vals.append(ast.literal_eval(v.strip()))
+        if vals:
+            return vals
+    except Exception:
+        pass
+    try:
+        tup = ast.literal_eval(f"({{inp}},)")
+        if tup:
+            return list(tup)
+    except Exception:
+        pass
+    lines = [l.strip() for l in inp.split('\\n') if l.strip()]
+    parsed = []
+    for l in lines:
+        try:
+            parsed.append(ast.literal_eval(l))
+        except Exception:
+            try:
+                nums = [int(x) for x in l.split()]
+                parsed.append(nums if len(nums) > 1 else nums[0])
+            except Exception:
+                parsed.append(l)
+    return parsed
+
+if __name__ == '__main__':
+    raw_input_str = {repr(raw_stdin)}
+    target = _extract_user_callable()
+    
+    captured_stdout = io.StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = captured_stdout
+    
+    ret_val = None
+    has_ret = False
+    try:
+        if target is not None:
+            args = _parse_args(raw_input_str)
+            if isinstance(args, list):
+                ret_val = target(*args)
+            elif isinstance(args, dict):
+                ret_val = target(**args)
+            else:
+                ret_val = target(args)
+            has_ret = True
+    finally:
+        sys.stdout = old_stdout
+
+    printed = captured_stdout.getvalue().strip()
+    print("===DEBUG_DOJO_RESULT===")
+    if has_ret and ret_val is not None:
+        print(_normalize_result(ret_val))
+    elif printed:
+        print(printed)
+    else:
+        print("")
+"""
+    return (header + user_code + footer, user_start_line)
+
+
 def execute_via_isolated_subprocess(
     code: str,
     language: str,
@@ -190,18 +327,24 @@ def execute_via_isolated_subprocess(
     timeout_s: float = 2.0
 ) -> Dict[str, Any]:
     """
-    Isolated child-process fallback.
-    Executes in a temporary sandbox directory with strict time and output limits.
+    Isolated child-process execution sandbox.
+    Supports LeetCode-style Python functions and standalone scripts.
     Main server process is NEVER exposed to user execution.
     """
     norm_expected = expected_output.strip()
+    user_start_line = 1
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
 
         if language == "python":
             source_file = tmp_path / "solution.py"
-            source_file.write_text(code, encoding="utf-8")
+            # If code defines a function or class Solution, wrap in harness
+            if "def " in code or "class " in code:
+                harness_code, user_start_line = _build_python_harness(code, stdin)
+                source_file.write_text(harness_code, encoding="utf-8")
+            else:
+                source_file.write_text(code, encoding="utf-8")
             cmd = [sys.executable, str(source_file)]
         elif language == "javascript":
             source_file = tmp_path / "solution.js"
@@ -211,7 +354,6 @@ def execute_via_isolated_subprocess(
             source_file = tmp_path / "solution.cpp"
             binary_file = tmp_path / ("solution.exe" if os.name == "nt" else "solution")
             source_file.write_text(code, encoding="utf-8")
-            # Compile step
             compile_proc = subprocess.run(
                 ["g++", "-O2", str(source_file), "-o", str(binary_file)],
                 capture_output=True,
@@ -269,26 +411,55 @@ def execute_via_isolated_subprocess(
             duration = time.time() - start_time
             stdout = proc.stdout[:4096]
             stderr = proc.stderr[:4096]
-            got = stdout.strip()
+
+            # Parse harness result if present
+            if "===DEBUG_DOJO_RESULT===" in stdout:
+                parts = stdout.split("===DEBUG_DOJO_RESULT===")
+                user_stdout = parts[0].strip()
+                got = parts[1].strip()
+            else:
+                user_stdout = stdout.strip()
+                got = stdout.strip()
 
             if proc.returncode != 0:
+                # Extract line number from traceback
+                import re
+                err_line = None
+                lines_m = re.findall(r'File "[^"]+", line (\d+)', stderr)
+                if lines_m:
+                    raw_l = int(lines_m[-1])
+                    user_l = raw_l - (user_start_line - 1)
+                    if 1 <= user_l <= len(code.splitlines()):
+                        err_line = user_l
+                    else:
+                        err_line = max(1, user_l)
+
+                err_type_m = re.search(r'([A-Z]\w+Error): (.*)', stderr)
+                err_type = err_type_m.group(1) if err_type_m else "RuntimeError"
+                err_msg = err_type_m.group(2) if err_type_m else "Process terminated with error"
+
+                status_desc = f"Runtime Error ({err_type} at line {err_line})" if err_line else f"Runtime Error ({err_type})"
+                clean_stderr = f"Line {err_line}: {err_type} — {err_msg}\n{stderr}" if err_line else stderr
+
                 return {
                     "status": "error",
-                    "status_desc": f"Runtime Error (code {proc.returncode})",
-                    "stdout": stdout,
-                    "stderr": stderr,
+                    "status_desc": status_desc,
+                    "stdout": user_stdout,
+                    "stderr": clean_stderr,
                     "compile_output": "",
                     "time_s": round(duration, 3),
                     "memory_kb": 0,
-                    "got": got,
-                    "expected": norm_expected
+                    "got": got or f"[{err_type} on line {err_line or '?'}]",
+                    "expected": norm_expected,
+                    "error_line": err_line,
+                    "error_type": err_type
                 }
 
-            passed = (got == norm_expected)
+            passed = _check_match(got, norm_expected)
             return {
                 "status": "passed" if passed else "failed",
                 "status_desc": "Accepted" if passed else "Wrong Answer",
-                "stdout": stdout,
+                "stdout": user_stdout,
                 "stderr": stderr,
                 "compile_output": "",
                 "time_s": round(duration, 3),

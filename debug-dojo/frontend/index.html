@@ -971,73 +971,79 @@ print(calculate_average([]))
 };
 
 const SANDBOX_TEMPLATES = {
-  python: `import sys
-
-def solve():
-    tokens = sys.stdin.read().split()
-    if not tokens:
-        return
+  python: `def two_sum(nums: list[int], target: int) -> list[int]:
+    """
+    Given an array of integers nums and an integer target,
+    return indices of the two numbers such that they add up to target.
+    """
     # Write your solution here
-    print(" ".join(tokens))
-
-if __name__ == '__main__':
-    solve()
-`,
-  javascript: `const fs = require('fs');
-
-function solve() {
-    const input = fs.readFileSync(0, 'utf-8').trim();
-    if (!input) return;
-    // Write your solution here
-    console.log(input);
-}
-
-solve();
-`,
-  cpp: `#include <iostream>
-#include <string>
-#include <vector>
-
-using namespace std;
-
-int main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    
-    // Write your solution here
-    string token;
-    while (cin >> token) {
-        cout << token << " ";
-    }
-    return 0;
-}
-`,
-  java: `import java.util.Scanner;
-
-public class Main {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        // Write your solution here
-        while (sc.hasNext()) {
-            System.out.print(sc.next() + " ");
-        }
-    }
-}
+    pass
 `
 };
 
 const SAMPLE_PROBLEMS = [
   {
     label: "Two Sum",
-    text: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\nAssume that each input would have exactly one solution, and you may not use the same element twice.\n\nInput Format: First line contains target. Second line contains space-separated integers.\nOutput Format: Print the two zero-based indices separated by a space in ascending order."
+    text: `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
+You may assume that each input would have exactly one solution, and you may not use the same element twice.
+You can return the answer in any order.
+
+Example 1:
+Input: nums = [2,7,11,15], target = 9
+Output: [0,1]
+Explanation: Because nums[0] + nums[1] == 9, we return [0, 1].
+
+Example 2:
+Input: nums = [3,2,4], target = 6
+Output: [1,2]
+
+Constraints:
+2 <= nums.length <= 10^4
+-10^9 <= nums[i] <= 10^9
+-10^9 <= target <= 10^9
+Only one valid answer exists.`
   },
   {
     label: "Valid Palindrome",
-    text: "Given a string s, determine if it is a palindrome, considering only alphanumeric characters and ignoring cases.\n\nInput Format: A single line of text s.\nOutput Format: Print true if s is a palindrome, otherwise print false."
+    text: `A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.
+Given a string s, return true if it is a palindrome, or false otherwise.
+
+Example 1:
+Input: s = "A man, a plan, a canal: Panama"
+Output: true
+Explanation: "amanaplanacanalpanama" is a palindrome.
+
+Example 2:
+Input: s = "race a car"
+Output: false
+Explanation: "raceacar" is not a palindrome.
+
+Constraints:
+1 <= s.length <= 2 * 10^5
+s consists only of printable ASCII characters.`
   },
   {
     label: "Maximum Subarray (Kadane)",
-    text: "Given an integer array nums, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.\n\nInput Format: First line contains N. Second line contains N space-separated integers.\nOutput Format: Print the maximum subarray sum."
+    text: `Given an integer array nums, find the subarray with the largest sum, and return its sum.
+
+Example 1:
+Input: nums = [-2,1,-3,4,-1,2,1,-5,4]
+Output: 6
+Explanation: The subarray [4,-1,2,1] has the largest sum 6.
+
+Example 2:
+Input: nums = [1]
+Output: 1
+Explanation: The single element [1] has the maximum sum 1.
+
+Example 3:
+Input: nums = [5,4,-1,7,8]
+Output: 23
+Explanation: The subarray [5,4,-1,7,8] has the largest sum 23.
+
+Constraints:
+1 <= nums.length <= 10^5
+-10^4 <= nums[i] <= 10^4`
   }
 ];
 
@@ -2308,8 +2314,8 @@ function vAnalyzerContent(){
           ${esc(S.analyzerError || '')}
         </div>
 
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:10px">
-          <span style="font-size:12px;color:var(--faint)">Supports Python, JavaScript, C++, and Java</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:gap:10px">
+          <span style="font-size:12.5px;color:var(--cyan);font-weight:600">🐍 Python 3 LeetCode Mode — Write function definition &amp; return the answer</span>
           <div style="display:flex;gap:8px">
             <button type="button" class="btn sm" id="btn-analyzer-clear">Clear</button>
             <button type="button" class="btn sm primary" id="btn-analyzer-submit" style="padding:10px 22px;font-size:14.5px" ${isAnalyzing ? 'disabled' : ''}>
@@ -2420,15 +2426,11 @@ function vAnalyzerContent(){
           <!-- Code Editor Panel -->
           <section class="panel" aria-label="Isolated Code Sandbox">
             <div class="panel-h">
-              <!-- Language Selector -->
-              <div style="display:flex;align-items:center;gap:10px">
-                <label for="analyzer-lang-select" style="font-size:12px;color:var(--faint);font-weight:600;text-transform:uppercase">Language:</label>
-                <select id="analyzer-lang-select" style="background:#181326;color:#f7f3fc;border:1.5px solid #48386b;border-radius:8px;padding:5px 12px;font-size:13px;font-weight:600">
-                  <option value="python" ${curLang==='python'?'selected':''}>🐍 Python 3</option>
-                  <option value="javascript" ${curLang==='javascript'?'selected':''}>🟨 JavaScript (Node)</option>
-                  <option value="cpp" ${curLang==='cpp'?'selected':''}>⚡ C++ (GCC)</option>
-                  <option value="java" ${curLang==='java'?'selected':''}>☕ Java 17</option>
-                </select>
+              <!-- Language Badge (Locked strictly to Python LeetCode mode) -->
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(100,216,236,.12);border:1.5px solid rgba(100,216,236,.35);color:var(--cyan);font-size:12.5px;font-weight:700;padding:4px 12px;border-radius:8px">
+                  🐍 Python 3 · LeetCode Mode
+                </span>
               </div>
 
               <!-- Action Buttons -->
@@ -2639,27 +2641,29 @@ async function analyzeProblemInBrowser(text){
   if(apiKey){
     try {
       const prompt = `You are an expert competitive programming problem designer and judge.
-Analyze the user's problem statement and output a STRICT JSON object with this exact schema:
+Analyze the user's problem statement and output a STRICT JSON object in LeetCode Python function format:
 {
   "title": "Concise, descriptive problem title",
   "summary": "Clear 2-3 sentence summary",
-  "input_format": "Exact specification of input format",
-  "output_format": "Exact specification of output format",
+  "function_name": "snake_case function name (e.g. two_sum, is_palindrome)",
+  "starter_code": "def function_name(arg1: type1, arg2: type2) -> return_type:\\n    # Write your solution here\\n    pass\\n",
+  "input_format": "Exact specification of function parameters",
+  "output_format": "Exact specification of returned value",
   "constraints": ["Constraint 1", "Constraint 2"],
   "sample_test_cases": [
-    {"input": "Sample 1 input string", "expected_output": "Expected 1", "explanation": "Why this is correct"},
-    {"input": "Sample 2 input string", "expected_output": "Expected 2", "explanation": "Why this is correct"}
+    {"input": "LeetCode style string (e.g. nums = [2,7,11,15], target = 9)", "call_args": [[2, 7, 11, 15], 9], "expected_output": "[0, 1]", "explanation": "Why this is correct"}
   ],
   "hidden_test_cases": [
-    {"input": "Hidden 1", "expected_output": "Exp 1", "is_edge_case": false},
-    {"input": "Hidden 2", "expected_output": "Exp 2", "is_edge_case": true},
-    {"input": "Hidden 3", "expected_output": "Exp 3", "is_edge_case": false},
-    {"input": "Hidden 4", "expected_output": "Exp 4", "is_edge_case": true},
-    {"input": "Hidden 5", "expected_output": "Exp 5", "is_edge_case": false},
-    {"input": "Hidden 6", "expected_output": "Exp 6", "is_edge_case": true}
+    {"input": "Hidden input string", "call_args": [1, 2], "expected_output": "Exp", "is_edge_case": true}
   ],
-  "reference_solution": "Complete Python 3 solution reading stdin and printing output"
+  "reference_solution": "Complete, correct Python 3 function that returns the result"
 }
+REQUIREMENTS:
+1. ONLY Python 3 is supported.
+2. starter_code must provide ONLY the function signature and pass.
+3. reference_solution must be a complete Python 3 function matching starter_code.
+4. Output raw JSON only.
+
 PROBLEM STATEMENT:
 ${t}`;
       const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -2687,28 +2691,30 @@ ${t}`;
     }
   }
 
-  // 2. High-fidelity Offline Rule-Based Matcher & Template Generator
+  // 2. High-fidelity Offline Rule-Based Matcher & Template Generator (LeetCode Python Format)
   const lower = t.toLowerCase();
   if(lower.includes('two sum') || (lower.includes('indices') && lower.includes('target'))){
     return {
       title: "Two Sum",
-      summary: "Given an array of integers and a target value, find and return the two indices whose values sum to the target.",
-      input_format: "Line 1: Target integer. Line 2: Space-separated integers.",
-      output_format: "Two zero-based space-separated indices in ascending order.",
+      summary: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+      function_name: "two_sum",
+      starter_code: "def two_sum(nums: list[int], target: int) -> list[int]:\n    # Write your solution here\n    pass\n",
+      input_format: "nums: list[int], target: int",
+      output_format: "list[int] containing two indices",
       constraints: ["2 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9", "Exactly one valid solution exists."],
       sample_test_cases: [
-        { input: "9\n2 7 11 15", expected_output: "0 1", explanation: "nums[0] + nums[1] = 2 + 7 = 9" },
-        { input: "6\n3 2 4", expected_output: "1 2", explanation: "nums[1] + nums[2] = 2 + 4 = 6" }
+        { input: "nums = [2,7,11,15], target = 9", call_args: [[2, 7, 11, 15], 9], expected_output: "[0, 1]", explanation: "nums[0] + nums[1] = 2 + 7 = 9" },
+        { input: "nums = [3,2,4], target = 6", call_args: [[3, 2, 4], 6], expected_output: "[1, 2]", explanation: "nums[1] + nums[2] = 2 + 4 = 6" }
       ],
       hidden_test_cases: [
-        { input: "6\n3 3", expected_output: "0 1", is_edge_case: true },
-        { input: "0\n-3 4 3 90", expected_output: "0 2", is_edge_case: true },
-        { input: "10\n1 2 3 4 6", expected_output: "3 4", is_edge_case: false },
-        { input: "-8\n-1 -2 -3 -4 -5", expected_output: "2 4", is_edge_case: true },
-        { input: "100\n5 20 35 80 95", expected_output: "1 3", is_edge_case: false },
-        { input: "4\n1 2 3", expected_output: "0 2", is_edge_case: false }
+        { input: "nums = [3,3], target = 6", call_args: [[3, 3], 6], expected_output: "[0, 1]", is_edge_case: true },
+        { input: "nums = [-3,4,3,90], target = 0", call_args: [[-3, 4, 3, 90], 0], expected_output: "[0, 2]", is_edge_case: true },
+        { input: "nums = [1,2,3,4,6], target = 10", call_args: [[1, 2, 3, 4, 6], 10], expected_output: "[3, 4]", is_edge_case: false },
+        { input: "nums = [-1,-2,-3,-4,-5], target = -8", call_args: [[-1, -2, -3, -4, -5], -8], expected_output: "[2, 4]", is_edge_case: true },
+        { input: "nums = [5,20,35,80,95], target = 100", call_args: [[5, 20, 35, 80, 95], 100], expected_output: "[1, 3]", is_edge_case: false },
+        { input: "nums = [1,2,3], target = 4", call_args: [[1, 2, 3], 4], expected_output: "[0, 2]", is_edge_case: false }
       ],
-      reference_solution: "import sys\ndef main():\n    tokens = sys.stdin.read().split()\n    if len(tokens) < 2: return\n    target = int(tokens[0])\n    nums = [int(x) for x in tokens[1:]]\n    lookup = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in lookup:\n            print(f\"{lookup[complement]} {i}\")\n            return\n        lookup[num] = i\nif __name__ == '__main__':\n    main()",
+      reference_solution: "def two_sum(nums, target):\n    lookup = {}\n    for i, num in enumerate(nums):\n        comp = target - num\n        if comp in lookup:\n            return [lookup[comp], i]\n        lookup[num] = i\n    return []\n",
       reference_verified: true
     };
   }
@@ -2717,22 +2723,24 @@ ${t}`;
     return {
       title: "Valid Palindrome",
       summary: "Determine if a string reads the same forwards and backwards, ignoring non-alphanumeric characters and case.",
-      input_format: "A single line containing string s.",
-      output_format: "Print true if s is a palindrome, otherwise print false.",
+      function_name: "is_palindrome",
+      starter_code: "def is_palindrome(s: str) -> bool:\n    # Write your solution here\n    pass\n",
+      input_format: "s: str",
+      output_format: "bool (True or False)",
       constraints: ["1 <= s.length <= 2 * 10^5", "s consists only of printable ASCII characters."],
       sample_test_cases: [
-        { input: "A man, a plan, a canal: Panama", expected_output: "true", explanation: "\"amanaplanacanalpanama\" is a palindrome." },
-        { input: "race a car", expected_output: "false", explanation: "\"raceacar\" is not a palindrome." }
+        { input: 's = "A man, a plan, a canal: Panama"', call_args: ["A man, a plan, a canal: Panama"], expected_output: "true", explanation: "\"amanaplanacanalpanama\" is a palindrome." },
+        { input: 's = "race a car"', call_args: ["race a car"], expected_output: "false", explanation: "\"raceacar\" is not a palindrome." }
       ],
       hidden_test_cases: [
-        { input: " ", expected_output: "true", is_edge_case: true },
-        { input: "0P", expected_output: "false", is_edge_case: false },
-        { input: "a", expected_output: "true", is_edge_case: true },
-        { input: "ab_a", expected_output: "true", is_edge_case: true },
-        { input: "Madam, in Eden, I'm Adam", expected_output: "true", is_edge_case: false },
-        { input: "Never odd or even", expected_output: "true", is_edge_case: false }
+        { input: 's = " "', call_args: [" "], expected_output: "true", is_edge_case: true },
+        { input: 's = "0P"', call_args: ["0P"], expected_output: "false", is_edge_case: false },
+        { input: 's = "a"', call_args: ["a"], expected_output: "true", is_edge_case: true },
+        { input: 's = "ab_a"', call_args: ["ab_a"], expected_output: "true", is_edge_case: true },
+        { input: 's = "Madam, in Eden, I\'m Adam"', call_args: ["Madam, in Eden, I'm Adam"], expected_output: "true", is_edge_case: false },
+        { input: 's = "Never odd or even"', call_args: ["Never odd or even"], expected_output: "true", is_edge_case: false }
       ],
-      reference_solution: "import sys, re\ndef main():\n    s = sys.stdin.read()\n    clean = re.sub(r'[^a-zA-Z0-9]', '', s).lower()\n    print('true' if clean == clean[::-1] else 'false')\nif __name__ == '__main__':\n    main()",
+      reference_solution: "import re\ndef is_palindrome(s: str) -> bool:\n    clean = re.sub(r'[^a-zA-Z0-9]', '', s).lower()\n    return clean == clean[::-1]\n",
       reference_verified: true
     };
   }
@@ -2741,22 +2749,24 @@ ${t}`;
     return {
       title: "Maximum Subarray (Kadane's Algorithm)",
       summary: "Find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.",
-      input_format: "Line 1: Integer N. Line 2: N space-separated integers.",
-      output_format: "Print the maximum subarray sum.",
+      function_name: "max_sub_array",
+      starter_code: "def max_sub_array(nums: list[int]) -> int:\n    # Write your solution here\n    pass\n",
+      input_format: "nums: list[int]",
+      output_format: "int: maximum contiguous subarray sum",
       constraints: ["1 <= N <= 10^5", "-10^4 <= nums[i] <= 10^4"],
       sample_test_cases: [
-        { input: "9\n-2 1 -3 4 -1 2 1 -5 4", expected_output: "6", explanation: "Subarray [4,-1,2,1] has the largest sum = 6." },
-        { input: "1\n1", expected_output: "1", explanation: "The single element 1 is the maximum sum." }
+        { input: "nums = [-2,1,-3,4,-1,2,1,-5,4]", call_args: [[-2, 1, -3, 4, -1, 2, 1, -5, 4]], expected_output: "6", explanation: "Subarray [4,-1,2,1] has the largest sum = 6." },
+        { input: "nums = [1]", call_args: [[1]], expected_output: "1", explanation: "The single element 1 is the maximum sum." }
       ],
       hidden_test_cases: [
-        { input: "5\n5 4 -1 7 8", expected_output: "23", is_edge_case: false },
-        { input: "4\n-5 -2 -8 -1", expected_output: "-1", is_edge_case: true },
-        { input: "2\n-1 -2", expected_output: "-1", is_edge_case: true },
-        { input: "3\n0 0 0", expected_output: "0", is_edge_case: true },
-        { input: "6\n1 2 3 -10 5 6", expected_output: "11", is_edge_case: false },
-        { input: "5\n-1 2 3 4 -5", expected_output: "9", is_edge_case: false }
+        { input: "nums = [5,4,-1,7,8]", call_args: [[5, 4, -1, 7, 8]], expected_output: "23", is_edge_case: false },
+        { input: "nums = [-5,-2,-8,-1]", call_args: [[-5, -2, -8, -1]], expected_output: "-1", is_edge_case: true },
+        { input: "nums = [-1,-2]", call_args: [[-1, -2]], expected_output: "-1", is_edge_case: true },
+        { input: "nums = [0,0,0]", call_args: [[0, 0, 0]], expected_output: "0", is_edge_case: true },
+        { input: "nums = [1,2,3,-10,5,6]", call_args: [[1, 2, 3, -10, 5, 6]], expected_output: "11", is_edge_case: false },
+        { input: "nums = [-1,2,3,4,-5]", call_args: [[-1, 2, 3, 4, -5]], expected_output: "9", is_edge_case: false }
       ],
-      reference_solution: "import sys\ndef main():\n    tokens = sys.stdin.read().split()\n    if not tokens: return\n    n = int(tokens[0])\n    nums = [int(x) for x in tokens[1:]]\n    max_so_far = current_max = nums[0]\n    for x in nums[1:]:\n        current_max = max(x, current_max + x)\n        max_so_far = max(max_so_far, current_max)\n    print(max_so_far)\nif __name__ == '__main__':\n    main()",
+      reference_solution: "def max_sub_array(nums: list[int]) -> int:\n    if not nums: return 0\n    cur = mx = nums[0]\n    for x in nums[1:]:\n        cur = max(x, cur + x)\n        mx = max(mx, cur)\n    return mx\n",
       reference_verified: true
     };
   }
@@ -2770,129 +2780,271 @@ ${t}`;
   return {
     title: title || "Custom Algorithmic Challenge",
     summary: t.slice(0, 240) + (t.length > 240 ? '...' : ''),
-    input_format: "Line 1: Integer N. Line 2: Space-separated elements.",
-    output_format: "Print the calculated result on a single line.",
-    constraints: ["1 <= N <= 10^5", "-10^6 <= element <= 10^6", "Time Limit: 2.0s, Memory Limit: 128MB"],
+    function_name: "solve",
+    starter_code: "def solve(nums: list[int]) -> int:\n    # Write your solution here\n    pass\n",
+    input_format: "nums: list[int]",
+    output_format: "int: calculated result",
+    constraints: ["1 <= N <= 10^5", "-10^6 <= element <= 10^6"],
     sample_test_cases: [
-      { input: "5\n1 2 3 4 5", expected_output: "15", explanation: "Sum/processing of input elements." },
-      { input: "3\n10 20 30", expected_output: "60", explanation: "Processing of 3 elements." }
+      { input: "nums = [1, 2, 3, 4, 5]", call_args: [[1, 2, 3, 4, 5]], expected_output: "15", explanation: "Sum of elements." },
+      { input: "nums = [10, 20, 30]", call_args: [[10, 20, 30]], expected_output: "60", explanation: "Sum of elements." }
     ],
     hidden_test_cases: [
-      { input: "1\n42", expected_output: "42", is_edge_case: true },
-      { input: "2\n-5 5", expected_output: "0", is_edge_case: true },
-      { input: "4\n0 0 0 0", expected_output: "0", is_edge_case: true },
-      { input: "3\n-1 -2 -3", expected_output: "-6", is_edge_case: true },
-      { input: "5\n100 200 300 400 500", expected_output: "1500", is_edge_case: false },
-      { input: "6\n2 4 6 8 10 12", expected_output: "42", is_edge_case: false }
+      { input: "nums = [42]", call_args: [[42]], expected_output: "42", is_edge_case: true },
+      { input: "nums = [-5, 5]", call_args: [[-5, 5]], expected_output: "0", is_edge_case: true },
+      { input: "nums = [0, 0, 0, 0]", call_args: [[0, 0, 0, 0]], expected_output: "0", is_edge_case: true },
+      { input: "nums = [-1, -2, -3]", call_args: [[-1, -2, -3]], expected_output: "-6", is_edge_case: true },
+      { input: "nums = [100, 200, 300, 400, 500]", call_args: [[100, 200, 300, 400, 500]], expected_output: "1500", is_edge_case: false },
+      { input: "nums = [2, 4, 6, 8, 10, 12]", call_args: [[2, 4, 6, 8, 10, 12]], expected_output: "42", is_edge_case: false }
     ],
-    reference_solution: "import sys\ndef main():\n    tokens = sys.stdin.read().split()\n    if not tokens: return\n    n = int(tokens[0])\n    nums = [int(x) for x in tokens[1:]]\n    print(sum(nums))\nif __name__ == '__main__':\n    main()",
+    reference_solution: "def solve(nums):\n    return sum(nums) if isinstance(nums, list) else 0\n",
     reference_verified: true
   };
 }
 
 async function runSandboxInBrowser(code, lang, spec, mode){
+  const sampleCases = spec.sample_test_cases || [];
+  const hiddenCases = spec.hidden_test_cases || [];
   const cases = mode === 'submit' 
-    ? [...(spec.sample_test_cases || []), ...(spec.hidden_test_cases || [])]
-    : (spec.sample_test_cases || []);
+    ? [...sampleCases, ...hiddenCases]
+    : sampleCases;
 
   const results = [];
   let passedCount = 0;
-  const py = (lang === 'python') ? await getPyodide() : null;
+  let errorCount = 0;
+  let timeoutCount = 0;
+  let firstError = null;
+  let firstFailed = null;
+  const py = await getPyodide();
 
   for(let i = 0; i < cases.length; i++){
     const tc = cases[i];
     const inp = String(tc.input || '');
-    const exp = String(tc.expected_output || '').trim();
+    const exp = String(tc.expected_output || tc.expected || '').trim();
+    const isHidden = i >= sampleCases.length;
     let got = '';
     let status = 'passed';
     let execError = null;
+    let errType = null;
+    let errLine = null;
+    let errDesc = '';
 
-    if(py && lang === 'python'){
+    if(py){
       try {
-        const prepCode = `
-import sys, io
-sys.stdin = io.StringIO(${JSON.stringify(inp)})
-_client_sb_out = io.StringIO()
-sys.stdout = _client_sb_out
-sys.stderr = _client_sb_out
+        const harnessHeader = `import sys, io, json, ast, re, traceback\n\n`;
+        const harnessFooter = `
+def _norm(v):
+    if isinstance(v, bool): return "true" if v else "false"
+    if isinstance(v, (list, tuple)): return json.dumps(list(v))
+    if isinstance(v, dict): return json.dumps(v, sort_keys=True)
+    if v is None: return ""
+    return str(v)
+
+def _get_target():
+    if "Solution" in globals() and isinstance(globals()["Solution"], type):
+        inst = globals()["Solution"]()
+        methods = [m for m in dir(inst) if not m.startswith("_") and callable(getattr(inst, m))]
+        if methods: return getattr(inst, methods[0])
+    internal = {"_norm", "_get_target", "_parse_args", "sys", "io", "json", "ast", "re", "traceback"}
+    cands = []
+    for k, v in list(globals().items()):
+        if k not in internal and not k.startswith("_") and callable(v):
+            if hasattr(v, "__code__"): cands.append((v.__code__.co_firstlineno, v))
+    if cands:
+        cands.sort(key=lambda x: x[0])
+        return cands[-1][1]
+    return None
+
+def _parse_args(raw, spec_args):
+    if spec_args is not None:
+        return spec_args
+    if not raw: return []
+    s = str(raw).strip()
+    try:
+        val = json.loads(s)
+        if isinstance(val, list): return val
+        return [val]
+    except Exception: pass
+    try:
+        parts = re.split(r'\\s*,\\s*(?=[a-zA-Z_]\\w*\\s*=)', s)
+        vals = []
+        for p in parts:
+            if '=' in p:
+                _, v = p.split('=', 1)
+                vals.append(ast.literal_eval(v.strip()))
+        if vals: return vals
+    except Exception: pass
+    try:
+        tup = ast.literal_eval(f"({s},)")
+        if tup: return list(tup)
+    except Exception: pass
+    lines = [l.strip() for l in s.split('\\n') if l.strip()]
+    parsed = []
+    for l in lines:
+        try: parsed.append(ast.literal_eval(l))
+        except Exception:
+            try:
+                nums = [int(x) for x in l.split()]
+                parsed.append(nums if len(nums) > 1 else nums[0])
+            except Exception: parsed.append(l)
+    return parsed
+
+_target = _get_target()
+_captured_out = io.StringIO()
+_old_stdout = sys.stdout
+sys.stdout = _captured_out
+_res = None
+_has_res = False
+try:
+    if _target is not None:
+        _spec_args = ${tc.call_args !== undefined ? JSON.stringify(tc.call_args) : 'None'}
+        _args = _parse_args(${JSON.stringify(inp)}, _spec_args)
+        if isinstance(_args, list):
+            _res = _target(*_args)
+        elif isinstance(_args, dict):
+            _res = _target(**_args)
+        else:
+            _res = _target(_args)
+        _has_res = True
+finally:
+    sys.stdout = _old_stdout
+
+_printed = _captured_out.getvalue().strip()
+if _has_res and _res is not None:
+    _final_out = _norm(_res)
+elif _printed:
+    _final_out = _printed
+else:
+    _final_out = ""
 `;
-        await py.runPythonAsync(prepCode);
-        await py.runPythonAsync(code);
-        got = py.runPython("_client_sb_out.getvalue()").trim();
-        if(got !== exp){
-          status = 'failed';
-        } else {
+        await py.runPythonAsync(`
+import sys
+for k in list(globals().keys()):
+    if not k.startswith("__"):
+        del globals()[k]
+`);
+        const fullScript = harnessHeader + code + "\n" + harnessFooter;
+        await py.runPythonAsync(fullScript);
+        got = py.runPython("_final_out").trim();
+
+        function checkMatch(g, e){
+          if(g === e) return true;
+          try {
+            const jg = JSON.parse(g), je = JSON.parse(e);
+            if(JSON.stringify(jg) === JSON.stringify(je)) return true;
+            if(Array.isArray(jg) && Array.isArray(je) && jg.length === je.length){
+              const s1 = [...jg].sort(), s2 = [...je].sort();
+              if(JSON.stringify(s1) === JSON.stringify(s2)) return true;
+            }
+          } catch(_){}
+          if(g.toLowerCase() === e.toLowerCase()) return true;
+          if(g.replace(/\s+/g, '') === e.replace(/\s+/g, '')) return true;
+          return false;
+        }
+
+        if(checkMatch(got, exp)){
+          status = 'passed';
           passedCount++;
+        } else {
+          status = 'failed';
+          if(!firstFailed) firstFailed = { test: i + 1, input: inp, expected: exp, got: got };
         }
       } catch(err){
         status = 'error';
-        execError = err.message || String(err);
-        try { got = py.runPython("_client_sb_out.getvalue()").trim(); } catch(_){}
-      }
-    } else {
-      try {
-        if(lang === 'javascript'){
-          let jsOut = '';
-          const originalLog = console.log;
-          console.log = (...args) => { jsOut += args.join(' ') + '\n'; };
-          try {
-            const runner = new Function('input', code);
-            const res = runner(inp);
-            if(res !== undefined) jsOut += String(res);
-          } finally {
-            console.log = originalLog;
-          }
-          got = jsOut.trim();
-          if(got === exp){
-            passedCount++;
-          } else {
-            status = 'failed';
-          }
-        } else {
-          // Simulation for compiled languages
-          status = 'passed';
-          got = exp;
-          passedCount++;
+        errorCount++;
+        const rawErr = err.message || String(err);
+        execError = rawErr;
+        const lineMatches = [...rawErr.matchAll(/File "<exec>", line (\d+)/g)];
+        if(lineMatches.length > 0){
+          const rawLine = parseInt(lineMatches[lineMatches.length - 1][1]);
+          const userLine = rawLine - 2;
+          const totalUserLines = code.split('\n').length;
+          errLine = (userLine >= 1 && userLine <= totalUserLines) ? userLine : Math.max(1, userLine);
         }
-      } catch(jErr){
-        status = 'error';
-        execError = jErr.message || String(jErr);
+        const typeMatch = rawErr.match(/([A-Z]\w+Error): (.*)/);
+        if(typeMatch){
+          errType = typeMatch[1];
+          errDesc = typeMatch[2];
+        } else {
+          errType = 'RuntimeError';
+          errDesc = rawErr.split('\n')[0];
+        }
+        if(!firstError) firstError = { error_type: errType, error_line: errLine, error_msg: errDesc };
       }
     }
 
     results.push({
-      test_num: i + 1,
-      name: i < (spec.sample_test_cases || []).length ? `Sample Case ${i + 1}` : `Hidden Test ${i + 1}`,
+      test_id: i + 1,
       input: inp,
       expected: exp,
-      got: got,
+      got: got || (status === 'error' ? `[${errType || 'RuntimeError'}${errLine ? ' on line ' + errLine : ''}]` : ''),
+      stdout: '',
+      stderr: execError ? (errLine ? `Line ${errLine}: ${errType} — ${errDesc}\n${execError}` : execError) : '',
+      compile_output: '',
       status: status,
-      error_message: execError,
-      is_hidden: i >= (spec.sample_test_cases || []).length
+      status_desc: status === 'passed' ? 'Accepted' : status === 'error' ? `Runtime Error (${errType || 'Error'}${errLine ? ' at line ' + errLine : ''})` : 'Wrong Answer',
+      time_s: 0.05,
+      memory_kb: 0,
+      is_hidden: isHidden
     });
   }
 
-  const allPassed = passedCount === cases.length;
+  const allPassed = (passedCount === cases.length && cases.length > 0);
+  const overallStatus = allPassed ? 'passed' : (errorCount > 0 ? 'runtime_error' : 'wrong_answer');
+
+  let summary = '';
+  let errorHint = null;
+  let logicExp = null;
+  let hints = { level_1: '', level_2: '', level_3: '' };
+
+  if(allPassed){
+    summary = `🎉 Solved! All ${cases.length} test cases passed successfully.`;
+    hints = {
+      level_1: "Great job! Your LeetCode solution correctly handles standard and edge cases.",
+      level_2: "Simpler Clue: Check your space complexity — can you solve this in O(1) auxiliary memory?",
+      level_3: "Algorithmic Approach: Review asymptotic runtime bounds for large constraint scales."
+    };
+  } else if(firstError){
+    summary = `Runtime Error: Your code crashed during execution.`;
+    errorHint = firstError.error_line
+      ? `Line ${firstError.error_line}: ${firstError.error_type} — ${firstError.error_msg}`
+      : `${firstError.error_type} — ${firstError.error_msg}`;
+    hints = {
+      level_1: `Inspect line ${firstError.error_line || 1}: Check variable bounds, collection indices, and types before accessing elements.`,
+      level_2: `Simpler Clue: At line ${firstError.error_line || 1}, an invalid access occurred (${firstError.error_type}). Add a safeguard check before this operation or ensure variables are properly initialized.`,
+      level_3: `Algorithmic Approach: 1. Validate function input arguments at the beginning of the function. 2. Handle empty lists or null values early. 3. Ensure loop bounds stay strictly within range(len(...)).`
+    };
+  } else {
+    summary = `${passedCount} of ${cases.length} tests passed. Check the mismatched output below.`;
+    if(firstFailed){
+      logicExp = `Test Case ${firstFailed.test}: Input was "${firstFailed.input}". Expected "${firstFailed.expected}", but your function returned "${firstFailed.got}".`;
+    }
+    hints = {
+      level_1: `Conceptual Invariant: Compare what your function calculates against the exact return type and structure required by the problem.`,
+      level_2: `Simpler Clue: In test case ${firstFailed ? firstFailed.test : 1}, your function produced "${firstFailed ? firstFailed.got : 'wrong output'}". Look closely at loop termination conditions and whether you return or mutate input.`,
+      level_3: `Algorithmic Approach: 1. Initialize result/lookup container. 2. Iterate through elements once, tracking state with pointers or a dictionary. 3. Return the calculated value directly.`
+    };
+  }
+
   return {
     test_results: {
-      total_tests: cases.length,
-      passed_tests: passedCount,
-      failed_tests: cases.length - passedCount,
       all_passed: allPassed,
-      mode: mode,
-      details: results
+      total_tests: cases.length,
+      passed_count: passedCount,
+      failed_count: cases.length - passedCount - errorCount,
+      error_count: errorCount,
+      timeout_count: timeoutCount,
+      overall_status: overallStatus,
+      tests: results
     },
     feedback: {
-      summary: allPassed 
-        ? `🎉 Outstanding! All ${cases.length} tests passed successfully in the in-browser sandbox.`
-        : `${passedCount} of ${cases.length} tests passed. Check the mismatched test cases below.`,
-      hints: allPassed ? [
-        'Great job! Your solution handles all required logic and test conditions.',
-        'Consider time & space complexity optimizations if dealing with large inputs.'
-      ] : [
-        'Review the input of the first failing test case and compare your output carefully.',
-        'Check edge cases like zero, single-element collections, or boundary conditions.'
-      ]
+      summary: summary,
+      error_hint: errorHint,
+      logic_explanation: logicExp,
+      complexity_tip: allPassed ? "Time Complexity: O(N) · Auxiliary Space: O(1)" : null,
+      hints: hints,
+      active_hint: hints[`level_${S.analyzerHintLevel || 1}`] || hints.level_1,
+      model_used: "In-Browser Pyodide Sandbox"
     }
   };
 }
@@ -2981,7 +3133,7 @@ function bindAnalyzer(){
         const data = await safeFetchJson(res);
         if(res.ok && data && !data.error && !data.nonJson && data.title && data.sample_test_cases){
           S.analyzerSpec = data;
-          S.analyzerCode = SANDBOX_TEMPLATES[S.analyzerLang || 'python'] || '';
+          S.analyzerCode = data.starter_code || (data.function_name ? `def ${data.function_name}(*args):\n    # Write your solution here\n    pass\n` : SANDBOX_TEMPLATES.python);
           S.analyzerResults = null;
           S.analyzerFeedback = null;
           S.analyzerHintLevel = 1;
@@ -2999,7 +3151,7 @@ function bindAnalyzer(){
           const fallbackSpec = await analyzeProblemInBrowser(val);
           if(fallbackSpec){
             S.analyzerSpec = fallbackSpec;
-            S.analyzerCode = SANDBOX_TEMPLATES[S.analyzerLang || 'python'] || '';
+            S.analyzerCode = fallbackSpec.starter_code || (fallbackSpec.function_name ? `def ${fallbackSpec.function_name}(*args):\n    # Write your solution here\n    pass\n` : SANDBOX_TEMPLATES.python);
             S.analyzerResults = null;
             S.analyzerFeedback = null;
             S.analyzerHintLevel = 1;
@@ -3014,7 +3166,7 @@ function bindAnalyzer(){
         const fallbackSpec = await analyzeProblemInBrowser(val);
         if(fallbackSpec){
           S.analyzerSpec = fallbackSpec;
-          S.analyzerCode = SANDBOX_TEMPLATES[S.analyzerLang || 'python'] || '';
+          S.analyzerCode = fallbackSpec.starter_code || (fallbackSpec.function_name ? `def ${fallbackSpec.function_name}(*args):\n    # Write your solution here\n    pass\n` : SANDBOX_TEMPLATES.python);
           S.analyzerResults = null;
           S.analyzerFeedback = null;
           S.analyzerHintLevel = 1;
@@ -3053,26 +3205,11 @@ function bindAnalyzer(){
     });
   });
 
-  // Language selector
-  const langSel = $('#analyzer-lang-select');
-  if(langSel){
-    langSel.addEventListener('change', ()=>{
-      const prevLang = S.analyzerLang || 'python';
-      const newLang = langSel.value;
-      S.analyzerLang = newLang;
-      // If code was default template or empty, switch to new template
-      if(!S.analyzerCode || S.analyzerCode.trim() === (SANDBOX_TEMPLATES[prevLang] || '').trim()){
-        S.analyzerCode = SANDBOX_TEMPLATES[newLang] || '';
-      }
-      route();
-    });
-  }
-
   // Reset starter code
   const resetBtn = $('#btn-sandbox-reset');
   if(resetBtn){
     resetBtn.addEventListener('click', ()=>{
-      S.analyzerCode = SANDBOX_TEMPLATES[S.analyzerLang || 'python'] || '';
+      S.analyzerCode = (S.analyzerSpec && S.analyzerSpec.starter_code) ? S.analyzerSpec.starter_code : (SANDBOX_TEMPLATES.python || '');
       route();
       toast('Code reset to starter template.');
     });
