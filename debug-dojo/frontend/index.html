@@ -3820,9 +3820,10 @@ function initAuthModal(){
       try{
         let loggedIn = false;
         let data = null;
+        let backendContacted = false;
         try {
           const controller = new AbortController();
-          const tid = setTimeout(() => controller.abort(), 1200);
+          const tid = setTimeout(() => controller.abort(), 15000);
           const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -3830,12 +3831,13 @@ function initAuthModal(){
             signal: controller.signal
           });
           clearTimeout(tid);
+          backendContacted = true;
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             loggedIn = true;
           }
         }catch(netErr){
-          console.warn("Backend auth unavailable, falling back to local login:", netErr);
+          console.warn("Backend auth unavailable, checking local fallback:", netErr);
         }
 
         if(loggedIn){
@@ -3851,32 +3853,39 @@ function initAuthModal(){
           return;
         }
 
-        if(data && data.status === 401 && !data.nonJson && !data.error){
+        // If backend was contacted and returned an error (e.g. 401 or 400), show it and stop!
+        if(backendContacted && data){
           if(loginErr){
-            loginErr.textContent = data.detail || 'Login failed. Please check your credentials.';
+            loginErr.textContent = data.detail || 'Invalid email or password.';
             loginErr.style.display = 'block';
           }
           return;
         }
 
-        // Local In-Browser Login Fallback
+        // Local In-Browser Login Fallback (ONLY if backend could not be reached at all)
         const localAccounts = getLocalAccounts();
         const matched = localAccounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
         const isDemo = email.toLowerCase() === 'student@debugdojo.dev';
-        const userObj = matched ? { id: matched.id, name: matched.name, email: matched.email } :
-                        (isDemo ? { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' } :
-                                  { id: 'usr_' + Date.now(), name: email.split('@')[0], email: email });
-        const token = createLocalJwt(userObj);
-        saveLocalAccount({ ...userObj, password });
-        S.user = userObj;
-        S.token = token;
-        localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
-        localStorage.setItem('debug_dojo_jwt', token);
-        if(modal) modal.style.display = 'none';
-        renderAuthNav();
-        toast(`Welcome back, ${userObj.name}! (In-Browser Mode)`);
-        go('home');
-        fetchProfile().then(() => route());
+        if(matched || isDemo){
+          const userObj = matched ? { id: matched.id, name: matched.name, email: matched.email } :
+                                    { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' };
+          const token = createLocalJwt(userObj);
+          S.user = userObj;
+          S.token = token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+          localStorage.setItem('debug_dojo_jwt', token);
+          if(modal) modal.style.display = 'none';
+          renderAuthNav();
+          toast(`Welcome back, ${userObj.name}! (In-Browser Mode)`);
+          go('home');
+          fetchProfile().then(() => route());
+          return;
+        }
+
+        if(loginErr){
+          loginErr.textContent = 'Invalid email or password. Please check your credentials or register.';
+          loginErr.style.display = 'block';
+        }
       }catch(err){
         if(loginErr){
           loginErr.textContent = 'Login error: ' + (err.message || 'Please check your inputs.');
@@ -3897,9 +3906,10 @@ function initAuthModal(){
       try{
         let registered = false;
         let data = null;
+        let backendContacted = false;
         try {
           const controller = new AbortController();
-          const tid = setTimeout(() => controller.abort(), 1200);
+          const tid = setTimeout(() => controller.abort(), 15000);
           const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -3907,12 +3917,13 @@ function initAuthModal(){
             signal: controller.signal
           });
           clearTimeout(tid);
+          backendContacted = true;
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             registered = true;
           }
         }catch(netErr){
-          console.warn("Backend auth unavailable, falling back to local registration:", netErr);
+          console.warn("Backend auth unavailable, checking local fallback:", netErr);
         }
 
         if(registered){
@@ -3920,6 +3931,7 @@ function initAuthModal(){
           S.token = data.token;
           localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
           localStorage.setItem('debug_dojo_jwt', data.token);
+          saveLocalAccount({ ...data.user, password });
           if(modal) modal.style.display = 'none';
           renderAuthNav();
           toast(`Account created! Welcome to Debug Dojo, ${data.user.name || data.user.email}!`);
@@ -3928,15 +3940,26 @@ function initAuthModal(){
           return;
         }
 
-        if(data && data.status && data.status >= 400 && data.status < 500 && !data.nonJson && !data.error){
+        // If backend was reached and returned an error (e.g. 400 account already exists), display it!
+        if(backendContacted && data){
           if(regErr){
-            regErr.textContent = data.detail || 'Registration failed.';
+            regErr.textContent = data.detail || 'An account with this email already exists. Please log in.';
             regErr.style.display = 'block';
           }
           return;
         }
 
-        // Local In-Browser Registration Fallback
+        // Local In-Browser Registration Fallback (ONLY if backend was completely unreachable)
+        const localAccounts = getLocalAccounts();
+        const existing = localAccounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
+        if(existing || email.toLowerCase() === 'student@debugdojo.dev'){
+          if(regErr){
+            regErr.textContent = 'An account with this email already exists. Please log in.';
+            regErr.style.display = 'block';
+          }
+          return;
+        }
+
         const userObj = { id: 'usr_' + Date.now(), name: name || email.split('@')[0], email: email };
         const token = createLocalJwt(userObj);
         saveLocalAccount({ ...userObj, password });
@@ -4002,9 +4025,10 @@ function bindAuthPortal(){
       try{
         let loggedIn = false;
         let data = null;
+        let backendContacted = false;
         try {
           const controller = new AbortController();
-          const tid = setTimeout(() => controller.abort(), 1200);
+          const tid = setTimeout(() => controller.abort(), 15000);
           const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -4012,12 +4036,13 @@ function bindAuthPortal(){
             signal: controller.signal
           });
           clearTimeout(tid);
+          backendContacted = true;
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             loggedIn = true;
           }
         }catch(netErr){
-          console.warn("Backend auth offline, using in-browser session:", netErr);
+          console.warn("Backend auth offline, checking local fallback:", netErr);
         }
 
         if(loggedIn){
@@ -4032,7 +4057,7 @@ function bindAuthPortal(){
           return;
         }
 
-        if(data && data.status === 401 && !data.nonJson && !data.error){
+        if(backendContacted && data){
           if(loginErr){
             loginErr.textContent = data.detail || 'Invalid email or password.';
             loginErr.style.display = 'block';
@@ -4044,19 +4069,25 @@ function bindAuthPortal(){
         const localAccounts = getLocalAccounts();
         const matched = localAccounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
         const isDemo = email.toLowerCase() === 'student@debugdojo.dev';
-        const userObj = matched ? { id: matched.id, name: matched.name, email: matched.email } :
-                        (isDemo ? { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' } :
-                                  { id: 'usr_' + Date.now(), name: email.split('@')[0], email: email });
-        const token = createLocalJwt(userObj);
-        saveLocalAccount({ ...userObj, password });
-        S.user = userObj;
-        S.token = token;
-        localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
-        localStorage.setItem('debug_dojo_jwt', token);
-        renderAuthNav();
-        toast(`Logged in as ${userObj.email}! (In-Browser Mode)`);
-        go('home');
-        fetchProfile().then(() => route());
+        if(matched || isDemo){
+          const userObj = matched ? { id: matched.id, name: matched.name, email: matched.email } :
+                                    { id: 'usr_demo_student', name: 'Demo Student', email: 'student@debugdojo.dev' };
+          const token = createLocalJwt(userObj);
+          S.user = userObj;
+          S.token = token;
+          localStorage.setItem('debug_dojo_user', JSON.stringify(userObj));
+          localStorage.setItem('debug_dojo_jwt', token);
+          renderAuthNav();
+          toast(`Logged in as ${userObj.email}! (In-Browser Mode)`);
+          go('home');
+          fetchProfile().then(() => route());
+          return;
+        }
+
+        if(loginErr){
+          loginErr.textContent = 'Invalid email or password. Please check your credentials or register.';
+          loginErr.style.display = 'block';
+        }
       }catch(err){
         if(loginErr){
           loginErr.textContent = 'Login error: ' + (err.message || 'Please check your inputs.');
@@ -4087,9 +4118,10 @@ function bindAuthPortal(){
       try{
         let registered = false;
         let data = null;
+        let backendContacted = false;
         try {
           const controller = new AbortController();
-          const tid = setTimeout(() => controller.abort(), 1200);
+          const tid = setTimeout(() => controller.abort(), 15000);
           const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -4097,12 +4129,13 @@ function bindAuthPortal(){
             signal: controller.signal
           });
           clearTimeout(tid);
+          backendContacted = true;
           data = await safeFetchJson(res);
           if(res.ok && data.token && data.user){
             registered = true;
           }
         }catch(netErr){
-          console.warn("Backend auth offline, using in-browser registration:", netErr);
+          console.warn("Backend auth offline, checking local fallback:", netErr);
         }
 
         if(registered){
@@ -4110,6 +4143,7 @@ function bindAuthPortal(){
           S.token = data.token;
           localStorage.setItem('debug_dojo_user', JSON.stringify(data.user));
           localStorage.setItem('debug_dojo_jwt', data.token);
+          saveLocalAccount({ ...data.user, password });
           renderAuthNav();
           toast(`Account created! Welcome, ${data.user.name || data.user.email}!`);
           go('home');
@@ -4117,15 +4151,25 @@ function bindAuthPortal(){
           return;
         }
 
-        if(data && data.status && data.status >= 400 && data.status < 500 && !data.nonJson && !data.error){
+        if(backendContacted && data){
           if(regErr){
-            regErr.textContent = data.detail || 'Registration failed.';
+            regErr.textContent = data.detail || 'An account with this email already exists. Please log in.';
             regErr.style.display = 'block';
           }
           return;
         }
 
         // Local In-Browser Registration Fallback
+        const localAccounts = getLocalAccounts();
+        const existing = localAccounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
+        if(existing || email.toLowerCase() === 'student@debugdojo.dev'){
+          if(regErr){
+            regErr.textContent = 'An account with this email already exists. Please log in.';
+            regErr.style.display = 'block';
+          }
+          return;
+        }
+
         const userObj = { id: 'usr_' + Date.now(), name: name || email.split('@')[0], email: email };
         const token = createLocalJwt(userObj);
         saveLocalAccount({ ...userObj, password });
@@ -4162,7 +4206,7 @@ function bindAuthPortal(){
         let data = null;
         try {
           const controller = new AbortController();
-          const tid = setTimeout(() => controller.abort(), 1000);
+          const tid = setTimeout(() => controller.abort(), 10000);
           let res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},

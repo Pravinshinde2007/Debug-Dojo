@@ -63,18 +63,21 @@ def supabase_create_user(user_id: str, name: str, email: str, password_hash: str
     if not is_supabase_configured():
         return None
     try:
+        clean_email = email.strip().lower()
         payload = {
             "id": user_id,
             "name": name,
-            "email": email.strip().lower(),
+            "email": clean_email,
             "password_hash": password_hash,
             "salt": salt
         }
-        with httpx.Client(timeout=8.0) as client:
+        with httpx.Client(timeout=10.0) as client:
             res = client.post(_get_rest_url("users"), json=payload, headers=_get_headers())
             if res.is_success:
                 rows = res.json()
                 return rows[0] if isinstance(rows, list) and rows else payload
+            if res.status_code in (400, 409) and ("duplicate" in res.text.lower() or "unique" in res.text.lower() or "23505" in res.text):
+                return {"error": "duplicate_email", "message": "An account with this email already exists."}
             logger.warning(f"Supabase create_user HTTP {res.status_code}: {res.text}")
     except Exception as exc:
         logger.error(f"Supabase create_user error: {exc}")

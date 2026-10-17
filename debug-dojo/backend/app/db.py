@@ -159,30 +159,45 @@ except ImportError:
 
 
 def create_user(name: str, email: str, password: str) -> Dict[str, Any]:
-    """Registers a new user into Supabase (if configured) and SQLite users table."""
+    """Registers a new user into Supabase (if configured) and SQLite users table with strict uniqueness validation."""
     email_clean = email.strip().lower()
+    if not email_clean or "@" not in email_clean:
+        raise ValueError("A valid email address is required.")
+
+    # 1. Enforce email uniqueness check across existing users
+    existing = get_user_by_email(email_clean)
+    if existing:
+        raise ValueError("An account with this email already exists. Please log in.")
+
     name_clean = name.strip() or email_clean.split("@")[0]
     user_id = str(uuid.uuid4())
     pw_hash, salt = hash_password(password)
 
-    # 1. Persist to Supabase if configured
+    # 2. Persist to Supabase if configured
     if is_supabase_configured():
         try:
-            supabase_create_user(user_id, name_clean, email_clean, pw_hash, salt)
+            sup_res = supabase_create_user(user_id, name_clean, email_clean, pw_hash, salt)
+            if isinstance(sup_res, dict) and sup_res.get("error") == "duplicate_email":
+                raise ValueError("An account with this email already exists. Please log in.")
+        except ValueError:
+            raise
         except Exception as exc:
             print(f"Supabase create_user warning: {exc}")
 
-    # 2. Also keep in local SQLite
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO users (id, name, email, password_hash, salt)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (user_id, name_clean, email_clean, pw_hash, salt)
-        )
-        conn.commit()
+    # 3. Persist to local SQLite
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO users (id, name, email, password_hash, salt)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (user_id, name_clean, email_clean, pw_hash, salt)
+            )
+            conn.commit()
+    except sqlite3.IntegrityError:
+        raise ValueError("An account with this email already exists. Please log in.")
 
     return {"id": user_id, "name": name_clean, "email": email_clean}
 

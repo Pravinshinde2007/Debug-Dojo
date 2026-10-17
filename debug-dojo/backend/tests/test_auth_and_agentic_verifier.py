@@ -44,10 +44,25 @@ def test_auth_registration_and_login():
     assert me_res.json()["authenticated"] is True
     assert me_res.json()["user"]["email"] == test_email
 
-    # 2. Duplicate registration should fail
+    # Verify user is genuinely stored in the database
+    from app.db import get_user_by_email
+    db_user = get_user_by_email(test_email)
+    assert db_user is not None
+    assert db_user["email"].lower() == test_email.lower()
+    assert db_user["name"] == "Pravin Shinde"
+
+    # 2. Duplicate registration should fail (both exact and case-insensitive)
     dup_res = client.post("/api/auth/register", json=reg_payload)
     assert dup_res.status_code == 400
     assert "already exists" in dup_res.json()["detail"]
+
+    dup_case_res = client.post("/api/auth/register", json={
+        "name": "Different Name",
+        "email": test_email.upper(),
+        "password": "anotherpassword"
+    })
+    assert dup_case_res.status_code == 400
+    assert "already exists" in dup_case_res.json()["detail"]
 
     # 3. Login with correct credentials
     login_res = client.post("/api/auth/login", json={
