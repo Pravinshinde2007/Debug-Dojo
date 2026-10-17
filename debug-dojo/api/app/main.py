@@ -124,6 +124,18 @@ class SubmitResponse(BaseModel):
 
 class HintRequest(BaseModel):
     submission_id: str
+    challenge_id: Optional[str] = None
+    code: Optional[str] = None
+    hint_level: Optional[int] = None
+    hint_index: Optional[int] = None
+    error_type: Optional[str] = None
+    error_line: Optional[int] = None
+    error_msg: Optional[str] = None
+    failed_call: Optional[str] = None
+    expected: Optional[str] = None
+    got: Optional[str] = None
+    learner_level: Optional[str] = "beginner"
+    api_key: Optional[str] = None
 
 
 class HintResponse(BaseModel):
@@ -135,6 +147,7 @@ class HintResponse(BaseModel):
     total_hints: Optional[int] = None
     hint_level: Optional[int] = None
     hint_type: Optional[str] = None
+    model_used: Optional[str] = "🧠 Dojo Local ML Model (Trained Offline - Scikit-Learn Pipeline)"
 
 
 class LearnerProfileResponse(BaseModel):
@@ -435,11 +448,12 @@ def submit_code(req: SubmitRequest, authorization: Optional[str] = Header(None))
 
 @router.post("/hint", response_model=HintResponse)
 def request_hint(req: HintRequest):
-    hint_index = 1
+    hint_index = req.hint_level or req.hint_index or 1
     challenge = None
     mistake_tags = []
-    sub_code = ""
+    sub_code = req.code or ""
     visible_res = []
+    sub_learner_id = "anonymous_learner"
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -448,7 +462,7 @@ def request_hint(req: HintRequest):
             (req.submission_id,)
         )
         row = cursor.fetchone()
-        if row and row["count"] is not None:
+        if not (req.hint_level or req.hint_index) and row and row["count"] is not None:
             hint_index = row["count"] + 1
 
         cursor.execute(
@@ -456,10 +470,10 @@ def request_hint(req: HintRequest):
             (req.submission_id,)
         )
         sub_row = cursor.fetchone()
-        sub_learner_id = "anonymous_learner"
         if sub_row:
             sub_learner_id = sub_row["learner_id"] or "anonymous_learner"
-            sub_code = sub_row["code"] or ""
+            if not sub_code:
+                sub_code = sub_row["code"] or ""
             challenge = find_challenge(sub_row["challenge_id"])
             try:
                 mistake_tags = json.loads(sub_row["mistake_tags"])
@@ -470,9 +484,12 @@ def request_hint(req: HintRequest):
             except Exception:
                 pass
 
+    if not challenge and req.challenge_id:
+        challenge = find_challenge(req.challenge_id)
+
     diff = str(challenge.get("difficulty") or "Easy").lower() if challenge else "easy"
     total_hints = 5 if diff == "easy" else 4 if diff == "medium" else 3
-    hint_level = min(hint_index, total_hints)
+    hint_level = req.hint_level or min(hint_index, total_hints)
 
     test_run_data = {}
     if visible_res:
@@ -557,7 +574,8 @@ def request_hint(req: HintRequest):
         hint_index=hint_level,
         total_hints=total_hints,
         hint_level=hint_level,
-        hint_type=HINT_TYPES.get(hint_level, "Guidance")
+        hint_type=HINT_TYPES.get(hint_level, "Guidance"),
+        model_used="🧠 Dojo Local ML Model (Trained Offline - Scikit-Learn Pipeline)"
     )
 
 
