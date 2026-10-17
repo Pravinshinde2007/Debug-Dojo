@@ -323,7 +323,106 @@ body>.wrap{position:relative;z-index:1}
   border-radius: 99px;
   font-size: 11.5px;
 }
+
+/* Solid, clean, beautiful boxes instead of dull grey (not overly fancy) */
+.search, input.search, textarea.search,
+input[type="text"], input[type="email"], input[type="password"] {
+  background: #191428 !important;
+  border: 1.5px solid #4a3b68 !important;
+  border-radius: 10px !important;
+  color: #f7f3fc !important;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 11px 14px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.search::placeholder, input.search::placeholder, textarea.search::placeholder,
+input[type="text"]::placeholder, input[type="email"]::placeholder, input[type="password"]::placeholder {
+  color: #8f82a6 !important;
+}
+.search:focus, input.search:focus, textarea.search:focus,
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
+  border-color: #9d7df8 !important;
+  box-shadow: 0 0 0 3px rgba(157,125,248,0.22) !important;
+}
+
+.search-wrap {
+  background: #191428 !important;
+  border: 1.5px solid #4a3b68 !important;
+}
+.search-wrap:focus-within {
+  border-color: #9d7df8 !important;
+  box-shadow: 0 0 0 3px rgba(157,125,248,0.22) !important;
+}
+.select-control {
+  background: #191428 !important;
+  border: 1.5px solid #4a3b68 !important;
+}
+.select-control.sort-highlight {
+  background: #231a3d !important;
+  border: 1.5px solid #9d7df8 !important;
+}
+.panel {
+  background: #1a1429 !important;
+  border: 1.5px solid #3c2f55 !important;
+}
+.panel-h {
+  background: #151022 !important;
+  border-bottom: 1.5px solid #3c2f55 !important;
+}
+.card {
+  background: #1a1429 !important;
+  border: 1.5px solid #3c2f55 !important;
+}
+.ch {
+  background: #191327 !important;
+  border: 1.5px solid #3d3056 !important;
+}
+.ch:hover {
+  border-color: #9d7df8 !important;
+  background: #211933 !important;
+}
+.ch-statement {
+  background: #181326 !important;
+  border: 1.5px solid #3d3154 !important;
+}
+.ws-statement {
+  background: #19142b !important;
+  border: 1.5px solid #48386b !important;
+  border-left: 4px solid var(--violet) !important;
+}
+.sig {
+  background: #0f1d26 !important;
+  border: 1.5px solid #1c4b5c !important;
+  color: var(--cyan) !important;
+}
+.sample {
+  background: #191428 !important;
+  border: 1.5px solid #453765 !important;
+}
+.hint {
+  background: #1a152d !important;
+  border: 1.5px solid #4a3a6e !important;
+  border-left: 3px solid var(--violet) !important;
+}
+.coach-box {
+  background: #1a142c !important;
+  border: 1.5px solid #4e3c70 !important;
+}
+.editor {
+  background: #141020 !important;
+}
+.gutter {
+  background: #110d1c !important;
+}
+.hid {
+  background: #191428 !important;
+  border: 1.5px solid #453765 !important;
+}
 </style>
+
 </head>
 <body>
 
@@ -1838,7 +1937,7 @@ function vAnalyzerContent(){
 
         <!-- Chat Prompt Textarea -->
         <div style="position:relative">
-          <textarea id="analyzer-input-text" class="search" style="width:100%;height:160px;padding:14px;font-family:var(--body);font-size:14.5px;line-height:1.6;resize:vertical;border-radius:12px;background:var(--bg2);color:var(--fg);border:1px solid var(--line)" placeholder="Paste problem statement here (e.g. from LeetCode, Codeforces, class assignments, or interviews)...">${esc(S.analyzerInput || '')}</textarea>
+          <textarea id="analyzer-input-text" class="search" style="width:100%;height:160px;padding:14px;font-family:var(--body);font-size:14.5px;line-height:1.6;resize:vertical;border-radius:12px;background:#181326;color:#f7f3fc;border:1.5px solid #48386b" placeholder="Paste problem statement here (e.g. from LeetCode, Codeforces, class assignments, or interviews)...">${esc(S.analyzerInput || '')}</textarea>
         </div>
 
         <!-- Inline Error Banner -->
@@ -1897,15 +1996,15 @@ function vAnalyzerContent(){
               <p style="font-size:14px;color:var(--fg);line-height:1.6">${esc(spec.summary || '')}</p>
             </div>
 
-            <!-- Input & Output Format -->
-            <div style="background:var(--bg2);padding:12px 14px;border-radius:10px;border:1px solid var(--line);font-size:13px">
-              <div style="margin-bottom:8px">
-                <b style="color:var(--cyan);display:block;margin-bottom:3px">Input Format:</b>
-                <span class="muted">${esc(spec.input_format || 'Standard input')}</span>
+            <!-- Input & Output Format (Solid Color Beautiful Boxes) -->
+            <div style="background:#181326;padding:12px;border-radius:12px;border:1.5px solid #3d3056;font-size:13px;display:grid;gap:8px">
+              <div style="background:#0f1d26;border:1.5px solid #1c4b5c;border-left:3px solid var(--cyan);border-radius:8px;padding:9px 12px">
+                <b style="color:var(--cyan);display:block;margin-bottom:2px">Input Format:</b>
+                <span style="color:#d5ebf5">${esc(spec.input_format || 'Standard input')}</span>
               </div>
-              <div>
-                <b style="color:var(--cyan);display:block;margin-bottom:3px">Output Format:</b>
-                <span class="muted">${esc(spec.output_format || 'Standard output')}</span>
+              <div style="background:#0d241d;border:1.5px solid #1e523f;border-left:3px solid var(--green);border-radius:8px;padding:9px 12px">
+                <b style="color:var(--green);display:block;margin-bottom:2px">Output Format:</b>
+                <span style="color:#d5f5e5">${esc(spec.output_format || 'Standard output')}</span>
               </div>
             </div>
 
@@ -1914,29 +2013,29 @@ function vAnalyzerContent(){
               <div>
                 <b style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);display:block;margin-bottom:6px">Constraints</b>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">
-                  ${spec.constraints.map(c => `<span class="pill tag" style="font-size:12px">${esc(c)}</span>`).join('')}
+                  ${spec.constraints.map(c => `<span class="pill tag" style="font-size:12px;background:#151c28;border:1.5px solid #20405c">${esc(c)}</span>`).join('')}
                 </div>
               </div>
             ` : ''}
 
-            <!-- Sample Test Cases -->
+            <!-- Sample Test Cases (Solid Beautiful Boxes) -->
             <div>
               <b style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);display:block;margin-bottom:8px">Sample Test Cases</b>
               <div style="display:grid;gap:10px">
                 ${(spec.sample_test_cases || []).map((tc, idx) => `
-                  <div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:12.5px">
+                  <div style="background:#1a152b;border:1.5px solid #48386b;border-radius:10px;padding:12px;font-size:12.5px">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                       <b style="color:var(--violet)">Sample Case ${idx + 1}</b>
-                      <button type="button" class="btn sm copy-input-btn" data-input="${esc(tc.input)}" style="font-size:11px;padding:2px 8px">Copy Input</button>
+                      <button type="button" class="btn sm copy-input-btn" data-input="${esc(tc.input)}" style="font-size:11px;padding:3px 9px;background:#241c38;border:1.5px solid #57437d">Copy Input</button>
                     </div>
                     <div style="display:grid;gap:6px">
                       <div>
-                        <span class="muted" style="display:block;font-size:11px">Input:</span>
-                        <pre class="mono" style="background:var(--card);padding:6px 8px;border-radius:6px;margin:2px 0 0;overflow-x:auto">${esc(tc.input)}</pre>
+                        <span class="muted" style="display:block;font-size:11px;font-weight:600">Input:</span>
+                        <pre class="mono" style="background:#120e1e;border:1px solid #3c2f57;padding:7px 10px;border-radius:6px;margin:3px 0 0;overflow-x:auto;color:#efe9f5">${esc(tc.input)}</pre>
                       </div>
                       <div>
-                        <span class="muted" style="display:block;font-size:11px">Expected Output:</span>
-                        <pre class="mono" style="background:var(--card);padding:6px 8px;border-radius:6px;margin:2px 0 0;color:var(--cyan);overflow-x:auto">${esc(tc.expected_output)}</pre>
+                        <span class="muted" style="display:block;font-size:11px;font-weight:600">Expected Output:</span>
+                        <pre class="mono" style="background:#0f1d26;border:1px solid #1c4b5c;padding:7px 10px;border-radius:6px;margin:3px 0 0;color:var(--cyan);overflow-x:auto">${esc(tc.expected_output)}</pre>
                       </div>
                       ${tc.explanation ? `<div style="font-size:12px;color:var(--muted);margin-top:2px"><em>${esc(tc.explanation)}</em></div>` : ''}
                     </div>
@@ -1961,7 +2060,7 @@ function vAnalyzerContent(){
               <!-- Language Selector -->
               <div style="display:flex;align-items:center;gap:10px">
                 <label for="analyzer-lang-select" style="font-size:12px;color:var(--faint);font-weight:600;text-transform:uppercase">Language:</label>
-                <select id="analyzer-lang-select" style="background:var(--bg2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:13px;font-weight:600">
+                <select id="analyzer-lang-select" style="background:#181326;color:#f7f3fc;border:1.5px solid #48386b;border-radius:8px;padding:5px 12px;font-size:13px;font-weight:600">
                   <option value="python" ${curLang==='python'?'selected':''}>🐍 Python 3</option>
                   <option value="javascript" ${curLang==='javascript'?'selected':''}>🟨 JavaScript (Node)</option>
                   <option value="cpp" ${curLang==='cpp'?'selected':''}>⚡ C++ (GCC)</option>
@@ -2030,29 +2129,29 @@ function vAnalyzerContent(){
                   const t = results.tests[activeTab - 1] || results.tests[0];
                   if (!t) return '';
                   return `
-                    <div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px;font-size:13px">
+                    <div style="background:#181326;border:1.5px solid #48386b;border-radius:12px;padding:14px;font-size:13px">
                       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                         <b style="color:var(--fg)">Test Case ${activeTab} Details:</b>
                         <span class="${t.status==='passed'?'badge-pass':t.status==='failed'?'badge-fail':'badge-err'}">${t.status_desc || t.status}</span>
                       </div>
                       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                         <div>
-                          <span class="muted" style="font-size:11.5px;display:block">Input (stdin):</span>
-                          <pre class="mono" style="background:var(--card);padding:8px 10px;border-radius:6px;margin:4px 0 0;overflow-x:auto;max-height:100px">${esc(t.input)}</pre>
+                          <span class="muted" style="font-size:11.5px;display:block;font-weight:600">Input (stdin):</span>
+                          <pre class="mono" style="background:#120e1e;border:1.5px solid #3c2f57;padding:8px 10px;border-radius:8px;margin:4px 0 0;color:#efe9f5;overflow-x:auto;max-height:100px">${esc(t.input)}</pre>
                         </div>
                         <div>
-                          <span class="muted" style="font-size:11.5px;display:block">Expected Output:</span>
-                          <pre class="mono" style="background:var(--card);padding:8px 10px;border-radius:6px;margin:4px 0 0;color:var(--cyan);overflow-x:auto;max-height:100px">${esc(t.expected)}</pre>
+                          <span class="muted" style="font-size:11.5px;display:block;font-weight:600">Expected Output:</span>
+                          <pre class="mono" style="background:#0f1d26;border:1.5px solid #1c4b5c;padding:8px 10px;border-radius:8px;margin:4px 0 0;color:var(--cyan);overflow-x:auto;max-height:100px">${esc(t.expected)}</pre>
                         </div>
                       </div>
                       <div style="margin-top:10px">
-                        <span class="muted" style="font-size:11.5px;display:block">Your Output (stdout / return):</span>
-                        <pre class="mono" style="background:var(--card);padding:8px 10px;border-radius:6px;margin:4px 0 0;color:${t.status==='passed'?'var(--green)':'var(--coral)'};overflow-x:auto;max-height:100px">${esc(t.got || (t.status==='passed' ? t.expected : '[No Output]'))}</pre>
+                        <span class="muted" style="font-size:11.5px;display:block;font-weight:600">Your Output (stdout / return):</span>
+                        <pre class="mono" style="background:${t.status==='passed'?'#0d241d':'#25141a'};border:1.5px solid ${t.status==='passed'?'#1e523f':'#5a2630'};padding:8px 10px;border-radius:8px;margin:4px 0 0;color:${t.status==='passed'?'#4ade80':'#fb7185'};overflow-x:auto;max-height:100px">${esc(t.got || (t.status==='passed' ? t.expected : '[No Output]'))}</pre>
                       </div>
                       ${t.stderr ? `
                         <div style="margin-top:10px">
                           <span style="color:var(--coral);font-size:11.5px;font-weight:600;display:block">Error Diagnostics:</span>
-                          <pre class="mono" style="background:rgba(255,136,120,.08);color:var(--coral);padding:8px 10px;border-radius:6px;margin:4px 0 0;overflow-x:auto;max-height:120px">${esc(t.stderr)}</pre>
+                          <pre class="mono" style="background:#251319;border:1.5px solid #5a2630;color:#fb7185;padding:8px 10px;border-radius:8px;margin:4px 0 0;overflow-x:auto;max-height:120px">${esc(t.stderr)}</pre>
                         </div>
                       ` : ''}
                     </div>
@@ -2127,7 +2226,7 @@ function vAnalyzerContent(){
               </div>
               <div class="panel-b" style="gap:8px">
                 ${S.analyzerHistory.map(a => `
-                  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);padding:8px 12px;border-radius:8px;font-size:12.5px;border:1px solid var(--line)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;background:#181326;padding:9px 12px;border-radius:8px;font-size:12.5px;border:1.5px solid #3d3056">
                     <div style="display:flex;align-items:center;gap:8px">
                       <span class="${a.passed ? 'badge-pass' : 'badge-fail'}">${a.passed ? 'PASSED' : 'FAILED'}</span>
                       <span class="mono" style="color:var(--violet)">${esc(a.language)}</span>

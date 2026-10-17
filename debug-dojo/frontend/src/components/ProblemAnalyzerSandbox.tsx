@@ -242,11 +242,11 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
           style={{
             width: '100%',
             height: '180px',
-            backgroundColor: 'rgba(0,0,0,0.3)',
-            border: '1px solid rgba(255,255,255,0.15)',
+            backgroundColor: '#181326',
+            border: '1.5px solid #48386b',
             borderRadius: '12px',
             padding: '14px',
-            color: '#fff',
+            color: '#f7f3fc',
             fontSize: '0.95rem',
             fontFamily: 'inherit',
             resize: 'vertical',
@@ -287,14 +287,14 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>{spec.summary}</p>
         </div>
 
-        <div style={{ background: 'rgba(0,0,0,0.25)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.85rem' }}>
-          <div style={{ marginBottom: '6px' }}>
-            <strong style={{ color: 'var(--color-secondary)' }}>Input Format: </strong>
-            <span style={{ color: 'var(--color-text-muted)' }}>{spec.input_format}</span>
+        <div style={{ background: '#181326', padding: '12px', borderRadius: '10px', border: '1.5px solid #3d3056', fontSize: '0.85rem', display: 'grid', gap: '8px' }}>
+          <div style={{ background: '#0f1d26', border: '1.5px solid #1c4b5c', borderLeft: '3px solid #64d8ec', borderRadius: '6px', padding: '8px 10px' }}>
+            <strong style={{ color: '#64d8ec', display: 'block', marginBottom: '2px' }}>Input Format:</strong>
+            <span style={{ color: '#d5ebf5' }}>{spec.input_format}</span>
           </div>
-          <div>
-            <strong style={{ color: 'var(--color-secondary)' }}>Output Format: </strong>
-            <span style={{ color: 'var(--color-text-muted)' }}>{spec.output_format}</span>
+          <div style={{ background: '#0d241d', border: '1.5px solid #1e523f', borderLeft: '3px solid #6fe7a9', borderRadius: '6px', padding: '8px 10px' }}>
+            <strong style={{ color: '#6fe7a9', display: 'block', marginBottom: '2px' }}>Output Format:</strong>
+            <span style={{ color: '#d5f5e5' }}>{spec.output_format}</span>
           </div>
         </div>
 
@@ -303,7 +303,7 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
             <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600 }}>Constraints</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {spec.constraints.map((c, i) => (
-                <span key={i} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '2px 8px', fontSize: '0.8rem' }}>
+                <span key={i} style={{ background: '#151c28', border: '1.5px solid #20405c', color: '#c2e7ff', borderRadius: '4px', padding: '2px 8px', fontSize: '0.8rem' }}>
                   {c}
                 </span>
               ))}
@@ -315,10 +315,10 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
           <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '8px', fontWeight: 600 }}>Sample Test Cases</div>
           <div style={{ display: 'grid', gap: '8px' }}>
             {spec.sample_test_cases.map((tc, idx) => (
-              <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px', fontSize: '0.85rem' }}>
-                <div style={{ fontWeight: 600, color: 'var(--color-primary)', marginBottom: '4px' }}>Sample {idx + 1}</div>
-                <div><span style={{ color: 'var(--color-text-muted)' }}>Input: </span><code>{tc.input}</code></div>
-                <div><span style={{ color: 'var(--color-text-muted)' }}>Expected: </span><code style={{ color: 'var(--color-secondary)' }}>{tc.expected_output}</code></div>
+              <div key={idx} style={{ background: '#1a152b', border: '1.5px solid #48386b', borderRadius: '8px', padding: '10px', fontSize: '0.85rem' }}>
+                <div style={{ fontWeight: 600, color: '#a88cff', marginBottom: '4px' }}>Sample {idx + 1}</div>
+                <div><span style={{ color: 'var(--color-text-muted)' }}>Input: </span><code style={{ background: '#120e1e', border: '1px solid #3c2f57', padding: '2px 6px', borderRadius: '4px', color: '#efe9f5' }}>{tc.input}</code></div>
+                <div style={{ marginTop: '4px' }}><span style={{ color: 'var(--color-text-muted)' }}>Expected: </span><code style={{ background: '#0f1d26', border: '1px solid #1c4b5c', padding: '2px 6px', borderRadius: '4px', color: '#64d8ec' }}>{tc.expected_output}</code></div>
               </div>
             ))}
           </div>
@@ -342,7 +342,7 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
                   setLanguage(newL);
                   setCode(TEMPLATES[newL]);
                 }}
-                style={{ background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', padding: '4px 8px', fontSize: '0.85rem' }}
+                style={{ background: '#181326', color: '#f7f3fc', border: '1.5px solid #48386b', borderRadius: '8px', padding: '5px 10px', fontSize: '0.85rem' }}
               >
                 <option value="python">Python 3</option>
                 <option value="javascript">JavaScript</option>
@@ -370,8 +370,8 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
             style={{
               width: '100%',
               height: '340px',
-              backgroundColor: 'rgba(0,0,0,0.4)',
-              border: '1px solid rgba(255,255,255,0.12)',
+              backgroundColor: '#141020',
+              border: '1.5px solid #453765',
               borderRadius: '8px',
               padding: '12px',
               color: '#f3edfa',
@@ -404,8 +404,8 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
                   key={idx}
                   onClick={() => setActiveTab(idx + 1)}
                   style={{
-                    background: activeTab === idx + 1 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
-                    border: '1px solid ' + (t.status === 'passed' ? 'rgba(111,231,169,0.3)' : 'rgba(255,136,120,0.3)'),
+                    background: activeTab === idx + 1 ? '#2b2046' : '#181326',
+                    border: '1.5px solid ' + (t.status === 'passed' ? '#1e523f' : '#5a2630'),
                     color: t.status === 'passed' ? '#6fe7a9' : '#ff8878',
                     padding: '4px 10px',
                     borderRadius: '6px',
@@ -420,10 +420,10 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
 
             {/* Active Test Case Detail */}
             {testResults.tests[activeTab - 1] && (
-              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', fontSize: '0.85rem' }}>
-                <div><span style={{ color: 'var(--color-text-muted)' }}>Input: </span><code>{testResults.tests[activeTab - 1].input}</code></div>
-                <div><span style={{ color: 'var(--color-text-muted)' }}>Expected: </span><code style={{ color: '#64d8ec' }}>{testResults.tests[activeTab - 1].expected}</code></div>
-                <div><span style={{ color: 'var(--color-text-muted)' }}>Your Output: </span><code style={{ color: testResults.tests[activeTab - 1].status === 'passed' ? '#6fe7a9' : '#ff8878' }}>{testResults.tests[activeTab - 1].got || '[No Output]'}</code></div>
+              <div style={{ background: '#181326', border: '1.5px solid #48386b', padding: '14px', borderRadius: '10px', fontSize: '0.85rem', display: 'grid', gap: '8px' }}>
+                <div><span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Input: </span><code style={{ background: '#120e1e', border: '1px solid #3c2f57', padding: '3px 8px', borderRadius: '5px', color: '#efe9f5', display: 'inline-block' }}>{testResults.tests[activeTab - 1].input}</code></div>
+                <div><span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Expected: </span><code style={{ background: '#0f1d26', border: '1px solid #1c4b5c', padding: '3px 8px', borderRadius: '5px', color: '#64d8ec', display: 'inline-block' }}>{testResults.tests[activeTab - 1].expected}</code></div>
+                <div><span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Your Output: </span><code style={{ background: testResults.tests[activeTab - 1].status === 'passed' ? '#0d241d' : '#25141a', border: '1px solid ' + (testResults.tests[activeTab - 1].status === 'passed' ? '#1e523f' : '#5a2630'), padding: '3px 8px', borderRadius: '5px', color: testResults.tests[activeTab - 1].status === 'passed' ? '#6fe7a9' : '#fb7185', display: 'inline-block' }}>{testResults.tests[activeTab - 1].got || '[No Output]'}</code></div>
               </div>
             )}
 
@@ -431,26 +431,26 @@ export const ProblemAnalyzerSandbox: React.FC = () => {
             {feedback && (
               <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#a88cff', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <HelpCircle size={16} /> AI Debug Coach
                   </div>
                   <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Hint Level {hintLevel} of 3</span>
                 </div>
 
                 {testResults.all_passed ? (
-                  <div style={{ background: 'rgba(111,231,169,0.1)', border: '1px solid rgba(111,231,169,0.3)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#6fe7a9' }}>
+                  <div style={{ background: '#0d241d', border: '1.5px solid #1e523f', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#6fe7a9' }}>
                     <strong>🎉 Solved!</strong> {feedback.complexity_tip}
                   </div>
                 ) : (
                   <div>
                     {feedback.logic_explanation && (
-                      <div style={{ background: 'rgba(255,136,120,0.1)', border: '1px solid rgba(255,136,120,0.3)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#ff8878', marginBottom: '8px' }}>
+                      <div style={{ background: '#25141a', border: '1.5px solid #5a2630', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#fb7185', marginBottom: '8px' }}>
                         {feedback.logic_explanation}
                       </div>
                     )}
                     {feedback.active_hint && (
-                      <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem' }}>
-                        <strong>Hint: </strong>{feedback.active_hint}
+                      <div style={{ background: '#1a152d', border: '1.5px solid #4a3a6e', borderLeft: '3px solid #a88cff', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', color: '#efe9f5' }}>
+                        <strong style={{ color: '#a88cff' }}>Hint: </strong>{feedback.active_hint}
                       </div>
                     )}
                     <div style={{ marginTop: '10px' }}>
