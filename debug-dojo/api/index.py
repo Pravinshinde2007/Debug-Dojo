@@ -18,12 +18,34 @@ for candidate in backend_candidates:
         sys.path.insert(0, str(candidate))
         break
 
-os.environ.setdefault("DEBUG_DOJO_DB", "/tmp/debug_dojo.db")
+import tempfile
 
-from app.main import app
+safe_temp = Path(tempfile.gettempdir()) / "debug_dojo.db"
+os.environ.setdefault("DEBUG_DOJO_DB", str(safe_temp))
 
 try:
-    from app.db import init_db
-    init_db()
-except Exception:
-    pass
+    from app.main import app
+    try:
+        from app.db import init_db
+        init_db()
+    except Exception:
+        pass
+except Exception as e:
+    import traceback
+    err_tb = traceback.format_exc()
+    print("Error importing app.main in debug-dojo/api/index.py:\n", err_tb)
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+    app = FastAPI(title="Debug Dojo API (Fallback)")
+
+    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"])
+    async def fallback_handler(path: str):
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": True,
+                "detail": f"Backend initialization error: {str(e)}",
+                "traceback": err_tb
+            }
+        )
+
