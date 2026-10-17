@@ -20,13 +20,18 @@ from .db import (
     get_user_by_id,
     create_jwt_token,
     verify_jwt_token,
-    revoke_jwt_token
+    revoke_jwt_token,
+    save_sandbox_attempt,
+    get_sandbox_attempts
 )
 from .runner import run_submission, run_custom_code
 from .tagger import detect_mistakes
 from .explain import explain_failure, get_progressive_hints, explain_custom_code_error
 from .learner import get_learner_profile
 from .llm import generate_hint, leak_guard
+from .sandbox import execute_test_suite, STARTER_TEMPLATES
+from .analyzer import analyze_problem
+from .feedback import generate_feedback
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -1069,6 +1074,188 @@ def analyze_custom_code(req: CustomDebugRequest, authorization: Optional[str] = 
             extracted_from_doc=extracted_from_doc,
             cleaned_code=raw_code
         )
+
+
+# --- Problem Analyzer & Sandbox Endpoints ---
+
+from collections import defaultdict
+import time
+
+class SimpleRateLimiter:
+    def __init__(self, max_requests: int, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.history = defaultdict(list)
+
+    def check(self, key: str):
+        now = time.time()
+        self.history[key] = [t for t in self.history[key] if now - t < self.window_seconds]
+        if len(self.history[key]) >= self.max_requests:
+            retry_after = int(self.window_seconds - (now - self.history[key][0]))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit exceeded ({self.max_requests} req/{self.window_seconds}s). Try again in {max(1, retry_after)} seconds."
+            )
+        self.history[key].append(now)
+
+analyze_limiter = SimpleRateLimiter(max_requests=15, window_seconds=60)
+run_limiter = SimpleRateLimiter(max_requests=40, window_seconds=60)
+feedback_limiter = SimpleRateLimiter(max_requests=40, window_seconds=60)
+
+
+class AnalyzeProblemRequest(BaseModel):
+    problem_statement: str
+    user_id: Optional[str] = None
+
+
+class RunCodeRequest(BaseModel):
+    code: str
+    language: str = "python"
+    problem_spec: Dict[str, Any]
+    mode: str = "run"  # "run" (sample tests) | "submit" (all tests)
+    user_id: Optional[str] = None
+
+
+class GetFeedbackRequest(BaseModel):
+    code: str
+    language: str = "python"
+    problem_spec: Dict[str, Any]
+    test_results: Dict[str, Any]
+    hint_level: int = 1
+    user_id: Optional[str] = None
+
+
+@router.get("/starter-templates")
+def get_starter_templates():
+    return STARTER_TEMPLATES
+
+
+@router.post("/analyze-problem")
+async def handle_analyze_problem(req: AnalyzeProblemRequest, authorization: Optional[str] = Header(None)):
+    client_id = req.user_id or "anonymous"
+    analyze_limiter.check(client_id)
+
+    raw_text = (req.problem_statement or "").strip()
+    if not raw_text or len(raw_text) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Problem statement cannot be empty. Please provide at least 10 characters."
+        )
+    if len(raw_text.encode("utf-8")) > 32768:
+        raise HTTPException(
+            status_code=400,
+            detail="Problem statement exceeds maximum size limit of 32KB."
+        )
+
+    try:
+        spec = await analyze_problem(raw_text)
+        return spec
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze problem statement: {str(exc)}"
+        )
+
+
+@router.post("/run-code")
+async def handle_run_code(req: RunCodeRequest, authorization: Optional[str] = Header(None)):
+    client_id = req.user_id or "anonymous"
+    run_limiter.check(client_id)
+
+    code = (req.code or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="Code cannot be empty.")
+    if len(code.encode("utf-8")) > 65536:
+        raise HTTPException(status_code=400, detail="Code exceeds maximum size limit of 64KB.")
+
+    lang = req.language.lower()
+    if lang not in ("python", "javascript", "cpp", "java"):
+        raise HTTPException(status_code=400, detail=f"Unsupported language '{lang}'. Choose python, javascript, cpp, or java.")
+
+    spec = req.problem_spec or {}
+    sample_tests = spec.get("sample_test_cases", [])
+    hidden_tests = spec.get("hidden_test_cases", [])
+
+    # Mark hidden flag
+    for t in sample_tests:
+        t["is_hidden"] = False
+    for t in hidden_tests:
+        t["is_hidden"] = True
+
+    if req.mode == "submit":
+        tests_to_run = sample_tests + hidden_tests
+    else:
+        tests_to_run = sample_tests if sample_tests else hidden_tests[:2]
+
+    if not tests_to_run:
+        raise HTTPException(status_code=400, detail="No test cases available in problem specification to evaluate.")
+
+    try:
+        test_results = await execute_test_suite(
+            code=code,
+            language=lang,
+            tests=tests_to_run,
+            timeout_per_test=2.5
+        )
+        
+        # Initial feedback
+        feedback = await generate_feedback(
+            code=code,
+            language=lang,
+            problem_spec=spec,
+            test_results=test_results,
+            hint_level=1
+        )
+
+        # Save attempt to history database
+        attempt_id = None
+        user_id = req.user_id or "learner_anon"
+        try:
+            attempt_id = save_sandbox_attempt(
+                user_id=user_id,
+                problem_title=spec.get("title", "Custom Problem"),
+                problem_statement=spec.get("summary", ""),
+                problem_spec=spec,
+                language=lang,
+                code=code,
+                mode=req.mode,
+                passed=test_results.get("all_passed", False),
+                test_results=test_results,
+                feedback=feedback
+            )
+        except Exception as db_err:
+            print(f"Non-fatal error saving attempt to DB: {db_err}")
+
+        return {
+            "attempt_id": attempt_id,
+            "mode": req.mode,
+            "test_results": test_results,
+            "feedback": feedback
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Execution failed: {str(exc)}")
+
+
+@router.post("/get-feedback")
+async def handle_get_feedback(req: GetFeedbackRequest):
+    client_id = req.user_id or "anonymous"
+    feedback_limiter.check(client_id)
+
+    feedback = await generate_feedback(
+        code=req.code,
+        language=req.language,
+        problem_spec=req.problem_spec,
+        test_results=req.test_results,
+        hint_level=req.hint_level
+    )
+    return feedback
+
+
+@router.get("/sandbox-history")
+def handle_sandbox_history(user_id: Optional[str] = None, limit: int = 20):
+    uid = user_id or "usr_demo_student"
+    attempts = get_sandbox_attempts(user_id=uid, limit=limit)
+    return {"attempts": attempts}
 
 
 # Mount router at both root ("") and "/api" so rewrites with or without prefix work seamlessly

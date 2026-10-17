@@ -293,6 +293,24 @@ def init_db():
             )
         """)
 
+        # 5. sandbox_attempts table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sandbox_attempts (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                problem_title TEXT NOT NULL,
+                problem_statement TEXT,
+                problem_spec TEXT,
+                language TEXT NOT NULL,
+                code TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                passed INTEGER NOT NULL DEFAULT 0,
+                test_results TEXT NOT NULL,
+                feedback TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Seed default demo student account if not present
         cursor.execute("SELECT id FROM users WHERE email = 'student@debugdojo.dev'")
         if not cursor.fetchone():
@@ -303,6 +321,82 @@ def init_db():
             )
 
         conn.commit()
+
+
+def save_sandbox_attempt(
+    user_id: str,
+    problem_title: str,
+    problem_statement: str,
+    problem_spec: Dict[str, Any],
+    language: str,
+    code: str,
+    mode: str,
+    passed: bool,
+    test_results: Dict[str, Any],
+    feedback: Dict[str, Any]
+) -> str:
+    attempt_id = str(uuid.uuid4())
+    import json
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO sandbox_attempts (
+                id, user_id, problem_title, problem_statement, problem_spec,
+                language, code, mode, passed, test_results, feedback
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                attempt_id,
+                user_id,
+                problem_title,
+                problem_statement,
+                json.dumps(problem_spec),
+                language,
+                code,
+                mode,
+                1 if passed else 0,
+                json.dumps(test_results),
+                json.dumps(feedback)
+            )
+        )
+        conn.commit()
+    return attempt_id
+
+
+def get_sandbox_attempts(user_id: str, limit: int = 20) -> list:
+    import json
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, user_id, problem_title, problem_statement, problem_spec,
+                   language, code, mode, passed, test_results, feedback, created_at
+            FROM sandbox_attempts
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (user_id, limit)
+        )
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                "id": r["id"],
+                "user_id": r["user_id"],
+                "problem_title": r["problem_title"],
+                "problem_statement": r["problem_statement"],
+                "problem_spec": json.loads(r["problem_spec"]) if r["problem_spec"] else {},
+                "language": r["language"],
+                "code": r["code"],
+                "mode": r["mode"],
+                "passed": bool(r["passed"]),
+                "test_results": json.loads(r["test_results"]) if r["test_results"] else {},
+                "feedback": json.loads(r["feedback"]) if r["feedback"] else {},
+                "created_at": r["created_at"]
+            })
+        return result
 
 
 def log_llm_call(prompt: str, response: str, context: Optional[str] = None):
@@ -333,3 +427,4 @@ def log_llm_call(prompt: str, response: str, context: Optional[str] = None):
 
 
 init_db()
+

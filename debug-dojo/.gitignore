@@ -48,3 +48,8 @@ debug_dojo.db
 Thumbs.db
 .vscode/
 .idea/
+
+# Environment
+.env
+*.env.local
+

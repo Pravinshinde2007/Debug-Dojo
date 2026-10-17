@@ -251,6 +251,78 @@ body>.wrap{position:relative;z-index:1}
 
 @media (max-width:860px){.stage{min-height:400px}.scene3d{padding-block:28px 22px}}
 @media (max-width:520px){.fl.b,.fl.c{display:none}.stage{min-height:350px}}
+
+/* AI Problem Analyzer & Code Sandbox */
+.analyzer-chat-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  transition: border-color .2s, box-shadow .2s;
+}
+.analyzer-chat-card:focus-within {
+  border-color: rgba(168,140,255,0.6);
+  box-shadow: 0 0 30px rgba(124,92,240,0.25);
+}
+.skeleton-bar {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: skelShimmer 1.6s infinite;
+  border-radius: 6px;
+}
+@keyframes skelShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.badge-pass {
+  background: rgba(111,231,169,0.12);
+  color: var(--green);
+  border: 1px solid rgba(111,231,169,0.35);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+}
+.badge-fail {
+  background: rgba(255,136,120,0.12);
+  color: var(--coral);
+  border: 1px solid rgba(255,136,120,0.35);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+}
+.badge-err {
+  background: rgba(248,199,108,0.12);
+  color: var(--amber);
+  border: 1px solid rgba(248,199,108,0.35);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+}
+.badge-timeout {
+  background: rgba(100,216,236,0.12);
+  color: var(--cyan);
+  border: 1px solid rgba(100,216,236,0.35);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+}
 </style>
 </head>
 <body>
@@ -262,6 +334,7 @@ body>.wrap{position:relative;z-index:1}
     <a href="#home" data-r="home">Home</a>
     <a href="#custom-debug" data-r="custom-debug" style="color:var(--cyan)">Debug Your Code</a>
     <a href="#challenges" data-r="challenges">Challenges</a>
+    <a href="#analyzer" data-r="analyzer" style="color:var(--violet);font-weight:600">✨ AI Analyzer &amp; Sandbox</a>
     <a href="#dashboard" data-r="dashboard">Dashboard</a>
     <a href="#how" data-r="how">How It Works</a>
   </nav>
@@ -541,8 +614,93 @@ print(calculate_average([]))
   total_interactions:0,
   total_submissions:0,
   overall_mastery:50,
-  user_history:[]
+  user_history:[],
+  practiceMode:'curated',
+  analyzerInput:'',
+  analyzerLoading:false,
+  analyzerError:'',
+  analyzerSpec:null,
+  analyzerLang:'python',
+  analyzerCode:'',
+  analyzerRunning:false,
+  analyzerSubmitting:false,
+  analyzerResults:null,
+  analyzerFeedback:null,
+  analyzerHintLevel:1,
+  analyzerHistory:[],
+  analyzerActiveTestTab:1
 };
+
+const SANDBOX_TEMPLATES = {
+  python: `import sys
+
+def solve():
+    tokens = sys.stdin.read().split()
+    if not tokens:
+        return
+    # Write your solution here
+    print(" ".join(tokens))
+
+if __name__ == '__main__':
+    solve()
+`,
+  javascript: `const fs = require('fs');
+
+function solve() {
+    const input = fs.readFileSync(0, 'utf-8').trim();
+    if (!input) return;
+    // Write your solution here
+    console.log(input);
+}
+
+solve();
+`,
+  cpp: `#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    // Write your solution here
+    string token;
+    while (cin >> token) {
+        cout << token << " ";
+    }
+    return 0;
+}
+`,
+  java: `import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        // Write your solution here
+        while (sc.hasNext()) {
+            System.out.print(sc.next() + " ");
+        }
+    }
+}
+`
+};
+
+const SAMPLE_PROBLEMS = [
+  {
+    label: "Two Sum",
+    text: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\nAssume that each input would have exactly one solution, and you may not use the same element twice.\n\nInput Format: First line contains target. Second line contains space-separated integers.\nOutput Format: Print the two zero-based indices separated by a space in ascending order."
+  },
+  {
+    label: "Valid Palindrome",
+    text: "Given a string s, determine if it is a palindrome, considering only alphanumeric characters and ignoring cases.\n\nInput Format: A single line of text s.\nOutput Format: Print true if s is a palindrome, otherwise print false."
+  },
+  {
+    label: "Maximum Subarray (Kadane)",
+    text: "Given an integer array nums, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.\n\nInput Format: First line contains N. Second line contains N space-separated integers.\nOutput Format: Print the maximum subarray sum."
+  }
+];
 
 const SAMPLES={
   zero_div:{
@@ -783,7 +941,7 @@ function renderAuthNav(){
 }
 
 /* ---------- router ---------- */
-const ROUTES=['home','challenges','workspace','results','dashboard','how','custom-debug','auth'];
+const ROUTES=['home','challenges','workspace','results','dashboard','how','custom-debug','auth','analyzer'];
 function route(force){
   if(!isLoggedIn()){
     const navLinks = $('#links');
@@ -802,8 +960,8 @@ function route(force){
 
   let r=(location.hash||'#home').slice(1);
   if(!ROUTES.includes(r) || r === 'auth') r='home';
-  document.querySelectorAll('#links a').forEach(a=>a.classList.toggle('on',a.dataset.r===r||(r==='workspace'&&a.dataset.r==='challenges')||(r==='results'&&a.dataset.r==='dashboard')));
-  const v={home:vHome,challenges:vChallenges,workspace:vWorkspace,results:vResults,dashboard:vDashboard,how:vHow,'custom-debug':vCustomDebug,auth:vAuthPortal}[r];
+  document.querySelectorAll('#links a').forEach(a=>a.classList.toggle('on',a.dataset.r===r||(r==='workspace'&&a.dataset.r==='challenges')||(r==='results'&&a.dataset.r==='dashboard')||(r==='analyzer'&&a.dataset.r==='analyzer')));
+  const v={home:vHome,challenges:vChallenges,workspace:vWorkspace,results:vResults,dashboard:vDashboard,how:vHow,'custom-debug':vCustomDebug,auth:vAuthPortal,analyzer:vAnalyzer}[r];
   const changed=!!force||r!==S.lastRoute; S.lastRoute=r;
   GL.unmount();
   const app=$('#app'), sy=window.scrollY;
@@ -890,7 +1048,11 @@ function vHome(){
    <span class="eyebrow">AI-guided debugging platform</span>
    <h1>Don't Just Fix Bugs. <em>Learn to Think.</em></h1>
    <p class="lead">Debug Dojo runs your Python against hidden tests in an isolated sandbox, explains what went wrong in plain words, and gives you hints one step at a time. You write the fix. The answer stays yours to find.</p>
-   <div class="row"><a class="btn primary" href="#custom-debug">${IC.bug} Debug Your Code ${IC.arrow}</a><a class="btn" href="#workspace" data-start>Start Practising</a></div>
+   <div class="row">
+    <a class="btn primary" href="#custom-debug">${IC.bug} Debug Your Code ${IC.arrow}</a>
+    <a class="btn" href="#workspace" data-start>Start Practising</a>
+    <a class="btn" href="#analyzer" style="border-color:rgba(100,216,236,.4);color:var(--cyan)">✨ AI Problem Analyzer</a>
+   </div>
   </div>
   <div class="stage" id="stage">
    <div class="stage-fallback">Interactive 3D view requires WebGL.</div>
@@ -1040,6 +1202,9 @@ function vChallenges(){
 function curSub(){ return S.subs.find(s=>s.id===S.active&&s.ch===S.cur)||S.subs.find(s=>s.ch===S.cur)||null; }
 
 function vWorkspace(){
+ if(S.practiceMode === 'analyzer'){
+  return vAnalyzerContent();
+ }
  const c=chOf(S.cur), i=CH.indexOf(c), sub=curSub(), code=getCode(c.id);
  const prev=CH[(i+CH.length-1)%CH.length], next=CH[(i+1)%CH.length];
  const hints = sub && S.hintsMap[sub.id] ? S.hintsMap[sub.id] : [];
@@ -1048,6 +1213,16 @@ function vWorkspace(){
  const diffName = c.diff === 'Easy' ? 'Beginner' : c.diff === 'Medium' ? 'Intermediate' : 'Advanced';
 
  return `
+ <div class="wrap" style="margin-bottom:14px">
+  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--card);padding:8px 14px;border-radius:12px;border:1px solid var(--line);flex-wrap:wrap;gap:10px">
+    <div style="display:flex;gap:8px">
+      <button type="button" class="chip ${S.practiceMode !== 'analyzer' ? 'on' : ''}" id="mode-curated-btn" style="font-weight:600">🥋 Curated Dojo Challenges</button>
+      <button type="button" class="chip ${S.practiceMode === 'analyzer' ? 'on' : ''}" id="mode-analyzer-btn" style="font-weight:600;color:var(--cyan);border-color:rgba(100,216,236,.4)">✨ AI Problem Analyzer &amp; Sandbox</button>
+    </div>
+    <div style="font-size:12.5px;color:var(--muted)">Practice Python bugs with progressive AI hints or analyze any custom problem</div>
+  </div>
+ </div>
+
  <div class="ws">
   <!-- LEFT COLUMN: Problem description, sample cases & AI Coach Guidance -->
   <section class="panel" aria-label="Problem and Guidance">
@@ -1602,6 +1777,706 @@ function updateCustomTypingAssistant(code, errorLine){
   msgEl.innerHTML = `<span style="color:var(--green)">✓ Syntax structure and bracket balance look clean.</span>`;
 }
 
+/* ---------- AI Problem Analyzer & Code Sandbox Views ---------- */
+function vAnalyzer(){
+  S.practiceMode = 'analyzer';
+  return vAnalyzerContent();
+}
+
+function vAnalyzerContent(){
+  const spec = S.analyzerSpec;
+  const isAnalyzing = S.analyzerLoading;
+  const isRunning = S.analyzerRunning;
+  const isSubmitting = S.analyzerSubmitting;
+  const results = S.analyzerResults;
+  const feedback = S.analyzerFeedback;
+  const curLang = S.analyzerLang || 'python';
+  const curCode = S.analyzerCode || SANDBOX_TEMPLATES[curLang] || '';
+  const hintLevel = S.analyzerHintLevel || 1;
+  const activeTab = S.analyzerActiveTestTab || 1;
+
+  return `
+  <div class="wrap" style="padding-top:10px;padding-bottom:30px">
+    <!-- Top Practice Navigation Switcher -->
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--card);padding:10px 16px;border-radius:14px;border:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;gap:8px">
+        <button type="button" class="chip ${S.practiceMode !== 'analyzer' ? 'on' : ''}" id="switch-mode-curated" style="font-weight:600">
+          🥋 Curated Dojo Challenges
+        </button>
+        <button type="button" class="chip ${S.practiceMode === 'analyzer' ? 'on' : ''}" id="switch-mode-analyzer" style="font-weight:600;color:var(--cyan);border-color:rgba(100,216,236,.4)">
+          ✨ AI Problem Analyzer &amp; Sandbox
+        </button>
+      </div>
+      <div style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px">
+        <span class="live-pill" style="font-size:11.5px;padding:3px 10px"><i></i>Isolated Execution Active</span>
+        <span>Judge0 / Container Sandboxed</span>
+      </div>
+    </div>
+
+    ${!spec ? `
+      <!-- 1. CHAT BOX (Problem Input) -->
+      <section class="analyzer-chat-card" style="max-width:960px;margin:0 auto 30px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--violet-d),#5236b8);display:grid;place-items:center;color:#fff;box-shadow:0 0 16px rgba(124,92,240,.4);font-size:20px">
+            ✨
+          </div>
+          <div>
+            <h2 style="font-size:22px;margin:0">AI Problem Analyzer</h2>
+            <p class="muted" style="font-size:13.5px;margin:2px 0 0">Paste any coding problem statement below. The AI will extract inputs, constraints, sample tests, and verified hidden edge cases.</p>
+          </div>
+        </div>
+
+        <!-- Quick Sample Chips -->
+        <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Try Sample:</span>
+          ${SAMPLE_PROBLEMS.map((p, idx) => `
+            <button type="button" class="chip sm sample-prob-btn" data-prob-idx="${idx}" style="font-size:12px;padding:4px 11px">
+              ${p.label}
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- Chat Prompt Textarea -->
+        <div style="position:relative">
+          <textarea id="analyzer-input-text" class="search" style="width:100%;height:160px;padding:14px;font-family:var(--body);font-size:14.5px;line-height:1.6;resize:vertical;border-radius:12px;background:var(--bg2);color:var(--fg);border:1px solid var(--line)" placeholder="Paste problem statement here (e.g. from LeetCode, Codeforces, class assignments, or interviews)...">${esc(S.analyzerInput || '')}</textarea>
+        </div>
+
+        <!-- Inline Error Banner -->
+        <div id="analyzer-input-error" style="display:${S.analyzerError ? 'block' : 'none'};color:var(--coral);font-size:13px;background:rgba(255,136,120,.12);padding:10px 14px;border-radius:8px;border:1px solid rgba(255,136,120,.35);margin-top:10px">
+          ${esc(S.analyzerError || '')}
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:10px">
+          <span style="font-size:12px;color:var(--faint)">Supports Python, JavaScript, C++, and Java</span>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="btn sm" id="btn-analyzer-clear">Clear</button>
+            <button type="button" class="btn sm primary" id="btn-analyzer-submit" style="padding:10px 22px;font-size:14.5px" ${isAnalyzing ? 'disabled' : ''}>
+              ${isAnalyzing ? '<span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></span> Analyzing &amp; Verifying...' : '✨ Analyze Problem'}
+            </button>
+          </div>
+        </div>
+
+        ${isAnalyzing ? `
+          <!-- Loading Skeletons -->
+          <div style="margin-top:24px;border-top:1px solid var(--line);padding-top:20px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid var(--violet);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></span>
+              <b style="font-size:14px;color:var(--violet)">Analyzing problem requirements &amp; verifying tests against reference solution...</b>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <div style="display:grid;gap:10px">
+                <div class="skeleton-bar" style="height:24px;width:70%"></div>
+                <div class="skeleton-bar" style="height:60px;width:100%"></div>
+                <div class="skeleton-bar" style="height:40px;width:90%"></div>
+              </div>
+              <div style="display:grid;gap:10px">
+                <div class="skeleton-bar" style="height:120px;width:100%"></div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+      </section>
+    ` : `
+      <!-- 2. CODE SANDBOX WORKSPACE (Dual-Panel) -->
+      <div class="ws" style="align-items:start">
+        <!-- LEFT COLUMN: Problem Specification Panel -->
+        <section class="panel" aria-label="Problem Specification">
+          <div class="panel-h">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="pill" style="color:var(--violet);border-color:rgba(168,140,255,.35)">Verified Problem</span>
+              <span class="live-pill" style="font-size:11px;padding:2px 8px"><i></i>Ref Verified</span>
+            </div>
+            <button type="button" class="btn sm" id="btn-analyzer-new-problem" style="font-size:12px;padding:4px 10px">
+              + New Problem
+            </button>
+          </div>
+
+          <div class="panel-b" style="gap:16px">
+            <div>
+              <h2 style="font-size:22px;margin:0 0 8px">${esc(spec.title || 'Custom Challenge')}</h2>
+              <p style="font-size:14px;color:var(--fg);line-height:1.6">${esc(spec.summary || '')}</p>
+            </div>
+
+            <!-- Input & Output Format -->
+            <div style="background:var(--bg2);padding:12px 14px;border-radius:10px;border:1px solid var(--line);font-size:13px">
+              <div style="margin-bottom:8px">
+                <b style="color:var(--cyan);display:block;margin-bottom:3px">Input Format:</b>
+                <span class="muted">${esc(spec.input_format || 'Standard input')}</span>
+              </div>
+              <div>
+                <b style="color:var(--cyan);display:block;margin-bottom:3px">Output Format:</b>
+                <span class="muted">${esc(spec.output_format || 'Standard output')}</span>
+              </div>
+            </div>
+
+            <!-- Constraints -->
+            ${spec.constraints && spec.constraints.length ? `
+              <div>
+                <b style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);display:block;margin-bottom:6px">Constraints</b>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  ${spec.constraints.map(c => `<span class="pill tag" style="font-size:12px">${esc(c)}</span>`).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Sample Test Cases -->
+            <div>
+              <b style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);display:block;margin-bottom:8px">Sample Test Cases</b>
+              <div style="display:grid;gap:10px">
+                ${(spec.sample_test_cases || []).map((tc, idx) => `
+                  <div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:12.5px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                      <b style="color:var(--violet)">Sample Case ${idx + 1}</b>
+                      <button type="button" class="btn sm copy-input-btn" data-input="${esc(tc.input)}" style="font-size:11px;padding:2px 8px">Copy Input</button>
+                    </div>
+                    <div style="display:grid;gap:6px">
+                      <div>
+                        <span class="muted" style="display:block;font-size:11px">Input:</span>
+                        <pre class="mono" style="background:var(--card);padding:6px 8px;border-radius:6px;margin:2px 0 0;overflow-x:auto">${esc(tc.input)}</pre>
+                      </div>
+                      <div>
+                        <span class="muted" style="display:block;font-size:11px">Expected Output:</span>
+                        <pre class="mono" style="background:var(--card);padding:6px 8px;border-radius:6px;margin:2px 0 0;color:var(--cyan);overflow-x:auto">${esc(tc.expected_output)}</pre>
+                      </div>
+                      ${tc.explanation ? `<div style="font-size:12px;color:var(--muted);margin-top:2px"><em>${esc(tc.explanation)}</em></div>` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Hidden Test Cases Badge -->
+            <div style="padding:10px 14px;background:rgba(168,140,255,.07);border:1px solid rgba(168,140,255,.2);border-radius:10px;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px">
+              <span>🔒</span>
+              <span><b>${(spec.hidden_test_cases || []).length} Hidden Edge Cases</b> ready for evaluation upon Submit.</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Code Editor & Execution Results -->
+        <div style="display:grid;gap:16px">
+          <!-- Code Editor Panel -->
+          <section class="panel" aria-label="Isolated Code Sandbox">
+            <div class="panel-h">
+              <!-- Language Selector -->
+              <div style="display:flex;align-items:center;gap:10px">
+                <label for="analyzer-lang-select" style="font-size:12px;color:var(--faint);font-weight:600;text-transform:uppercase">Language:</label>
+                <select id="analyzer-lang-select" style="background:var(--bg2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:13px;font-weight:600">
+                  <option value="python" ${curLang==='python'?'selected':''}>🐍 Python 3</option>
+                  <option value="javascript" ${curLang==='javascript'?'selected':''}>🟨 JavaScript (Node)</option>
+                  <option value="cpp" ${curLang==='cpp'?'selected':''}>⚡ C++ (GCC)</option>
+                  <option value="java" ${curLang==='java'?'selected':''}>☕ Java 17</option>
+                </select>
+              </div>
+
+              <!-- Action Buttons -->
+              <div style="display:flex;align-items:center;gap:8px">
+                <button type="button" class="btn sm" id="btn-sandbox-reset" title="Reset starter code">↺ Reset</button>
+                <button type="button" class="btn sm" id="btn-sandbox-run" style="font-weight:600" ${isRunning||isSubmitting?'disabled':''}>
+                  ${isRunning ? '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></span> Running...' : '▶ Run (Samples)'}
+                </button>
+                <button type="button" class="btn sm primary" id="btn-sandbox-submit" style="font-weight:700;padding:6px 16px" ${isRunning||isSubmitting?'disabled':''}>
+                  ${isSubmitting ? '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></span> Submitting...' : '🚀 Submit (All Tests)'}
+                </button>
+              </div>
+            </div>
+
+            <!-- Code Editor Box -->
+            <div class="editor" style="height:380px">
+              <div class="gutter" id="analyzer-gutter"></div>
+              <textarea id="analyzer-code-textarea" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code solution">${esc(curCode)}</textarea>
+            </div>
+            <div style="padding:6px 14px;background:rgba(255,255,255,.02);border-top:1px solid var(--line);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between">
+              <span>Standard Input (stdin) is fed into your solution. Print answers to stdout.</span>
+              <span>Isolated CPU Time: 2.5s · Memory: 128MB</span>
+            </div>
+          </section>
+
+          <!-- Test Results & Feedback Panel -->
+          <section class="panel" aria-label="Test Results & AI Feedback">
+            <div class="panel-h">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span>Execution Output</span>
+                ${results ? (
+                  results.all_passed ? '<span class="badge-pass">✓ ALL PASSED</span>' :
+                  results.overall_status === 'runtime_error' ? '<span class="badge-err">⚠ RUNTIME ERROR</span>' :
+                  results.overall_status === 'timeout' ? '<span class="badge-timeout">⏱ TIMEOUT</span>' :
+                  '<span class="badge-fail">✕ FAILED</span>'
+                ) : '<span class="muted" style="text-transform:none;font-weight:normal;font-size:12px">Click Run or Submit to test</span>'}
+              </div>
+              ${results ? `
+                <span style="font-size:12px;color:var(--muted)">
+                  ${results.passed_count} of ${results.total_tests} passed
+                </span>
+              ` : ''}
+            </div>
+
+            <div class="panel-b" style="gap:14px">
+              ${results ? `
+                <!-- Test Case Tabs -->
+                <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;border-bottom:1px solid var(--line)">
+                  ${results.tests.map((t, idx) => `
+                    <button type="button" class="tab sm test-tab-btn ${activeTab === (idx+1) ? 'on' : ''}" data-test-tab="${idx+1}" style="font-size:12px;white-space:nowrap;padding:4px 10px">
+                      Test ${idx + 1} ${t.is_hidden ? '(Hidden)' : '(Sample)'}
+                      <span class="${t.status==='passed'?'badge-pass':t.status==='failed'?'badge-fail':'badge-err'}" style="margin-left:4px;padding:1px 6px;font-size:10px">
+                        ${t.status.toUpperCase()}
+                      </span>
+                    </button>
+                  `).join('')}
+                </div>
+
+                <!-- Active Test Details -->
+                ${(function(){
+                  const t = results.tests[activeTab - 1] || results.tests[0];
+                  if (!t) return '';
+                  return `
+                    <div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px;font-size:13px">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                        <b style="color:var(--fg)">Test Case ${activeTab} Details:</b>
+                        <span class="${t.status==='passed'?'badge-pass':t.status==='failed'?'badge-fail':'badge-err'}">${t.status_desc || t.status}</span>
+                      </div>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                          <span class="muted" style="font-size:11.5px;display:block">Input (stdin):</span>
+                          <pre class="mono" style="background:var(--card);padding:8px 10px;border-radius:6px;margin:4px 0 0;overflow-x:auto;max-height:100px">${esc(t.input)}</pre>
+                        </div>
+                        <div>
+                          <span class="muted" style="font-size:11.5px;display:block">Expected Output:</span>
+                          <pre class="mono" style="background:var(--card);padding:8px 10px;border-radius:6px;margin:4px 0 0;color:var(--cyan);overflow-x:auto;max-height:100px">${esc(t.expected)}</pre>
+                        </div>
+                      </div>
+                      <div style="margin-top:10px">
+                        <span class="muted" style="font-size:11.5px;display:block">Your Output (stdout / return):</span>
+                        <pre class="mono" style="background:var(--card);padding:8px 10px;border-radius:6px;margin:4px 0 0;color:${t.status==='passed'?'var(--green)':'var(--coral)'};overflow-x:auto;max-height:100px">${esc(t.got || (t.status==='passed' ? t.expected : '[No Output]'))}</pre>
+                      </div>
+                      ${t.stderr ? `
+                        <div style="margin-top:10px">
+                          <span style="color:var(--coral);font-size:11.5px;font-weight:600;display:block">Error Diagnostics:</span>
+                          <pre class="mono" style="background:rgba(255,136,120,.08);color:var(--coral);padding:8px 10px;border-radius:6px;margin:4px 0 0;overflow-x:auto;max-height:120px">${esc(t.stderr)}</pre>
+                        </div>
+                      ` : ''}
+                    </div>
+                  `;
+                })()}
+
+                <!-- AI FEEDBACK ENGINE PANEL -->
+                ${feedback ? `
+                  <div class="coach-box" style="margin-top:4px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,.07);padding-bottom:10px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:16px">💡</span>
+                        <b style="font-size:14px">AI Feedback &amp; Debugging Coach</b>
+                      </div>
+                      <span class="pill" style="font-size:11px;color:var(--violet);border-color:rgba(168,140,255,.3)">
+                        Hint Level ${hintLevel} of 3
+                      </span>
+                    </div>
+
+                    ${results.all_passed ? `
+                      <div class="banner ok" style="margin-top:10px">
+                        <b>🎉 Solved! All test cases passed.</b>
+                        ${feedback.complexity_tip ? `<p style="margin:4px 0 0;font-size:13px">${esc(feedback.complexity_tip)}</p>` : ''}
+                      </div>
+                    ` : feedback.error_hint ? `
+                      <div class="banner bad" style="margin-top:10px;flex-direction:column;align-items:flex-start">
+                        <b>⚠ Error Diagnosis</b>
+                        <p style="margin:4px 0 0;font-size:13px">${esc(feedback.error_hint)}</p>
+                      </div>
+                    ` : feedback.logic_explanation ? `
+                      <div class="banner bad" style="margin-top:10px;flex-direction:column;align-items:flex-start">
+                        <b>🔍 Logic Discrepancy Found</b>
+                        <p style="margin:4px 0 0;font-size:13px">${esc(feedback.logic_explanation)}</p>
+                      </div>
+                    ` : ''}
+
+                    <!-- Progressive More Help Hint Card -->
+                    <div class="hint" style="margin-top:10px">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <b style="color:var(--violet)">Level ${hintLevel} Hint: ${hintLevel===1?'Conceptual Nudge':hintLevel===2?'Targeted Logic Clue':'Algorithmic Approach Outline'}</b>
+                      </div>
+                      <p style="margin:4px 0 0;font-size:13.5px;color:#efe9f5">${esc(feedback.active_hint || '')}</p>
+                    </div>
+
+                    <!-- More Help Button -->
+                    ${!results.all_passed ? `
+                      <div style="margin-top:12px">
+                        <button type="button" class="btn sm" id="btn-sandbox-more-help" style="width:100%;justify-content:center;background:rgba(124,92,240,.12);color:var(--violet);border-color:rgba(168,140,255,.35)" ${hintLevel>=3?'disabled':''}>
+                          💡 ${hintLevel>=3 ? 'All 3 Hint Levels Revealed (You got this!)' : `More Help · Reveal Level ${hintLevel+1} Hint`}
+                        </button>
+                      </div>
+                    ` : ''}
+                  </div>
+                ` : ''}
+
+              ` : `
+                <div style="text-align:center;padding:36px 20px;color:var(--muted)">
+                  <div style="font-size:32px;margin-bottom:10px">💻</div>
+                  <b style="color:var(--fg);font-size:14px">Your isolated code sandbox is ready.</b>
+                  <p style="font-size:13px;margin-top:4px;max-width:380px;margin-inline:auto">Write your solution in ${curLang==='python'?'Python':curLang==='javascript'?'JavaScript':curLang==='cpp'?'C++':'Java'} above, then click <b>Run (Samples)</b> or <b>Submit (All Tests)</b> to test against edge cases.</p>
+                </div>
+              `}
+            </div>
+          </section>
+
+          <!-- Attempt History Log -->
+          ${S.analyzerHistory && S.analyzerHistory.length ? `
+            <section class="panel" aria-label="Attempt History">
+              <div class="panel-h">
+                <span style="font-size:13px;font-weight:600">Saved Attempts History</span>
+                <span class="muted" style="font-size:12px">${S.analyzerHistory.length} attempt(s)</span>
+              </div>
+              <div class="panel-b" style="gap:8px">
+                ${S.analyzerHistory.map(a => `
+                  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);padding:8px 12px;border-radius:8px;font-size:12.5px;border:1px solid var(--line)">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="${a.passed ? 'badge-pass' : 'badge-fail'}">${a.passed ? 'PASSED' : 'FAILED'}</span>
+                      <span class="mono" style="color:var(--violet)">${esc(a.language)}</span>
+                      <span class="muted">${esc(a.mode.toUpperCase())}</span>
+                    </div>
+                    <span class="muted" style="font-size:11.5px">${esc(a.created_at || 'Recent')}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </section>
+          ` : ''}
+        </div>
+      </div>
+    `}
+  </div>
+  `;
+}
+
+function bindAnalyzer(){
+  // Mode switchers
+  const swCurated = $('#switch-mode-curated') || $('#mode-curated-btn');
+  if(swCurated){
+    swCurated.addEventListener('click', ()=>{
+      S.practiceMode = 'curated';
+      go('workspace');
+    });
+  }
+  const swAnalyzer = $('#switch-mode-analyzer') || $('#mode-analyzer-btn');
+  if(swAnalyzer){
+    swAnalyzer.addEventListener('click', ()=>{
+      S.practiceMode = 'analyzer';
+      go('analyzer');
+    });
+  }
+
+  // Sample problem chips
+  document.querySelectorAll('.sample-prob-btn').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      const idx = parseInt(btn.dataset.probIdx);
+      const prob = SAMPLE_PROBLEMS[idx];
+      if(prob){
+        const ta = $('#analyzer-input-text');
+        if(ta) ta.value = prob.text;
+        S.analyzerInput = prob.text;
+        const errEl = $('#analyzer-input-error');
+        if(errEl) errEl.style.display = 'none';
+        S.analyzerError = '';
+      }
+    });
+  });
+
+  // Clear button
+  const clearBtn = $('#btn-analyzer-clear');
+  if(clearBtn){
+    clearBtn.addEventListener('click', ()=>{
+      const ta = $('#analyzer-input-text');
+      if(ta) ta.value = '';
+      S.analyzerInput = '';
+      S.analyzerError = '';
+      const errEl = $('#analyzer-input-error');
+      if(errEl) errEl.style.display = 'none';
+    });
+  }
+
+  // Analyze problem submit button
+  const analyzeBtn = $('#btn-analyzer-submit');
+  if(analyzeBtn){
+    analyzeBtn.addEventListener('click', async ()=>{
+      const ta = $('#analyzer-input-text');
+      const val = (ta ? ta.value : S.analyzerInput || '').trim();
+      const errEl = $('#analyzer-input-error');
+
+      if(!val || val.length < 10){
+        S.analyzerError = 'Please enter a problem statement with at least 10 characters.';
+        if(errEl){
+          errEl.textContent = S.analyzerError;
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+
+      S.analyzerError = '';
+      S.analyzerInput = val;
+      S.analyzerLoading = true;
+      route();
+
+      try {
+        const res = await fetch('/api/analyze-problem', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(S.token ? { 'Authorization': 'Bearer ' + S.token } : {})
+          },
+          body: JSON.stringify({
+            problem_statement: val,
+            user_id: S.user ? S.user.id : 'student'
+          })
+        });
+
+        const data = await safeFetchJson(res);
+        if(data && !data.error){
+          S.analyzerSpec = data;
+          S.analyzerCode = SANDBOX_TEMPLATES[S.analyzerLang || 'python'] || '';
+          S.analyzerResults = null;
+          S.analyzerFeedback = null;
+          S.analyzerHintLevel = 1;
+          S.analyzerActiveTestTab = 1;
+          toast('Problem analyzed & verified! Sandbox is ready.');
+
+          // Load previous attempt history
+          try {
+            const hRes = await fetch(`/api/sandbox-history?user_id=${S.user ? S.user.id : 'student'}&limit=10`);
+            const hData = await safeFetchJson(hRes);
+            if(hData && hData.attempts) S.analyzerHistory = hData.attempts;
+          } catch(e){}
+        } else {
+          S.analyzerError = data?.detail || 'Failed to analyze problem statement.';
+        }
+      } catch(err){
+        S.analyzerError = 'Network error connecting to analysis backend: ' + err.message;
+      } finally {
+        S.analyzerLoading = false;
+        route();
+      }
+    });
+  }
+
+  // New problem button
+  const newProbBtn = $('#btn-analyzer-new-problem');
+  if(newProbBtn){
+    newProbBtn.addEventListener('click', ()=>{
+      S.analyzerSpec = null;
+      S.analyzerResults = null;
+      S.analyzerFeedback = null;
+      S.analyzerError = '';
+      route();
+    });
+  }
+
+  // Copy sample input buttons
+  document.querySelectorAll('.copy-input-btn').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      const text = btn.dataset.input;
+      if(navigator.clipboard && text){
+        navigator.clipboard.writeText(text);
+        toast('Sample input copied to clipboard!');
+      }
+    });
+  });
+
+  // Language selector
+  const langSel = $('#analyzer-lang-select');
+  if(langSel){
+    langSel.addEventListener('change', ()=>{
+      const prevLang = S.analyzerLang || 'python';
+      const newLang = langSel.value;
+      S.analyzerLang = newLang;
+      // If code was default template or empty, switch to new template
+      if(!S.analyzerCode || S.analyzerCode.trim() === (SANDBOX_TEMPLATES[prevLang] || '').trim()){
+        S.analyzerCode = SANDBOX_TEMPLATES[newLang] || '';
+      }
+      route();
+    });
+  }
+
+  // Reset starter code
+  const resetBtn = $('#btn-sandbox-reset');
+  if(resetBtn){
+    resetBtn.addEventListener('click', ()=>{
+      S.analyzerCode = SANDBOX_TEMPLATES[S.analyzerLang || 'python'] || '';
+      route();
+      toast('Code reset to starter template.');
+    });
+  }
+
+  // Code editor textarea & line numbers
+  const ta = $('#analyzer-code-textarea'), g = $('#analyzer-gutter');
+  if(ta && g){
+    const updateGutter = ()=>{
+      const total = ta.value.split('\n').length;
+      g.textContent = Array.from({length: total}, (_, i) => i + 1).join('\n');
+    };
+    updateGutter();
+    ta.addEventListener('input', ()=>{
+      S.analyzerCode = ta.value;
+      updateGutter();
+    });
+    ta.addEventListener('scroll', ()=>{ g.scrollTop = ta.scrollTop; });
+    ta.addEventListener('keydown', e => {
+      if(e.key === 'Tab'){
+        e.preventDefault();
+        const s = ta.selectionStart;
+        ta.setRangeText('    ', s, ta.selectionEnd, 'end');
+        S.analyzerCode = ta.value;
+        updateGutter();
+      }
+    });
+  }
+
+  // Run button (Sample tests)
+  const runBtn = $('#btn-sandbox-run');
+  if(runBtn){
+    runBtn.addEventListener('click', async ()=>{
+      if(!S.analyzerSpec) return;
+      S.analyzerRunning = true;
+      route();
+
+      try {
+        const res = await fetch('/api/run-code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(S.token ? { 'Authorization': 'Bearer ' + S.token } : {})
+          },
+          body: JSON.stringify({
+            code: S.analyzerCode,
+            language: S.analyzerLang || 'python',
+            problem_spec: S.analyzerSpec,
+            mode: 'run',
+            user_id: S.user ? S.user.id : 'student'
+          })
+        });
+
+        const data = await safeFetchJson(res);
+        if(data && !data.error){
+          S.analyzerResults = data.test_results;
+          S.analyzerFeedback = data.feedback;
+          S.analyzerHintLevel = 1;
+          S.analyzerActiveTestTab = 1;
+          if(data.test_results?.all_passed){
+            toast('✓ Sample tests passed!');
+          } else {
+            toast('Sample tests finished. Review output below.');
+          }
+          // Refresh history
+          try {
+            const hRes = await fetch(`/api/sandbox-history?user_id=${S.user ? S.user.id : 'student'}&limit=10`);
+            const hData = await safeFetchJson(hRes);
+            if(hData && hData.attempts) S.analyzerHistory = hData.attempts;
+          } catch(e){}
+        } else {
+          toast(data?.detail || 'Execution error.');
+        }
+      } catch(err){
+        toast('Network error: ' + err.message);
+      } finally {
+        S.analyzerRunning = false;
+        route();
+      }
+    });
+  }
+
+  // Submit button (All tests including hidden)
+  const submitBtn = $('#btn-sandbox-submit');
+  if(submitBtn){
+    submitBtn.addEventListener('click', async ()=>{
+      if(!S.analyzerSpec) return;
+      S.analyzerSubmitting = true;
+      route();
+
+      try {
+        const res = await fetch('/api/run-code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(S.token ? { 'Authorization': 'Bearer ' + S.token } : {})
+          },
+          body: JSON.stringify({
+            code: S.analyzerCode,
+            language: S.analyzerLang || 'python',
+            problem_spec: S.analyzerSpec,
+            mode: 'submit',
+            user_id: S.user ? S.user.id : 'student'
+          })
+        });
+
+        const data = await safeFetchJson(res);
+        if(data && !data.error){
+          S.analyzerResults = data.test_results;
+          S.analyzerFeedback = data.feedback;
+          S.analyzerHintLevel = 1;
+          S.analyzerActiveTestTab = 1;
+          if(data.test_results?.all_passed){
+            toast('🎉 Solved! All test cases passed.');
+          } else {
+            toast('Evaluated against all tests. Check feedback.');
+          }
+          // Refresh history
+          try {
+            const hRes = await fetch(`/api/sandbox-history?user_id=${S.user ? S.user.id : 'student'}&limit=10`);
+            const hData = await safeFetchJson(hRes);
+            if(hData && hData.attempts) S.analyzerHistory = hData.attempts;
+          } catch(e){}
+        } else {
+          toast(data?.detail || 'Execution error.');
+        }
+      } catch(err){
+        toast('Network error: ' + err.message);
+      } finally {
+        S.analyzerSubmitting = false;
+        route();
+      }
+    });
+  }
+
+  // More Help progressive hint button
+  const moreHelpBtn = $('#btn-sandbox-more-help');
+  if(moreHelpBtn){
+    moreHelpBtn.addEventListener('click', async ()=>{
+      const nextLvl = Math.min((S.analyzerHintLevel || 1) + 1, 3);
+      S.analyzerHintLevel = nextLvl;
+
+      try {
+        const res = await fetch('/api/get-feedback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(S.token ? { 'Authorization': 'Bearer ' + S.token } : {})
+          },
+          body: JSON.stringify({
+            code: S.analyzerCode,
+            language: S.analyzerLang || 'python',
+            problem_spec: S.analyzerSpec,
+            test_results: S.analyzerResults,
+            hint_level: nextLvl,
+            user_id: S.user ? S.user.id : 'student'
+          })
+        });
+
+        const data = await safeFetchJson(res);
+        if(data && !data.error){
+          S.analyzerFeedback = data;
+          toast(`Revealed Hint Level ${nextLvl} of 3`);
+        }
+      } catch(e){}
+      route();
+    });
+  }
+
+  // Test case detail tab switching
+  document.querySelectorAll('.test-tab-btn').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      const tabNum = parseInt(btn.dataset.testTab);
+      S.analyzerActiveTestTab = tabNum;
+      route();
+    });
+  });
+}
+
 /* ---------- interactions & live api calls ---------- */
 function bind(r){
  document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault(); S.cur=b.dataset.open; S.tab='all'; go('workspace');}));
@@ -1612,6 +2487,17 @@ function bind(r){
   const q=$('#q'); if(q){ q.addEventListener('input',()=>{S.filter.q=q.value; const pos=q.selectionStart; route(); const n=$('#q'); if(n){n.focus(); n.setSelectionRange(pos,pos);}}); }
  }
  if(r==='workspace'){
+  const btnModeAnalyzer = $('#mode-analyzer-btn');
+  if(btnModeAnalyzer){
+   btnModeAnalyzer.addEventListener('click', ()=>{
+     S.practiceMode = 'analyzer';
+     go('analyzer');
+   });
+  }
+  if(S.practiceMode === 'analyzer'){
+   bindAnalyzer();
+   return;
+  }
   const ta=$('#code'), g=$('#gutter');
   const sub=curSub();
   const errLine = sub && sub.overall !== 'passed' ? sub.error_line : null;
@@ -1634,6 +2520,9 @@ function bind(r){
   document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{S.tab=b.dataset.tab; route();}));
   const toggle = $('#toggle');
   if(toggle) toggle.addEventListener('click',()=>{S.consoleOpen=!S.consoleOpen; route();});
+ }
+ if(r==='analyzer'){
+  bindAnalyzer();
  }
  if(r==='custom-debug'){
   const ta=$('#custom-code'), g=$('#custom-gutter');
