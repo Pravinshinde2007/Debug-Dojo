@@ -147,6 +147,8 @@ class LearnerProfileResponse(BaseModel):
     user_name: Optional[str] = None
     user_email: Optional[str] = None
     recurring_mistakes: List[Dict[str, Any]]
+    isolated_mistakes: Optional[List[Dict[str, Any]]] = None
+    compulsory_mistake_categories: Optional[List[Dict[str, Any]]] = None
     skills_by_concept: Optional[List[Dict[str, Any]]] = None
     mastery_per_concept: Dict[str, float]
     mastery: Optional[Dict[str, float]] = None
@@ -582,6 +584,8 @@ def get_learner(learner_id: str = "demo-learner", authorization: Optional[str] =
             user_name=profile.get("user_name"),
             user_email=profile.get("user_email"),
             recurring_mistakes=profile["recurring_mistakes"],
+            isolated_mistakes=profile.get("isolated_mistakes"),
+            compulsory_mistake_categories=profile.get("compulsory_mistake_categories"),
             skills_by_concept=profile.get("skills_by_concept"),
             mastery_per_concept=profile["mastery_per_concept"],
             mastery=profile.get("mastery"),
@@ -636,6 +640,15 @@ def get_learner(learner_id: str = "demo-learner", authorization: Optional[str] =
             recommendation_reason=fallback_challenge["reason"],
             reason=fallback_challenge["reason"]
         )
+
+
+@router.get("/taxonomy/mistakes")
+def get_mistake_taxonomy():
+    from .learner import COMPULSORY_MISTAKES
+    return {
+        "rule": "A category is recurring ONLY when it appears in at least two different challenges.",
+        "compulsory_categories": list(COMPULSORY_MISTAKES.values())
+    }
 
 
 # --- User Authentication Endpoints ---

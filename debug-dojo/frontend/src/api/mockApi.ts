@@ -33,10 +33,28 @@ export interface HintResponse {
   hint: string;
 }
 
+export interface CompulsoryMistakeCategory {
+  tag: string;
+  name: string;
+  meaning: string;
+  example: string;
+  practice_focus: string;
+}
+
 export interface RecurringMistake {
   tag: string;
+  mistake_tag?: string;
+  name?: string;
+  meaning?: string;
+  example?: string;
+  practice_focus?: string;
   challenges: string[];
+  challenges_involved?: string[];
   count: number;
+  occurrence_count?: number;
+  distinct_challenges_count?: number;
+  is_recurring?: boolean;
+  rule_explanation?: string;
 }
 
 export interface NextChallenge {
@@ -75,6 +93,8 @@ export interface LearnerProfileResponse {
   user_name?: string;
   user_email?: string;
   recurring_mistakes: RecurringMistake[];
+  isolated_mistakes?: RecurringMistake[];
+  compulsory_mistake_categories?: CompulsoryMistakeCategory[];
   skills_by_concept?: ConceptSkill[];
   mastery: Record<string, number>;
   mastery_per_concept?: Record<string, number>;
@@ -295,6 +315,14 @@ export const api = {
           recurring_mistakes: data.recurring_mistakes?.map((m: any) =>
             typeof m === 'string' ? { tag: m, challenges: ['sum_last_k', 'find_max'], count: 2 } : m
           ) || [],
+          isolated_mistakes: data.isolated_mistakes || [],
+          compulsory_mistake_categories: data.compulsory_mistake_categories || [
+            { tag: 'off_by_one', name: 'Off by One', meaning: 'A loop or index is one position off', example: 'Stopping a loop one element too early', practice_focus: 'loop boundaries' },
+            { tag: 'unhandled_short_input', name: 'Unhandled Short Input', meaning: 'Empty or short inputs are not handled', example: 'Accessing an element in an empty list', practice_focus: 'empty and short inputs' },
+            { tag: 'print_not_return', name: 'Print Instead of Return', meaning: 'Printing the answer instead of returning it', example: 'Using print(total) when the function must return the total', practice_focus: 'function returns' },
+            { tag: 'boundary_comparison', name: 'Boundary Comparison', meaning: 'Using the wrong comparison at a boundary', example: 'Using > instead of >= for a passing mark', practice_focus: 'boundary comparisons' },
+            { tag: 'mutates_input', name: 'Mutates Input', meaning: 'Modifying the original input when it should remain unchanged', example: 'Sorting a supplied list in place', practice_focus: 'non-destructive operations' },
+          ],
           skills_by_concept: data.skills_by_concept || [
             { concept: 'Loops', status: 'Several successful attempts', mastery: 85, attempts: 6, passes: 5, fails: 1 },
             { concept: 'Lists and indexing', status: 'Some repeated mistakes', mastery: 50, attempts: 4, passes: 2, fails: 2 },
@@ -328,14 +356,49 @@ export const api = {
       recurring_mistakes: [
         {
           tag: 'boundary_comparison',
+          name: 'Boundary Comparison',
+          meaning: 'Using the wrong comparison at a boundary',
+          example: 'Using > instead of >= for a passing mark',
+          practice_focus: 'boundary comparisons',
           challenges: ['sum_last_k', 'find_maximum'],
           count: 3,
+          distinct_challenges_count: 2,
+          is_recurring: true,
+          rule_explanation: 'Marked as recurring because it appeared across 2 different challenges (Rule 8 satisfied).',
         },
         {
           tag: 'off_by_one',
+          name: 'Off by One',
+          meaning: 'A loop or index is one position off',
+          example: 'Stopping a loop one element too early',
+          practice_focus: 'loop boundaries',
           challenges: ['count_vowels', 'sum_last_k'],
           count: 2,
+          distinct_challenges_count: 2,
+          is_recurring: true,
+          rule_explanation: 'Marked as recurring because it appeared across 2 different challenges (Rule 8 satisfied).',
         },
+      ],
+      isolated_mistakes: [
+        {
+          tag: 'mutates_input',
+          name: 'Mutates Input',
+          meaning: 'Modifying the original input when it should remain unchanged',
+          example: 'Sorting a supplied list in place',
+          practice_focus: 'non-destructive operations',
+          challenges: ['middle-three'],
+          count: 2,
+          distinct_challenges_count: 1,
+          is_recurring: false,
+          rule_explanation: 'Appeared 2 times, but only in 1 challenge. Must appear across at least 2 distinct challenges to become recurring.',
+        },
+      ],
+      compulsory_mistake_categories: [
+        { tag: 'off_by_one', name: 'Off by One', meaning: 'A loop or index is one position off', example: 'Stopping a loop one element too early', practice_focus: 'loop boundaries' },
+        { tag: 'unhandled_short_input', name: 'Unhandled Short Input', meaning: 'Empty or short inputs are not handled', example: 'Accessing an element in an empty list', practice_focus: 'empty and short inputs' },
+        { tag: 'print_not_return', name: 'Print Instead of Return', meaning: 'Printing the answer instead of returning it', example: 'Using print(total) when the function must return the total', practice_focus: 'function returns' },
+        { tag: 'boundary_comparison', name: 'Boundary Comparison', meaning: 'Using the wrong comparison at a boundary', example: 'Using > instead of >= for a passing mark', practice_focus: 'boundary comparisons' },
+        { tag: 'mutates_input', name: 'Mutates Input', meaning: 'Modifying the original input when it should remain unchanged', example: 'Sorting a supplied list in place', practice_focus: 'non-destructive operations' },
       ],
       skills_by_concept: [
         { concept: 'Loops', status: 'Several successful attempts', mastery: 85, attempts: 6, passes: 5, fails: 1, is_illustrative: true },

@@ -147,15 +147,56 @@ def get_hints_used_count(submission_id: str) -> int:
         return 0
 
 
-def calculate_recurring_mistakes(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+COMPULSORY_MISTAKES: Dict[str, Dict[str, str]] = {
+    "off_by_one": {
+        "tag": "off_by_one",
+        "name": "Off by One",
+        "meaning": "A loop or index is one position off",
+        "example": "Stopping a loop one element too early",
+        "practice_focus": "loop boundaries"
+    },
+    "unhandled_short_input": {
+        "tag": "unhandled_short_input",
+        "name": "Unhandled Short Input",
+        "meaning": "Empty or short inputs are not handled",
+        "example": "Accessing an element in an empty list",
+        "practice_focus": "empty and short inputs"
+    },
+    "print_not_return": {
+        "tag": "print_not_return",
+        "name": "Print Instead of Return",
+        "meaning": "Printing the answer instead of returning it",
+        "example": "Using print(total) when the function must return the total",
+        "practice_focus": "function returns"
+    },
+    "boundary_comparison": {
+        "tag": "boundary_comparison",
+        "name": "Boundary Comparison",
+        "meaning": "Using the wrong comparison at a boundary",
+        "example": "Using > instead of >= for a passing mark",
+        "practice_focus": "boundary comparisons"
+    },
+    "mutates_input": {
+        "tag": "mutates_input",
+        "name": "Mutates Input",
+        "meaning": "Modifying the original input when it should remain unchanged",
+        "example": "Sorting a supplied list in place",
+        "practice_focus": "non-destructive operations"
+    }
+}
+
+
+def get_learner_mistakes_breakdown(history: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    A mistake tag is recurring if and only if it appears across at least 2 DIFFERENT challenges.
+    Analyzes student submission history to track mistake patterns across challenges.
+    Enforces Rule 8: A category is recurring ONLY when it appears in at least two different challenges.
+    If the learner makes the same mistake twice in the same challenge, that alone does not satisfy the requirement.
     """
     mistake_to_challenges: Dict[str, Set[str]] = {}
     mistake_counts: Dict[str, int] = {}
 
     for sub in history:
-        cid = sub["challenge_id"]
+        cid = sub.get("challenge_id", "")
         for tag in sub.get("mistake_tags", []):
             if tag not in mistake_to_challenges:
                 mistake_to_challenges[tag] = set()
@@ -164,18 +205,59 @@ def calculate_recurring_mistakes(history: List[Dict[str, Any]]) -> List[Dict[str
             mistake_counts[tag] += 1
 
     recurring = []
-    for tag, cids in mistake_to_challenges.items():
-        if len(cids) >= 2:
-            recurring.append({
-                "tag": tag,
-                "mistake_tag": tag,
-                "challenges": sorted(list(cids)),
-                "challenges_involved": sorted(list(cids)),
-                "count": mistake_counts[tag],
-                "occurrence_count": mistake_counts[tag]
-            })
+    isolated = []
 
-    return sorted(recurring, key=lambda x: x["count"], reverse=True)
+    for tag, cids in mistake_to_challenges.items():
+        meta = COMPULSORY_MISTAKES.get(tag, {
+            "tag": tag,
+            "name": tag.replace("_", " ").title(),
+            "meaning": tag.replace("_", " ").title(),
+            "example": f"Mistake pattern for {tag}",
+            "practice_focus": tag
+        })
+        distinct_count = len(cids)
+        total_occurrences = mistake_counts[tag]
+        is_recurring = distinct_count >= 2
+
+        entry = {
+            "tag": tag,
+            "mistake_tag": tag,
+            "name": meta.get("name", tag.replace("_", " ").title()),
+            "meaning": meta["meaning"],
+            "example": meta["example"],
+            "practice_focus": meta.get("practice_focus", "problem boundaries"),
+            "challenges": sorted(list(cids)),
+            "challenges_involved": sorted(list(cids)),
+            "count": total_occurrences,
+            "occurrence_count": total_occurrences,
+            "distinct_challenges_count": distinct_count,
+            "is_recurring": is_recurring
+        }
+
+        if is_recurring:
+            entry["status"] = "Recurring across challenges"
+            entry["rule_explanation"] = f"Marked as recurring because it appeared across {distinct_count} different challenges (Rule 8 satisfied)."
+            recurring.append(entry)
+        else:
+            entry["status"] = "Single challenge (Not recurring)"
+            entry["rule_explanation"] = f"Appeared {total_occurrences} time(s), but only in 1 challenge. Must appear across at least 2 distinct challenges to become recurring."
+            isolated.append(entry)
+
+    recurring.sort(key=lambda x: (len(x["challenges"]), x["count"]), reverse=True)
+    isolated.sort(key=lambda x: x["count"], reverse=True)
+
+    return {
+        "recurring_mistakes": recurring,
+        "isolated_mistakes": isolated,
+        "compulsory_categories": list(COMPULSORY_MISTAKES.values())
+    }
+
+
+def calculate_recurring_mistakes(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    A mistake tag is recurring if and only if it appears across at least 2 DIFFERENT challenges.
+    """
+    return get_learner_mistakes_breakdown(history)["recurring_mistakes"]
 
 
 def calculate_hint_weighted_delta(passed: bool, hints_used: int) -> float:
@@ -368,12 +450,14 @@ def recommend_next_challenge(
                 else:
                     score += 20
 
-        # +45 Boost if challenge addresses a recurring mistake
-        for tag in recurring_tags:
+        # +50 Boost if challenge addresses a recurring mistake (Rule 8)
+        for r in recurring_mistakes:
+            tag = r.get("tag") or r.get("mistake_tag")
+            focus = COMPULSORY_MISTAKES.get(tag, {}).get("practice_focus", "boundaries and logic")
             related_concepts = [rc.lower() for rc in tag_concept_map.get(tag, [])]
             if any(rc in c_concepts for rc in related_concepts):
-                score += 45
-                reasons.append(f"address your recurring '{tag}' mistake across multiple challenges")
+                score += 50
+                reasons.append(f"practises {focus} to resolve recurring '{tag}' mistake across multiple challenges")
                 break
 
         # Boost if challenge covers lowest mastery concept
@@ -385,7 +469,13 @@ def recommend_next_challenge(
             best_score = score
             best_challenge = c
             if reasons:
-                best_reason = f"Recommended to {reasons[0]}."
+                r0 = reasons[0]
+                if r0.startswith("practises"):
+                    best_reason = f"Recommended because it {r0}."
+                elif r0.startswith("try "):
+                    best_reason = f"Recommended to {r0}."
+                else:
+                    best_reason = f"Recommended to {r0}."
             else:
                 best_reason = "Reinforce foundational problem-solving and clean edge-case handling."
 
@@ -409,7 +499,10 @@ def get_learner_profile(learner_id: str) -> Dict[str, Any]:
     challenges_by_id = {c.get("id"): c for c in all_challenges}
 
     history = get_learner_history(learner_id)
-    recurring = calculate_recurring_mistakes(history)
+    mistakes_analysis = get_learner_mistakes_breakdown(history)
+    recurring = mistakes_analysis["recurring_mistakes"]
+    isolated = mistakes_analysis["isolated_mistakes"]
+    compulsory_cats = mistakes_analysis["compulsory_categories"]
     mastery, stats = calculate_mastery(history, challenges_by_id)
     next_c, reason = recommend_next_challenge(history, mastery, recurring, all_challenges, stats)
 
@@ -529,6 +622,8 @@ def get_learner_profile(learner_id: str) -> Dict[str, Any]:
         "user_name": user_name,
         "user_email": user_email,
         "recurring_mistakes": recurring,
+        "isolated_mistakes": isolated,
+        "compulsory_mistake_categories": compulsory_cats,
         "skills_by_concept": skills_by_concept,
         "mastery_per_concept": mastery,
         "mastery": {k.lower(): round(v / 100.0, 2) for k, v in mastery.items()},

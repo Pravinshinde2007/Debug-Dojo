@@ -239,52 +239,151 @@ export const LearnerPage: React.FC = () => {
 
         {/* Right Column: Recurring Mistakes & Recommended Next Challenge */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Recurring Mistakes Card (Rule 5) */}
+          {/* Recurring Mistakes Card (Rule 8: Learning Intelligence) */}
           <GlassPanel style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <AlertOctagon size={20} color="var(--color-primary)" />
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Recurring Mistakes</h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertOctagon size={20} color="var(--color-primary)" />
+                <h2 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Recurring Mistakes</h2>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#f87171',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                Rule 8 Intelligence
+              </span>
             </div>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
-              A tag is classified as recurring once it appears across at least <strong>2 different challenges</strong>.
+
+            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: '14px', lineHeight: 1.5 }}>
+              A category is <strong>recurring only when it appears in at least two different challenges</strong>.
+              Repeated mistakes on the same challenge alone do not count as recurring.
             </p>
 
+            {/* Active Recurring Mistakes */}
             {profile?.recurring_mistakes && profile.recurring_mistakes.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
                 {profile.recurring_mistakes.map((m) => (
                   <div
                     key={m.tag}
                     style={{
                       padding: '12px 16px',
                       backgroundColor: 'rgba(11, 15, 25, 0.6)',
-                      border: '1px solid var(--color-border)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
                       borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
                     }}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '6px',
-                      }}
-                    >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Tag name={m.tag} isRecurring />
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>
-                        {m.count} occurrences
+                        {m.challenges.length} challenges • {m.count}×
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    {m.meaning && (
+                      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text)', fontWeight: 500 }}>
+                        {m.meaning}
+                      </div>
+                    )}
+                    {m.example && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                        e.g., {m.example}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
                       Seen in: {m.challenges.join(', ')}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                No recurring mistakes detected yet! Keep practicing to track patterns.
+              <div
+                style={{
+                  padding: '12px',
+                  backgroundColor: 'rgba(11, 15, 25, 0.4)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--color-text-muted)',
+                  fontSize: '0.8125rem',
+                  marginBottom: '16px',
+                }}
+              >
+                No recurring mistakes detected across multiple challenges yet. Keep solving challenges!
               </div>
             )}
+
+            {/* Single-Challenge Isolated Mistakes (Not Recurring Yet) */}
+            {profile?.isolated_mistakes && profile.isolated_mistakes.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  Observed (Single Challenge — Not Recurring Yet)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {profile.isolated_mistakes.map((im) => (
+                    <div
+                      key={im.tag}
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: 'rgba(11, 15, 25, 0.4)',
+                        border: '1px dashed rgba(255, 255, 255, 0.12)',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.75rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Tag name={im.tag} />
+                        <span style={{ color: 'var(--color-text-muted)' }}>1 challenge ({im.count}×)</span>
+                      </div>
+                      <div style={{ color: 'var(--color-text-muted)' }}>
+                        Seen in <code>{im.challenges.join(', ')}</code>. Must appear in another distinct challenge to become recurring.
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Compulsory 5 Categories Reference Table */}
+            <details style={{ marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+              <summary style={{ cursor: 'pointer', fontSize: '0.75rem', color: '#38bdf8', fontWeight: 600 }}>
+                View 5 Compulsory Mistake Categories Reference
+              </summary>
+              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem' }}>
+                {[
+                  { tag: 'off_by_one', meaning: 'A loop or index is one position off', example: 'Stopping a loop one element too early' },
+                  { tag: 'unhandled_short_input', meaning: 'Empty or short inputs are not handled', example: 'Accessing an element in an empty list' },
+                  { tag: 'print_not_return', meaning: 'Printing the answer instead of returning it', example: 'Using print(total) when the function must return the total' },
+                  { tag: 'boundary_comparison', meaning: 'Using the wrong comparison at a boundary', example: 'Using > instead of >= for a passing mark' },
+                  { tag: 'mutates_input', meaning: 'Modifying the original input when it should remain unchanged', example: 'Sorting a supplied list in place' },
+                ].map((cat) => (
+                  <div
+                    key={cat.tag}
+                    style={{
+                      padding: '8px 10px',
+                      backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: '2px' }}>
+                      <code>{cat.tag}</code>: {cat.meaning}
+                    </div>
+                    <div style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                      Example: {cat.example}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
           </GlassPanel>
 
           {/* Recommended Next Challenge Card */}

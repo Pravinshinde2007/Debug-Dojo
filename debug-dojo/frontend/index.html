@@ -992,6 +992,8 @@ async function fetchProfile(){
         S.disclaimer = data.disclaimer || null;
         S.streak = data.streak_days || S.streak || 1;
         S.recurringList = data.recurring_mistakes || [];
+        S.isolated_mistakes = data.isolated_mistakes || [];
+        S.compulsory_mistake_categories = data.compulsory_mistake_categories || [];
         S.recommendedChallenge = data.recommended_next_challenge || data.next_challenge || null;
         S.recommendationReason = data.recommendation_reason || data.reason || "";
         S.challenges_attempted = data.challenges_attempted != null ? data.challenges_attempted : 0;
@@ -1679,9 +1681,52 @@ function vDashboard(){
    </div>
   </div>
   <div class="grid" style="align-content:start">
-   <div class="card"><h3 style="font-size:18px;margin-bottom:6px">Recurring Mistakes</h3>
-    <p class="muted" style="font-size:13px;margin-bottom:8px">A mistake counts as recurring once it appears across at least 2 distinct challenges.</p>
-    ${rc.length?rc.map(r=>`<div class="rm"><div><span class="pill mistake">${r.mistake_tag||r.tag}</span><div class="muted" style="font-size:13px;margin-top:4px">Appeared across ${(r.challenges_involved||r.challenges||[]).length} challenges: ${(r.challenges_involved||r.challenges||[]).join(', ')}</div></div><span class="mono">${r.occurrence_count||r.count}×</span></div>`).join(''):'<div class="muted" style="font-size:14px">No recurring mistakes yet. Keep solving!</div>'}
+   <div class="card">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+       <h3 style="font-size:18px">Recurring Mistakes — Learning Intelligence</h3>
+       <span class="pill" style="font-size:11px;color:var(--amber);border-color:rgba(255,184,77,.3)">Rule 8</span>
+     </div>
+     <p class="muted" style="font-size:12.5px;margin-bottom:12px">A mistake category is <strong>recurring only when it appears across at least 2 different challenges</strong>. Repeating a mistake twice in the same challenge does not qualify.</p>
+
+     <!-- Recurring mistakes list -->
+     ${rc.length ? rc.map(r => `
+       <div class="rm" style="background:#181326;border:1px solid #3d3056;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+         <div>
+           <div style="display:flex;align-items:center;gap:8px">
+             <span class="pill mistake">${esc(r.mistake_tag||r.tag)}</span>
+             <span class="mono" style="font-size:12px;color:var(--amber)">${r.occurrence_count||r.count}× across ${(r.challenges_involved||r.challenges||[]).length} challenges</span>
+           </div>
+           ${r.meaning ? `<div style="font-size:12.5px;color:var(--fg);margin-top:4px">${esc(r.meaning)}</div>` : ''}
+           ${r.example ? `<div class="muted" style="font-size:11.5px;font-style:italic">e.g., ${esc(r.example)}</div>` : ''}
+           <div class="muted" style="font-size:12px;margin-top:4px">Appeared in: ${(r.challenges_involved||r.challenges||[]).join(', ')}</div>
+         </div>
+       </div>
+     `).join('') : '<div class="muted" style="font-size:13px;padding:8px 0">No recurring mistakes detected across multiple challenges yet. Keep solving!</div>'}
+
+     <!-- Single challenge isolated mistakes -->
+     ${(S.isolated_mistakes && S.isolated_mistakes.length) ? `
+       <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #3d3056">
+         <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Single-Challenge Observations (Not Recurring Yet)</div>
+         ${S.isolated_mistakes.map(im => `
+           <div style="font-size:12px;color:var(--muted);margin-bottom:4px;display:flex;justify-content:space-between">
+             <span><code style="color:var(--cyan)">${esc(im.tag)}</code> in <b>${esc(im.challenges[0])}</b> (${im.count}×)</span>
+             <span class="pill" style="font-size:10px;padding:1px 6px">1 Challenge</span>
+           </div>
+         `).join('')}
+       </div>
+     ` : ''}
+
+     <!-- 5 Compulsory Categories Guide -->
+     <details style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">
+       <summary style="font-size:12px;color:var(--cyan);cursor:pointer;font-weight:600">5 Compulsory Categories (Prompt 8 Reference)</summary>
+       <div style="margin-top:8px;display:grid;gap:6px;font-size:11.5px">
+         <div style="background:#120e1a;padding:6px 8px;border-radius:6px"><b>off_by_one</b>: A loop or index is one position off <span class="muted">(Stopping a loop one element too early)</span></div>
+         <div style="background:#120e1a;padding:6px 8px;border-radius:6px"><b>unhandled_short_input</b>: Empty or short inputs are not handled <span class="muted">(Accessing an element in an empty list)</span></div>
+         <div style="background:#120e1a;padding:6px 8px;border-radius:6px"><b>print_not_return</b>: Printing the answer instead of returning it <span class="muted">(Using print(total) when function must return)</span></div>
+         <div style="background:#120e1a;padding:6px 8px;border-radius:6px"><b>boundary_comparison</b>: Using the wrong comparison at a boundary <span class="muted">(Using &gt; instead of &gt;= for a passing mark)</span></div>
+         <div style="background:#120e1a;padding:6px 8px;border-radius:6px"><b>mutates_input</b>: Modifying the original input when it should remain unchanged <span class="muted">(Sorting a supplied list in place)</span></div>
+       </div>
+     </details>
    </div>
    <div class="card">
      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
