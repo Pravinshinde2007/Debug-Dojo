@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm --prefix debug-dojo/frontend install",
   "buildCommand": "npm --prefix debug-dojo/frontend run build",
   "outputDirectory": "debug-dojo/frontend/dist",
   "rewrites": [

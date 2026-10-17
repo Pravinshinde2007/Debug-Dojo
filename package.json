@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "npm --prefix debug-dojo/frontend install",
     "build": "npm --prefix debug-dojo/frontend run build",
     "dev": "npm --prefix debug-dojo/frontend run dev"
   }
