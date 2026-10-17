@@ -520,6 +520,42 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
   <div id="auth-nav-area" style="display:flex;align-items:center;gap:8px;margin-left:auto"></div>
 </div></div>
 
+<!-- Free AI Coach (Gemini) Settings Modal -->
+<div id="ai-modal" style="display:none;position:fixed;inset:0;background:rgba(10,7,15,.78);backdrop-filter:blur(8px);z-index:9999;place-items:center;padding:16px">
+  <div class="card tilt" style="max-width:480px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.85);position:relative;border:1px solid rgba(100,216,236,.4);background:var(--card)">
+    <button id="ai-modal-close" type="button" aria-label="Close" style="position:absolute;top:16px;right:18px;background:transparent;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--muted)">&times;</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:12px">
+      <span style="font-size:24px">⚡</span>
+      <div>
+        <h3 style="margin:0;font-size:18px;color:var(--cyan)">Free AI Debug Coach Settings</h3>
+        <p style="margin:2px 0 0;font-size:12.5px;color:var(--muted)">Powered by Google Gemini 2.5 Flash &amp; Pro (Free Tier)</p>
+      </div>
+    </div>
+    <div style="display:grid;gap:14px">
+      <div style="background:rgba(100,216,236,.06);border:1px solid rgba(100,216,236,.2);padding:12px;border-radius:10px;font-size:13px;line-height:1.5">
+        <b style="color:var(--cyan)">How it works:</b>
+        <p style="margin:4px 0 0;color:var(--text)">Debug Dojo dynamically selects <b>Gemini 2.5 Flash</b> for lightning-fast hints and <b>Gemini 2.5 Pro</b> for complex algorithmic reasoning, tailored to your mastery level.</p>
+      </div>
+      <div>
+        <label for="gemini-key-input" style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600">Google Gemini API Key (Free)</label>
+        <input type="password" id="gemini-key-input" class="search" style="width:100%" placeholder="AIzaSy..." autocomplete="off">
+        <div style="margin-top:6px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center">
+          <span>Get a key free from Google AI Studio:</span>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:underline">Get Free Key ↗</a>
+        </div>
+      </div>
+      <div id="ai-key-status" style="font-size:12.5px;padding:8px 12px;border-radius:8px;display:none"></div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button type="button" class="btn sm" id="btn-test-ai-key" style="border-color:rgba(100,216,236,.4);color:var(--cyan)">🧪 Test Connection</button>
+        <button type="button" class="btn sm primary" id="btn-save-ai-key" style="flex:1">Save &amp; Activate AI Coach</button>
+      </div>
+      <div style="text-align:center">
+        <button type="button" id="btn-clear-ai-key" style="background:transparent;border:0;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Clear saved key &amp; use offline engine</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Auth Modal (Login & Registration) -->
 <div id="auth-modal" style="display:none;position:fixed;inset:0;background:rgba(10,7,15,.78);backdrop-filter:blur(8px);z-index:9999;place-items:center;padding:16px">
   <div class="card tilt" style="max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.85);position:relative;border:1px solid var(--violet-d);background:var(--card)">
@@ -604,7 +640,14 @@ const CH=[
  starter:'def last_k_total(marks, k):\n    # Return the total of the last k marks\n    pass\n',
  visible:[{call:'last_k_total([10, 20, 30, 40], 2)',exp:'70'},{call:'last_k_total([5, 6], 5)',exp:'11'},{call:'last_k_total([], 3)',exp:'0'}],
  hidden:6,
- tip:'Test your function with an empty list and with k equal to 0 before you submit. In Python, marks[-0:] selects the entire list instead of an empty slice!'},
+ tip:'Test your function with an empty list and with k equal to 0 before you submit. In Python, marks[-0:] selects the entire list instead of an empty slice!',
+ hints:[
+   "Review the core invariant: the function sums up to the last k marks, but should return 0 whenever k is 0 or marks is empty.",
+   "Inspect how you slice: in Python, marks[-0:] selects the entire list instead of an empty slice!",
+   "Algorithmic Approach: 1. If k <= 0 or not marks, return 0. 2. Clamp k with min(k, len(marks)). 3. Sum the last k elements.",
+   "Edge Case Analysis: When k exceeds len(marks), you should sum all elements. When k is 0, make sure your slice does not wrap to the full list.",
+   "Structural Guidance: Clamp k = min(k, len(marks)) and return sum(marks[-k:]) guarded by an 'if k > 0' check."
+ ]},
 {id:'count-passes',title:'Count Passes',diff:'Easy',concepts:['Loops','Conditions'],
  short:'Count how many marks are 40 or higher.',
  desc:'A mark of 40 or more is a pass. Write a function named count_passes that returns how many marks in a list are passes. The list may be empty.',
@@ -613,7 +656,14 @@ const CH=[
  starter:'def count_passes(marks):\n    # Return how many marks are >= 40\n    pass\n',
  visible:[{call:'count_passes([35, 40, 72])',exp:'2'},{call:'count_passes([])',exp:'0'},{call:'count_passes([90, 41])',exp:'2'}],
  hidden:6,
- tip:'When a rule says "at least" or "or higher", write down the exact boundary value (40) and test it on its own with [40].'},
+ tip:'When a rule says "at least" or "or higher", write down the exact boundary value (40) and test it on its own with [40].',
+ hints:[
+   "Review the condition: a score of 40 or higher counts as a passing mark.",
+   "Boundary Check: Check if you wrote strict inequality '>' instead of inclusive '>=' for the 40 mark cutoff.",
+   "Algorithmic Approach: 1. Initialize pass_count = 0. 2. Loop over each mark in marks. 3. If mark >= 40, add 1. 4. Return pass_count.",
+   "Edge Case Analysis: When marks is empty [], the loop should not execute and return 0. For [40], it must return 1.",
+   "Structural Guidance: Ensure your comparison is 'mark >= 40' and return the accumulated integer outside the loop."
+ ]},
 {id:'first-n-squares',title:'First N Squares',diff:'Easy',concepts:['Loops','Lists'],
  short:'Build the list 1, 4, 9 and so on, up to n squared.',
  desc:'Write a function named first_n_squares that returns a list of the first n positive square numbers, starting with 1. If n is 0, return an empty list.',
@@ -622,7 +672,14 @@ const CH=[
  starter:'def first_n_squares(n):\n    # Return [1, 4, 9, ..., n*n]\n    pass\n',
  visible:[{call:'first_n_squares(3)',exp:'[1, 4, 9]'},{call:'first_n_squares(0)',exp:'[]'},{call:'first_n_squares(1)',exp:'[1]'}],
  hidden:6,
- tip:'Before writing your loop, verify what its first and last values are. Python range(n) starts at 0, but this task starts at 1.'},
+ tip:'Before writing your loop, verify what its first and last values are. Python range(n) starts at 0, but this task starts at 1.',
+ hints:[
+   "Review the sequence requirements: the first n positive squares starting from 1 (e.g. 1, 4, 9, ..., n*n).",
+   "Loop Bounds: Check where your loop starts and ends. range(n) starts at 0 and stops at n-1, missing n!",
+   "Algorithmic Approach: 1. If n == 0, return an empty list []. 2. Loop through numbers from 1 to n (inclusive). 3. Append i * i to a list and return it.",
+   "Edge Case Analysis: If n is 0, range(1, 1) produces an empty sequence, correctly yielding []. For n=1, it must return [1].",
+   "Structural Guidance: Use range(1, n + 1) with a list comprehension '[i * i for i in range(1, n + 1)]'."
+ ]},
 {id:'clamp-score',title:'Clamp Score',diff:'Easy',concepts:['Conditions','Functions'],
  short:'Keep a score between a lower and an upper limit.',
  desc:'Write a function named clamp_score that returns score if it lies between low and high, returns low if score is below it, and high if score is above it.',
@@ -630,7 +687,15 @@ const CH=[
  rules:['low is never greater than high.','A score equal to low or high stays unchanged.','Return an integer.'],
  starter:'def clamp_score(score, low, high):\n    # Keep score within low and high\n    pass\n',
  visible:[{call:'clamp_score(50, 0, 100)',exp:'50'},{call:'clamp_score(-5, 0, 100)',exp:'0'},{call:'clamp_score(120, 0, 100)',exp:'100'}],
- hidden:5,tip:'Name the three cases (below low, above high, inside range) before writing conditions.'},
+ hidden:5,
+ tip:'Name the three cases (below low, above high, inside range) before writing conditions.',
+ hints:[
+   "Review the boundaries: score should stay unchanged if between low and high, but clamped to low or high if outside.",
+   "Condition Check: Check whether your lower bound condition checks score < low and sets score to low.",
+   "Algorithmic Approach: 1. If score < low, return low. 2. If score > high, return high. 3. Otherwise return score.",
+   "Edge Case Analysis: When score equals low or high exactly, it must remain unchanged.",
+   "Structural Guidance: Use max(low, min(score, high)) or clear if-elif-else branches."
+ ]},
 {id:'count-vowels',title:'Vowel Counter',diff:'Easy',concepts:['Strings','Loops','Conditions'],
  short:'Count a, e, i, o and u in a piece of text, ignoring case.',
  desc:'Write a function named count_vowels that returns how many vowels appear in a string. Treat capital letters the same as lowercase ones.',
@@ -638,7 +703,15 @@ const CH=[
  rules:['text may be empty.','Vowels are a, e, i, o, u in any case.','Return an integer.'],
  starter:'def count_vowels(text):\n    # Return the number of vowels in text\n    pass\n',
  visible:[{call:'count_vowels("Dojo")',exp:'2'},{call:'count_vowels("")',exp:'0'},{call:'count_vowels("AEIOU xyz")',exp:'5'}],
- hidden:5,tip:'Capital and lowercase letters are different characters to Python until you normalize them with text.lower().'},
+ hidden:5,
+ tip:'Capital and lowercase letters are different characters to Python until you normalize them with text.lower().',
+ hints:[
+   "Review the vowels requirement: count a, e, i, o, u regardless of whether they are uppercase or lowercase.",
+   "Case Normalization: Python is case-sensitive! 'A' != 'a' unless you convert the text with text.lower().",
+   "Algorithmic Approach: 1. Normalize text using text.lower(). 2. Count characters that belong to the set 'aeiou'. 3. Return the total count.",
+   "Edge Case Analysis: An empty string '' should return 0. Strings with mixed case like 'AEIOU' must count all 5.",
+   "Structural Guidance: Use vowels = 'aeiou' and 'sum(1 for ch in text.lower() if ch in vowels)'."
+ ]},
 {id:'find-index-of',title:'Find Index of Element',diff:'Easy',concepts:['Lists','Loops','Indexing'],
  short:'Return the zero-based index of the first occurrence of target, or -1.',
  desc:'Write a function find_index_of that returns the zero-based index of the first occurrence of target in items. If target is not found in items, return -1.',
@@ -646,7 +719,15 @@ const CH=[
  rules:['items may be empty or contain duplicates.','Return the index of the FIRST occurrence.','If target is absent, return -1.'],
  starter:'def find_index_of(items, target):\n    # Return first index of target, or -1\n    pass\n',
  visible:[{call:'find_index_of([10, 20, 30], 20)',exp:'1'},{call:'find_index_of(["a", "b", "c"], "z")',exp:'-1'},{call:'find_index_of([], 5)',exp:'-1'}],
- hidden:6,tip:'Use enumerate(items) to check each item and its index in order, and return immediately upon the first match.'},
+ hidden:6,
+ tip:'Use enumerate(items) to check each item and its index in order, and return immediately upon the first match.',
+ hints:[
+   "Review the index requirement: return the zero-based index of the FIRST occurrence of target, or -1 if absent.",
+   "Early Return: If you loop through items, ensure you return immediately on the first match rather than continuing to the end.",
+   "Algorithmic Approach: 1. Loop through items with their indices using enumerate(items). 2. If item == target, return index immediately. 3. If the loop completes without match, return -1.",
+   "Edge Case Analysis: If items is empty or target does not exist, return -1. If there are duplicates, only the first index must be returned.",
+   "Structural Guidance: Use 'for idx, item in enumerate(items): if item == target: return idx' and return -1 at the bottom."
+ ]},
 
 /* Intermediate (Medium) - 4 Hints */
 {id:'middle-three',title:'Middle Three',diff:'Medium',concepts:['Indexing','Lists'],
@@ -657,7 +738,14 @@ const CH=[
  starter:'def middle_three(items):\n    # Return the middle three items\n    pass\n',
  visible:[{call:'middle_three([1, 2, 3, 4, 5])',exp:'[2, 3, 4]'},{call:'middle_three([7, 8, 9])',exp:'[7, 8, 9]'},{call:'middle_three([1])',exp:'[1]'}],
  hidden:6,
- tip:'Slices include the start position and stop before the end position. If mid = len(items)//2, items[mid-1:mid+2] gives exactly 3 items.'},
+ tip:'Slices include the start position and stop before the end position. If mid = len(items)//2, items[mid-1:mid+2] gives exactly 3 items.',
+ hints:[
+   "Review the indexing requirement: pick the middle 3 elements from an odd-length list without mutating the original list.",
+   "Slice Calculation: Check your slice indices. If mid = len(items) // 2, items[mid-1:mid+2] extracts exactly 3 items.",
+   "Algorithmic Approach: 1. If len(items) < 3, return a copy of items. 2. Calculate mid = len(items) // 2. 3. Return items[mid-1 : mid+2].",
+   "Edge Case Analysis: For single-element list [1] or two elements, return items directly. Do not use .pop() which alters the list.",
+   "Structural Guidance: Avoid mutating items in place. Slicing items[mid-1:mid+2] automatically returns a fresh new list."
+ ]},
 {id:'running-total',title:'Running Total',diff:'Medium',concepts:['Lists','Loops'],
  short:'Return the running sum of a list, without changing the original.',
  desc:'Write a function named running_total that returns a new list where each item is the sum of all items up to that position in the input list.',
@@ -665,7 +753,15 @@ const CH=[
  rules:['nums may be empty.','Return a new list. The input list must not change.','Example: [1, 2, 3] gives [1, 3, 6].'],
  starter:'def running_total(nums):\n    # Return the running totals as a new list\n    pass\n',
  visible:[{call:'running_total([1, 2, 3])',exp:'[1, 3, 6]'},{call:'running_total([])',exp:'[]'},{call:'running_total([5])',exp:'[5]'}],
- hidden:5,tip:'Keep one variable that remembers the total so far, and append total to a new list during each step.'},
+ hidden:5,
+ tip:'Keep one variable that remembers the total so far, and append total to a new list during each step.',
+ hints:[
+   "Review the accumulation requirement: return a new list where each element is the sum of all elements up to that index.",
+   "Accumulator Logic: Check if you are modifying the input list in-place or forgetting to accumulate previous totals.",
+   "Algorithmic Approach: 1. Create an empty result list and current_sum = 0. 2. Loop through each number, add to current_sum, and append to result. 3. Return result.",
+   "Edge Case Analysis: For an empty list [], return []. For a single element [5], return [5].",
+   "Structural Guidance: Use an accumulator variable 'running += x' and append each step to a newly initialized list."
+ ]},
 {id:'second-largest',title:'Second Largest',diff:'Medium',concepts:['Lists','Conditions'],
  short:'Find the second largest distinct value, or None if there is not one.',
  desc:'Write a function named second_largest that returns the second largest distinct number in a list. Return None when the list has fewer than two distinct values.',
@@ -673,7 +769,15 @@ const CH=[
  rules:['nums may be empty and may contain repeats.','Repeated values count once.','Return None if there is no second largest distinct value.'],
  starter:'def second_largest(nums):\n    # Return the second largest distinct value, or None\n    pass\n',
  visible:[{call:'second_largest([4, 9, 7])',exp:'7'},{call:'second_largest([5, 5, 5])',exp:'None'},{call:'second_largest([])',exp:'None'}],
- hidden:5,tip:'Converting the list to a set eliminates duplicates, making it easy to check unique count.'},
+ hidden:5,
+ tip:'Converting the list to a set eliminates duplicates, making it easy to check unique count.',
+ hints:[
+   "Review the uniqueness rule: repeated values count once. If there are fewer than two distinct values, return None.",
+   "Deduplication: Check if you removed duplicates. If nums is [5, 5, 5], sorting without deduplication gives 5 instead of None!",
+   "Algorithmic Approach: 1. Convert nums to a set of unique numbers. 2. If len(unique) < 2, return None. 3. Sort unique elements in ascending order and return sorted_unique[-2].",
+   "Edge Case Analysis: Empty list [], single element [10], or identical numbers [5, 5] must all return None.",
+   "Structural Guidance: Use 'unique = sorted(set(nums))' and return 'unique[-2] if len(unique) >= 2 else None'."
+ ]},
 {id:'safe-average',title:'Safe Average',diff:'Medium',concepts:['Input handling','Functions'],
  short:'Average a list of readings, skipping missing ones.',
  desc:'Sensor readings arrive as a list, and a missing reading is None. Write a function named safe_average that returns the average of the real readings, or 0 when there are none.',
@@ -681,7 +785,15 @@ const CH=[
  rules:['readings may be empty or contain only None.','Ignore every None.','Return a number. Return 0 when nothing is left to average.'],
  starter:'def safe_average(readings):\n    # Average the readings that are not None\n    pass\n',
  visible:[{call:'safe_average([2, None, 4])',exp:'3.0'},{call:'safe_average([])',exp:'0'},{call:'safe_average([None, None])',exp:'0'}],
- hidden:5,tip:'Any time you divide, always guard against dividing by zero when count is 0.'},
+ hidden:5,
+ tip:'Any time you divide, always guard against dividing by zero when count is 0.',
+ hints:[
+   "Review the filter requirement: average the non-None numbers, and return 0 if there are no valid numbers.",
+   "ZeroDivision Guard: Check for ZeroDivisionError! If all readings are None or the list is empty, dividing by count crashes.",
+   "Algorithmic Approach: 1. Filter out all None values: valid = [x for x in readings if x is not None]. 2. If not valid, return 0. 3. Return sum(valid) / len(valid).",
+   "Edge Case Analysis: Test with [] and [None, None]. Both must safely return 0 without ZeroDivisionError.",
+   "Structural Guidance: Guard with 'if not valid: return 0' before performing float division 'sum(valid) / len(valid)'."
+ ]},
 {id:'remove-duplicates',title:'Remove Duplicates In Order',diff:'Medium',concepts:['Lists','Loops','Sets'],
  short:'Keep only unique items while preserving their original order.',
  desc:'Write a function remove_duplicates that returns a new list containing only the unique elements of items in their order of first appearance. Do not mutate the original list.',
@@ -689,7 +801,15 @@ const CH=[
  rules:['items may be empty or contain duplicates.','Do not mutate the original input list.','Preserve the original order of items.'],
  starter:'def remove_duplicates(items):\n    # Return list with duplicates removed preserving order\n    pass\n',
  visible:[{call:'remove_duplicates([1, 2, 2, 3, 1])',exp:'[1, 2, 3]'},{call:'remove_duplicates(["a", "b", "a"])',exp:'["a", "b"]'},{call:'remove_duplicates([])',exp:'[]'}],
- hidden:6,tip:'Use a set to track already seen items and a list to accumulate first occurrences to preserve order.'},
+ hidden:6,
+ tip:'Use a set to track already seen items and a list to accumulate first occurrences to preserve order.',
+ hints:[
+   "Review the order preservation rule: retain only the first occurrence of each element in its original order.",
+   "Order Preservation: Converting directly with list(set(items)) does NOT preserve the original order in Python!",
+   "Algorithmic Approach: 1. Track seen items with a set: seen = set(). 2. Maintain an output list: res = []. 3. For item in items, if item not in seen, add to seen and append to res.",
+   "Edge Case Analysis: For already unique lists or empty lists, order and elements must remain unchanged.",
+   "Structural Guidance: Use a set for O(1) membership checks while appending first occurrences to a new result list."
+ ]},
 {id:'title-case-words',title:'Title Case Words',diff:'Medium',concepts:['Strings','Lists','Functions'],
  short:'Capitalize the first letter of each word in a string.',
  desc:'Write a function title_case_words that capitalizes the first letter of each word in a string, leaving other letters unchanged. Return an empty string if the input is empty.',
@@ -697,7 +817,15 @@ const CH=[
  rules:['sentence may be empty.','Only capitalize the first letter of each word.','Preserve word order and spacing.'],
  starter:'def title_case_words(sentence):\n    # Capitalize the first letter of each word in sentence\n    pass\n',
  visible:[{call:'title_case_words("debug dojo python")',exp:'"Debug Dojo Python"'},{call:'title_case_words("dojo")',exp:'"Dojo"'},{call:'title_case_words("")',exp:'""'}],
- hidden:6,tip:'Split the sentence by single space (" ") rather than whitespace to avoid losing multiple consecutive spaces.'},
+ hidden:6,
+ tip:'Split the sentence by single space (" ") rather than whitespace to avoid losing multiple consecutive spaces.',
+ hints:[
+   "Review the capitalization rule: only capitalize the first letter of each word; preserve existing casing and single spaces.",
+   "Word Splitting: Python's built-in .title() has quirks with apostrophes and words. Capitalizing word[0].upper() + word[1:] is safer.",
+   "Algorithmic Approach: 1. If sentence is empty, return ''. 2. Split words with sentence.split(' '). 3. Capitalize first char of each word if non-empty. 4. Join with ' '.",
+   "Edge Case Analysis: Handle single words, empty string '', and words already capitalized without losing characters.",
+   "Structural Guidance: Use ' '.join(w[0].upper() + w[1:] if w else '' for w in sentence.split(' '))."
+ ]},
 
 /* Advanced (Hard) - 3 Hints */
 {id:'compress-runs',title:'Compress Runs',diff:'Hard',concepts:['Strings','Loops','Indexing'],
@@ -707,7 +835,15 @@ const CH=[
  rules:['text may be empty.','Single characters are written with a count of 1 ("z" becomes "z1").','"aaabcc" becomes "a3b1c2".'],
  starter:'def compress_runs(text):\n    # Return the run-length encoded string\n    pass\n',
  visible:[{call:'compress_runs("aaabcc")',exp:'"a3b1c2"'},{call:'compress_runs("")',exp:'""'},{call:'compress_runs("z")',exp:'"z1"'}],
- hidden:5,tip:'The last run in a string has no next character to trigger it. Flush the last run when the loop finishes.'},
+ hidden:5,
+ tip:'The last run in a string has no next character to trigger it. Flush the last run when the loop finishes.',
+ hints:[
+   "Review run-length encoding: each sequence of identical consecutive characters is replaced by character + run length.",
+   "Loop Termination: Check how you handle the very last run in the string! Often the last character run gets omitted.",
+   "Algorithmic Approach: 1. If text is empty, return ''. 2. Iterate through characters tracking current_char and count. 3. When char changes, append char + str(count) and reset. 4. Flush the final run after loop ends.",
+   "Edge Case Analysis: Single character 'z' must become 'z1'. Empty string '' must return ''.",
+   "Structural Guidance: Remember to append current_char + str(count) after the loop finishes to capture the final run."
+ ]},
 {id:'balanced-brackets',title:'Balanced Brackets',diff:'Hard',concepts:['Stacks','Strings','Conditions'],
  short:'Verify if brackets ()[]{} are properly matched and closed in order.',
  desc:'Write a function balanced_brackets that takes a string of bracket characters and returns True if every opening bracket is matched and closed in correct order, or False otherwise. An empty string is balanced.',
@@ -715,7 +851,15 @@ const CH=[
  rules:['String contains characters: ()[]{}','Every open bracket must have a matching closed bracket of same type.','Closing brackets must match the most recent unmatched opening bracket.'],
  starter:'def balanced_brackets(s):\n    # Return True if brackets are balanced, False otherwise\n    pass\n',
  visible:[{call:'balanced_brackets("([]){}")',exp:'True'},{call:'balanced_brackets("([)]")',exp:'False'},{call:'balanced_brackets("")',exp:'True'}],
- hidden:6,tip:'Use a list as a LIFO stack: push openers, and when seeing a closer, check if stack is empty or top does not match.'},
+ hidden:6,
+ tip:'Use a list as a LIFO stack: push openers, and when seeing a closer, check if stack is empty or top does not match.',
+ hints:[
+   "Review stack matching: opening brackets must be matched with corresponding closing brackets in correct reverse order.",
+   "Stack Bounds: Check what happens when a closing bracket appears and the stack is empty! Calling pop() on an empty list throws IndexError.",
+   "Algorithmic Approach: 1. Use a list as a stack. 2. For opening brackets '([{', push onto stack. 3. For closing brackets, check if stack is empty or top doesn't match pair. 4. At end, stack must be empty.",
+   "Edge Case Analysis: '([)]' is not balanced. Empty string '' is balanced (returns True). Closing bracket first ']' must return False.",
+   "Structural Guidance: Map matching pairs with a dict: matching = {')': '(', ']': '[', '}': '{'} and check stack top."
+ ]},
 {id:'longest-streak',title:'Longest Streak',diff:'Hard',concepts:['Lists','Loops','Indexing'],
  short:'Find the maximum number of consecutive identical elements.',
  desc:'Write a function longest_streak that finds the maximum number of consecutive identical elements in a list. If the list is empty, return 0.',
@@ -723,7 +867,15 @@ const CH=[
  rules:['items may be empty.','Only consecutive identical values count towards a streak.','Return an integer maximum streak count.'],
  starter:'def longest_streak(items):\n    # Return max consecutive streak of same value, 0 if empty\n    pass\n',
  visible:[{call:'longest_streak([1, 1, 2, 2, 2, 3])',exp:'3'},{call:'longest_streak([])',exp:'0'},{call:'longest_streak(["a", "b", "c"])',exp:'1'}],
- hidden:6,tip:'Track current_streak and max_streak. When the current item differs from the previous, update max_streak and reset current_streak to 1.'},
+ hidden:6,
+ tip:'Track current_streak and max_streak. When the current item differs from the previous, update max_streak and reset current_streak to 1.',
+ hints:[
+   "Review consecutive streaks: only consecutive identical values count towards a streak.",
+   "Streak Updates: Check if you update max_streak at every step or only when values change (which might miss a streak at the very end).",
+   "Algorithmic Approach: 1. If items is empty, return 0. 2. Initialize current_streak = 1, max_streak = 1. 3. Loop from index 1: if items[i] == items[i-1], current_streak += 1; else current_streak = 1. 4. max_streak = max(max_streak, current_streak).",
+   "Edge Case Analysis: For empty list [], return 0. For [1, 1, 1], return 3. For all distinct items, return 1.",
+   "Structural Guidance: Keep max_streak = max(max_streak, current_streak) inside the loop to ensure trailing streaks are captured."
+ ]},
 {id:'flatten-nested-list',title:'Flatten Nested List',diff:'Hard',concepts:['Recursion','Lists'],
  short:'Recursively flatten an arbitrarily nested list of integers into a 1D list.',
  desc:'Write a recursive function flatten_nested_list that accepts an arbitrarily nested list of integers and returns a flat 1D list containing all the numbers in order. Empty sublists contribute no elements.',
@@ -731,7 +883,15 @@ const CH=[
  rules:['nested contains integers or further nested lists.','Sublists can be nested to arbitrary depths.','Return a single flat 1D list of integers.'],
  starter:'def flatten_nested_list(nested):\n    # Return flat list of integers from arbitrarily nested list\n    pass\n',
  visible:[{call:'flatten_nested_list([1, [2, [3, 4]], 5])',exp:'[1, 2, 3, 4, 5]'},{call:'flatten_nested_list([])',exp:'[]'},{call:'flatten_nested_list([1, 2, 3])',exp:'[1, 2, 3]'}],
- hidden:6,tip:'Iterate over items in nested: if isinstance(item, list), recursively flatten and extend; otherwise append the integer.'}
+ hidden:6,
+ tip:'Iterate over items in nested: if isinstance(item, list), recursively flatten and extend; otherwise append the integer.',
+ hints:[
+   "Review recursive flattening: elements can be integers or lists containing further nested lists to arbitrary depth.",
+   "Type Inspection: Check how you check types in Python. Use isinstance(item, list) to distinguish sublists from integers.",
+   "Algorithmic Approach: 1. Initialize result = []. 2. Loop through each item in nested. 3. If isinstance(item, list), recursively call flatten_nested_list(item) and extend result. 4. Else append item. 5. Return result.",
+   "Edge Case Analysis: An empty list [] returns []. An already flat list [1, 2, 3] returns [1, 2, 3]. Deeply nested [[[[1]]]] returns [1].",
+   "Structural Guidance: Use recursion: 'if isinstance(x, list): res.extend(flatten_nested_list(x)) else: res.append(x)'."
+ ]}
 ];
 
 /* ---------- state ---------- */
@@ -1087,9 +1247,19 @@ function renderAuthNav(){
   const el = $('#auth-nav-area');
   const navLinks = $('#links');
   if(!el) return;
+  const hasKey = !!(localStorage.getItem('gemini_api_key') || S.geminiApiKey);
+  const aiCoachBtn = `
+    <button class="btn sm" id="btn-open-ai-settings" type="button" title="Configure Free Google Gemini AI Key" style="display:inline-flex;align-items:center;gap:6px;border-color:${hasKey?'rgba(74,222,128,.4)':'rgba(100,216,236,.4)'};background:${hasKey?'rgba(74,222,128,.1)':'rgba(100,216,236,.08)'};color:${hasKey?'#4ade80':'var(--cyan)'};font-size:12px;font-weight:600">
+      <span>⚡</span>
+      <span>AI Coach</span>
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${hasKey?'#22c55e':'#94a3b8'}"></span>
+    </button>
+  `;
+
   if(isLoggedIn()){
     if(navLinks) navLinks.style.display = 'flex';
     el.innerHTML = `
+      ${aiCoachBtn}
       <span class="pill" style="color:var(--cyan);border-color:rgba(100,216,236,.3);max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${esc(S.user.email)}">
         👤 ${esc(S.user.name || S.user.email.split('@')[0])}
       </span>
@@ -1118,8 +1288,14 @@ function renderAuthNav(){
   } else {
     if(navLinks) navLinks.style.display = 'none';
     el.innerHTML = `
+      ${aiCoachBtn}
       <span class="pill" style="color:var(--violet);border-color:rgba(168,140,255,.3)">Sign In Required</span>
     `;
+  }
+
+  const aiBtn = $('#btn-open-ai-settings');
+  if(aiBtn){
+    aiBtn.addEventListener('click', openAiSettingsModal);
   }
 }
 
@@ -1486,7 +1662,10 @@ function vWorkspace(){
      <!-- Revealed Hints -->
      ${shown ? hints.map((h, k) => `
        <div class="hint" style="margin-top:8px">
-         <b>Hint ${k+1} · ${esc(h.hint_type || ('Guidance Step ' + (k+1)))}</b>
+         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+           <b>Hint ${k+1} · ${esc(h.hint_type || ('Guidance Step ' + (k+1)))}</b>
+           ${h.model_used ? `<span class="pill" style="font-size:10.5px;padding:2px 8px;border-color:rgba(100,216,236,.3);color:var(--cyan)">${esc(h.model_used)}</span>` : ''}
+         </div>
          <p style="margin:4px 0 0;font-size:13.5px;color:#efe9f5">${esc(h.hint)}</p>
        </div>
      `).join('') : ''}
@@ -3010,6 +3189,137 @@ function bind(r){
  }
 }
 
+function openAiSettingsModal(){
+  const modal = $('#ai-modal');
+  if(!modal) return;
+  const input = $('#gemini-key-input');
+  const statusEl = $('#ai-key-status');
+  const savedKey = localStorage.getItem('gemini_api_key') || S.geminiApiKey || '';
+  if(input) input.value = savedKey;
+  if(statusEl){
+    if(savedKey){
+      statusEl.style.display = 'block';
+      statusEl.style.background = 'rgba(74,222,128,.1)';
+      statusEl.style.color = '#4ade80';
+      statusEl.style.border = '1px solid rgba(74,222,128,.3)';
+      statusEl.innerHTML = '🟢 <b>Gemini Free Tier API Key is configured and active.</b>';
+    } else {
+      statusEl.style.display = 'block';
+      statusEl.style.background = 'rgba(100,216,236,.08)';
+      statusEl.style.color = 'var(--cyan)';
+      statusEl.style.border = '1px solid rgba(100,216,236,.25)';
+      statusEl.innerHTML = '⚪ <b>Using Dojo Smart Offline Engine.</b> Enter a free Google AI Studio key to enable live Gemini 2.5 Flash &amp; Pro.';
+    }
+  }
+  modal.style.display = 'grid';
+}
+
+function initAiModal(){
+  const modal = $('#ai-modal');
+  const closeBtn = $('#ai-modal-close');
+  const btnSave = $('#btn-save-ai-key');
+  const btnTest = $('#btn-test-ai-key');
+  const btnClear = $('#btn-clear-ai-key');
+  const input = $('#gemini-key-input');
+  const statusEl = $('#ai-key-status');
+
+  if(closeBtn && modal){
+    closeBtn.addEventListener('click', ()=> modal.style.display = 'none');
+    modal.addEventListener('click', e => {
+      if(e.target === modal) modal.style.display = 'none';
+    });
+  }
+
+  if(btnSave){
+    btnSave.addEventListener('click', ()=>{
+      const key = (input ? input.value : '').trim();
+      if(!key){
+        toast('Please enter a valid Google Gemini API key or click Clear.');
+        return;
+      }
+      localStorage.setItem('gemini_api_key', key);
+      S.geminiApiKey = key;
+      renderAuthNav();
+      if(modal) modal.style.display = 'none';
+      toast('✓ Gemini Free Tier API Key saved! AI Coach is now live.');
+      route();
+    });
+  }
+
+  if(btnClear){
+    btnClear.addEventListener('click', ()=>{
+      localStorage.removeItem('gemini_api_key');
+      S.geminiApiKey = null;
+      if(input) input.value = '';
+      renderAuthNav();
+      if(statusEl){
+        statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(100,216,236,.08)';
+        statusEl.style.color = 'var(--cyan)';
+        statusEl.style.border = '1px solid rgba(100,216,236,.25)';
+        statusEl.innerHTML = '⚪ <b>Key removed.</b> Using Dojo Smart Offline Engine for hints.';
+      }
+      toast('Gemini API key cleared. Using offline smart engine.');
+      route();
+    });
+  }
+
+  if(btnTest){
+    btnTest.addEventListener('click', async ()=>{
+      const key = (input ? input.value : '').trim();
+      if(!key){
+        toast('Please paste your Gemini API key first to test.');
+        return;
+      }
+      btnTest.disabled = true;
+      btnTest.innerHTML = '<span class="spin"></span> Testing...';
+      try{
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            contents: [{parts: [{text: "Reply with the single word: OK"}]}]
+          })
+        });
+        if(res.ok){
+          if(statusEl){
+            statusEl.style.display = 'block';
+            statusEl.style.background = 'rgba(74,222,128,.15)';
+            statusEl.style.color = '#4ade80';
+            statusEl.style.border = '1px solid rgba(74,222,128,.4)';
+            statusEl.innerHTML = '✓ <b>Success! Gemini Free API Key verified and working perfectly.</b>';
+          }
+          toast('✓ Gemini API Key verified successfully!');
+        } else {
+          const errData = await res.json().catch(()=>({}));
+          const errMsg = (errData.error && errData.error.message) ? errData.error.message : `HTTP ${res.status}`;
+          if(statusEl){
+            statusEl.style.display = 'block';
+            statusEl.style.background = 'rgba(255,136,120,.12)';
+            statusEl.style.color = 'var(--coral)';
+            statusEl.style.border = '1px solid rgba(255,136,120,.35)';
+            statusEl.innerHTML = `✗ <b>Verification Failed:</b> ${esc(errMsg)}`;
+          }
+          toast('API Key test failed: ' + errMsg);
+        }
+      }catch(err){
+        if(statusEl){
+          statusEl.style.display = 'block';
+          statusEl.style.background = 'rgba(255,136,120,.12)';
+          statusEl.style.color = 'var(--coral)';
+          statusEl.style.border = '1px solid rgba(255,136,120,.35)';
+          statusEl.innerHTML = `✗ <b>Connection Error:</b> ${esc(err.message || 'Network request failed')}`;
+        }
+        toast('Connection error: ' + err.message);
+      }finally{
+        btnTest.disabled = false;
+        btnTest.innerHTML = '🧪 Test Connection';
+      }
+    });
+  }
+}
+
 function initAuthModal(){
   const modal = $('#auth-modal');
   const closeBtn = $('#auth-modal-close');
@@ -3846,52 +4156,218 @@ async function runLive(){
  }
 }
 
+function findCodeActiveLine(code){
+  if(!code) return 2;
+  const lines = code.split('\n');
+  for(let i=0; i<lines.length; i++){
+    const s = lines[i].trim();
+    if(s.startsWith('return ') || s.startsWith('if ') || s.startsWith('for ') || s.startsWith('while ') || s === 'pass' || s.startsWith('pass')){
+      return i + 1;
+    }
+  }
+  return lines.length >= 2 ? 2 : 1;
+}
+
+function generateClientChronologicalHint(c, sub, lvl, code){
+  lvl = Math.max(1, Math.min(lvl, 5));
+  const errType = (sub.error_type || (sub.overall === 'runtime error' ? 'RuntimeError' : sub.overall === 'timeout' ? 'Timeout' : '')).toLowerCase();
+  const errLine = sub.error_line || findCodeActiveLine(code);
+  const failedTest = (sub.visible || []).find(t => t.o !== 'passed');
+
+  const titles = [
+    'Level 1 · Concept & Invariant',
+    'Level 2 · Line Inspection & Targeted Clue',
+    'Level 3 · Step-by-Step Logic Steps',
+    'Level 4 · Boundary & Edge Case Analysis',
+    'Level 5 · Structural Guidance (Near-Solution)'
+  ];
+  const hintTitle = titles[lvl - 1] || `Level ${lvl} Hint`;
+
+  // 1. Runtime Error Grounding
+  if(errType.includes('runtime') || errType.includes('error') || sub.overall === 'runtime error' || sub.error_type){
+    const lineRef = errLine ? ` on Line ${errLine}` : '';
+    if(lvl === 1){
+      return {
+        hint: `Your code stopped due to an execution error${lineRef}. Before checking calculations, inspect the exact operation happening on that line.`,
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    } else if(lvl === 2){
+      return {
+        hint: `Look at Line ${errLine || 2} in your code: ${sub.error_msg || sub.explain || 'Verify variable types and ensure list indexing does not exceed bounds.'}`,
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    } else if(lvl === 3){
+      return {
+        hint: `Algorithmic Logic: Add a validation or boundary condition right before Line ${errLine || 2} runs (e.g. check if the list has elements before indexing or slicing).`,
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    } else if(lvl === 4){
+      return {
+        hint: `Edge Case Check: Test what occurs when the input is completely empty [] or size 0. Does your function handle empty inputs gracefully without raising an exception?`,
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    } else {
+      return {
+        hint: `Structural Guard: Add an early return at the very top of your function (e.g. 'if not marks: return 0') to safely exit on empty inputs before Line ${errLine || 2}.`,
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    }
+  }
+
+  // 2. Timeout (TLE) Grounding
+  if(errType.includes('timeout') || sub.overall === 'timeout'){
+    if(lvl === 1){
+      return {
+        hint: 'Time Limit Exceeded (TLE) — Your execution took longer than 2.0s. This happens when a loop never reaches its stop condition or has high O(N^2) complexity.',
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    } else if(lvl === 2){
+      return {
+        hint: `Look at Line ${errLine || 2} in your code: check your loop header. Ensure the loop counter or condition variable changes on every single iteration so it can stop.`,
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    } else if(lvl === 3){
+      return {
+        hint: 'Algorithmic approach: Avoid infinite while loops or recalculating values in nested loops. Aim for a single pass through the sequence.',
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    } else if(lvl === 4){
+      return {
+        hint: 'Check what happens on boundary values like k=0 or empty input. Make sure the loop terminates immediately when there is nothing left to process.',
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    } else {
+      return {
+        hint: 'Structural Guard: Replace manual while loops with Python range() or built-in slicing, which are guaranteed to terminate.',
+        hint_type: hintTitle,
+        hint_level: lvl,
+        model_used: 'Dojo Smart Engine (Offline Mode)'
+      };
+    }
+  }
+
+  // 3. Challenge Pre-Authored Hints with Line Number Grounding
+  if(c && c.hints && c.hints.length >= lvl){
+    let hintText = c.hints[lvl - 1];
+    if(lvl === 2 && !hintText.toLowerCase().includes('line')){
+      hintText = `Look at Line ${errLine || 2} in your code: ${hintText}`;
+    }
+    if(failedTest && lvl === 2 && !hintText.includes(failedTest.call)){
+      hintText += ` (On test call ${failedTest.call}, returned '${failedTest.got}' instead of '${failedTest.exp}')`;
+    }
+    return {
+      hint: hintText,
+      hint_type: hintTitle,
+      hint_level: lvl,
+      model_used: 'Dojo Smart Engine (Offline Mode)'
+    };
+  }
+
+  // 4. Default Chronological Progression
+  const defaultSteps = [
+    `Review the core invariant: verify what output is expected for simple inputs and edge cases.`,
+    `Look at Line ${errLine || 2} in your code: inspect the calculation or condition on this line.`,
+    `Step-by-step logic: 1. Validate inputs first. 2. Loop or slice elements. 3. Return the result outside the loop.`,
+    `Edge Case Analysis: Test what happens on empty sequences, 0, or inputs larger than expected.`,
+    `Near-Solution Nudge: Check boundary conditions with >= vs > and ensure your function uses 'return'.`
+  ];
+  return {
+    hint: defaultSteps[lvl - 1] || defaultSteps[0],
+    hint_type: hintTitle,
+    hint_level: lvl,
+    model_used: 'Dojo Smart Engine (Offline Mode)'
+  };
+}
+
 async function requestHintLive(){
- const sub = curSub();
- if(!sub) return;
- const btn = $('#hint');
- btn.disabled = true;
- btn.textContent = "Loading Hint...";
+  const sub = curSub();
+  if(!sub) return;
+  const btn = $('#hint');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Generating AI Hint...';
 
- try{
-   const headers = {'Content-Type': 'application/json'};
-   if(S.token) headers['Authorization'] = `Bearer ${S.token}`;
-   const res = await fetch('/api/hint', {
-     method: 'POST',
-     headers: headers,
-     body: JSON.stringify({ submission_id: sub.id })
-   });
-   const data = await safeFetchJson(res);
+  const c = chOf(sub.ch);
+  const currentHints = S.hintsMap[sub.id] || [];
+  const lvl = currentHints.length + 1;
+  const maxHints = sub.total_hints || (c.diff === 'Easy' ? 5 : c.diff === 'Medium' ? 4 : 3);
+  const code = getCode(c.id);
 
-   if(res.ok && !data.error && !data.nonJson){
-     if(!S.hintsMap[sub.id]) S.hintsMap[sub.id] = [];
-     const lvl = data.hint_level || data.level || (S.hintsMap[sub.id].length + 1);
-     if(!S.hintsMap[sub.id].some(h=>((h.hint_level || h.level) === lvl))){
-       S.hintsMap[sub.id].push({
-         hint: data.hint,
-         hint_type: data.hint_type || `Level ${lvl} Hint`,
-         hint_level: lvl
-       });
-     }
-     toast(`Revealed Hint ${lvl}: ${data.hint_type || 'Guidance'}`);
-   } else {
-     throw new Error("offline");
-   }
- }catch(err){
-   // Client side hint fallback
-   const c = chOf(sub.ch);
-   const currentHints = S.hintsMap[sub.id] || [];
-   const lvl = currentHints.length + 1;
-   const hintMsg = (c && c.tip) ? c.tip : "Check input boundary cases, loop conditions, and return statement types.";
-   if(!S.hintsMap[sub.id]) S.hintsMap[sub.id] = [];
-   S.hintsMap[sub.id].push({
-     hint: hintMsg,
-     hint_type: `Level ${lvl} Hint`,
-     hint_level: lvl
-   });
-   toast(`Revealed Hint ${lvl}: Guidance`);
- }
- route();
+  // Extract failing test or error details
+  const failedTest = (sub.visible || []).find(t => t.o !== 'passed');
+  const geminiKey = localStorage.getItem('gemini_api_key') || S.geminiApiKey || '';
+  const learnerMastery = S.userMastery || 45;
+  const learnerLevel = learnerMastery < 40 ? 'beginner' : learnerMastery < 75 ? 'intermediate' : 'advanced';
+
+  const payload = {
+    submission_id: sub.id,
+    challenge_id: c.id,
+    code: code,
+    hint_level: lvl,
+    error_type: sub.error_type || (sub.overall === 'runtime error' ? 'RuntimeError' : sub.overall === 'timeout' ? 'Timeout' : 'Wrong Output'),
+    error_line: sub.error_line || null,
+    error_msg: sub.error_msg || sub.explain || '',
+    failed_call: failedTest ? failedTest.call : '',
+    expected: failedTest ? failedTest.exp : '',
+    got: failedTest ? failedTest.got : '',
+    learner_level: learnerLevel,
+    api_key: geminiKey
+  };
+
+  try{
+    const headers = {'Content-Type': 'application/json'};
+    if(S.token) headers['Authorization'] = `Bearer ${S.token}`;
+    if(geminiKey) headers['X-Gemini-Key'] = geminiKey;
+
+    const res = await fetch('/api/hint', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload)
+    });
+    const data = await safeFetchJson(res);
+
+    if(res.ok && !data.error && !data.nonJson && data.hint){
+      if(!S.hintsMap[sub.id]) S.hintsMap[sub.id] = [];
+      const resLvl = data.hint_index || data.hint_level || lvl;
+      if(!S.hintsMap[sub.id].some(h=>((h.hint_level || h.level) === resLvl))){
+        S.hintsMap[sub.id].push({
+          hint: data.hint,
+          hint_type: data.hint_type || `Level ${resLvl} Hint`,
+          hint_level: resLvl,
+          model_used: data.model_used || '✨ Google Gemini'
+        });
+      }
+      toast(`Revealed Hint ${resLvl}: ${data.hint_type || 'Guidance'}`);
+    } else {
+      throw new Error("offline");
+    }
+  }catch(err){
+    // Smart Chronological Fallback - 100% Unique & Error-Grounded
+    const clientHint = generateClientChronologicalHint(c, sub, lvl, code);
+    if(!S.hintsMap[sub.id]) S.hintsMap[sub.id] = [];
+    if(!S.hintsMap[sub.id].some(h=>((h.hint_level || h.level) === lvl))){
+      S.hintsMap[sub.id].push(clientHint);
+    }
+    toast(`Revealed Hint ${lvl}: ${clientHint.hint_type}`);
+  }
+  route();
 }
 
 async function runCustomDebugLive(){
@@ -4556,6 +5032,7 @@ const GL=(function(){
 
 GL.init();
 initAuthModal();
+initAiModal();
 route();
 if(isLoggedIn()){
   fetchProfile().then(()=>route());

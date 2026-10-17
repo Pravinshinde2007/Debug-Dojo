@@ -6,14 +6,16 @@ and prompt/response logging to backend/logs/llm.jsonl (Rule 7).
 
 import os
 import re
+import json
 from typing import Dict, Any, Optional, Tuple, List
+import httpx
 from .db import log_llm_call
 
 # Free-tier Gemini models
 DEFAULT_FLASH_MODEL = os.environ.get("GEMINI_FLASH_MODEL", "gemini-2.5-flash")
 DEFAULT_PRO_MODEL = os.environ.get("GEMINI_PRO_MODEL", "gemini-2.5-pro")
 
-# Fallback models in case newer preview model IDs are unavailable
+# Fallback models in case preview model IDs are unavailable
 FLASH_FALLBACKS = [DEFAULT_FLASH_MODEL, "gemini-1.5-flash", "gemini-2.0-flash"]
 PRO_FALLBACKS = [DEFAULT_PRO_MODEL, "gemini-1.5-pro", "gemini-2.0-pro", "gemini-2.5-flash"]
 
@@ -45,9 +47,19 @@ HIGH_CONSTRAINT_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+HINT_TITLES = [
+    "Level 1 · Concept & Invariant",
+    "Level 2 · Line Inspection & Targeted Clue",
+    "Level 3 · Step-by-Step Logic Steps",
+    "Level 4 · Boundary & Edge Case Analysis",
+    "Level 5 · Structural Guidance (Near-Solution)"
+]
 
-def get_gemini_api_key() -> str:
-    """Retrieves Gemini/Google AI Studio API key from standard environment variables."""
+
+def get_gemini_api_key(explicit_key: Optional[str] = None) -> str:
+    """Retrieves Gemini/Google AI Studio API key from parameter or environment variables."""
+    if explicit_key and explicit_key.strip():
+        return explicit_key.strip()
     return (
         os.environ.get("GEMINI_API_KEY", "") or
         os.environ.get("GOOGLE_API_KEY", "") or
@@ -133,12 +145,10 @@ def explain_runtime_error(stderr: str, language: str = "python", code: str = "")
     # 1. Extract Line Number
     line_number: Optional[int] = None
     if language.lower() in ("python", "py"):
-        # Match Python tracebacks: File "...", line 12 or line 12
         line_matches = re.findall(r"line\s+(\d+)", clean_stderr, re.IGNORECASE)
         if line_matches:
             line_number = int(line_matches[-1])
     elif language.lower() in ("javascript", "node", "js"):
-        # Match JS tracebacks: at ...:12:34 or solution.js:12
         line_matches = re.findall(r"(?:solution\.js|\.js):(\d+)", clean_stderr, re.IGNORECASE)
         if line_matches:
             line_number = int(line_matches[-1])
@@ -230,35 +240,387 @@ def explain_runtime_error(stderr: str, language: str = "python", code: str = "")
     }
 
 
-def generate_hint(submission: Dict[str, Any], hint_index: int) -> str:
+def find_code_active_line(code: str) -> int:
+    """Finds the most likely active line (return, loop, conditional, pass) in student code."""
+    if not code:
+        return 2
+    lines = code.split("\n")
+    for idx, l in enumerate(lines, 1):
+        s = l.strip()
+        if (
+            s.startswith("return ") or
+            s.startswith("if ") or
+            s.startswith("for ") or
+            s.startswith("while ") or
+            s == "pass" or
+            s.startswith("pass")
+        ):
+            return idx
+    return 2 if len(lines) >= 2 else 1
+
+
+def synthesize_grounded_hint(
+    challenge: Optional[Dict[str, Any]],
+    code: str = "",
+    hint_level: int = 1,
+    mistake_tags: Optional[List[str]] = None,
+    test_run_data: Optional[Dict[str, Any]] = None,
+    error_type: Optional[str] = None,
+    error_line: Optional[int] = None,
+    error_msg: Optional[str] = None,
+    failed_call: Optional[str] = None,
+    expected: Optional[str] = None,
+    got: Optional[str] = None,
+    learner_level: str = "beginner"
+) -> Dict[str, Any]:
     """
-    Rule 4 & Chronological Progressive Hints:
-    - Hint 1: Broad conceptual invariant / high-level thinking nudge.
-    - Hint 2: Simpler & distinctly different targeted clue directly pointing towards the fix.
-    - Hint 3: High-level algorithmic recipe / step-by-step approach outline.
-    - Hint 4: Edge case validation check.
-    No hint may contain complete solutions or raw code.
+    Constructs 5 strictly non-repeating, progressive hints grounded in the learner's error,
+    exact code line, and failing test case (Offline / Zero-Server Smart Fallback).
+    
+    Guarantees:
+    - Level 1: Conceptual invariant / high-level understanding
+    - Level 2: Line inspection pointing to the exact line in student code
+    - Level 3: Step-by-step algorithmic logic in plain English
+    - Level 4: Boundary & edge case deep dive
+    - Level 5: Near-solution structural guidance without code leakage
+    - Every hint level is guaranteed 100% distinct!
     """
+    hint_level = max(1, min(hint_level, 5))
+    mistake_tags = mistake_tags or []
+    test_run_data = test_run_data or {}
+
+    # Extract or infer error line
+    if not error_line:
+        first_err = test_run_data.get("first_error", {}) if isinstance(test_run_data, dict) else {}
+        error_line = first_err.get("error_line") or find_code_active_line(code)
+
+    # Extract or infer error type and failed test
+    if not error_type:
+        first_err = test_run_data.get("first_error", {}) if isinstance(test_run_data, dict) else {}
+        error_type = first_err.get("error_type")
+    
+    if not failed_call:
+        first_failed = test_run_data.get("first_failed_test", {}) if isinstance(test_run_data, dict) else {}
+        failed_call = first_failed.get("call") or first_failed.get("kind")
+        if not expected:
+            expected = str(first_failed.get("expected") or first_failed.get("exp") or "")
+        if not got:
+            got = str(first_failed.get("got") or "")
+
+    title_idx = min(hint_level - 1, len(HINT_TITLES) - 1)
+    hint_title = HINT_TITLES[title_idx]
+
+    err_str = str(error_type or error_msg or "").lower()
+
+    # 1. RUNTIME ERROR GROUNDING (IndexError, ZeroDivisionError, etc.)
+    if (
+        "error" in err_str or
+        "zerodivision" in err_str or
+        "indexerror" in err_str or
+        "typeerror" in err_str or
+        "keyerror" in err_str or
+        "nameerror" in err_str
+    ):
+        raw_err = f"{error_type or 'RuntimeError'}: {error_msg or 'Execution error'}"
+        analyzed = explain_runtime_error(raw_err, code=code)
+        explanation = analyzed.get("message", "")
+
+        hints = [
+            f"Your code stopped due to a {error_type or 'runtime exception'}. Step back and check what values and collection sizes reach that line during testing.",
+            f"Look at Line {error_line} in your code: {explanation}",
+            f"Algorithmic Logic: Add a validation or boundary condition right before Line {error_line} runs to prevent indexing out of bounds or dividing by zero.",
+            "Edge Case Analysis: What happens when the input sequence is completely empty [] or size 0? Directly slicing or indexing without checking length triggers this error.",
+            f"Structural Guard: Place an early return at the very start of your function (e.g. 'if not items: return 0') to safely exit before Line {error_line} is reached."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "Dojo Smart Engine (Offline Mode)"
+        }
+
+    # 2. TIME LIMIT EXCEEDED (TLE) / TIMEOUT GROUNDING
+    if "timeout" in err_str or "tle" in err_str:
+        hints = [
+            "Time Limit Exceeded (TLE) — Your execution took longer than 2.0 seconds. This happens when a loop has no valid termination condition or when the approach is O(N^2).",
+            f"Look at Line {error_line} in your code: inspect your while or for loop header. Verify that the loop's counter or condition variable changes on every single iteration.",
+            "Algorithmic Logic: Avoid repeated recalculations inside nested loops. Aim for a single pass through the data using accumulator variables or slices.",
+            "Edge Case Analysis: Check what happens on boundary inputs like empty lists or size 0. Make sure the loop terminates immediately without extra work.",
+            "Structural Guard: Replace manual while loops with Python 'for item in items:' or built-in functions like sum(), min(), or max() which are guaranteed to finish."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "Dojo Smart Engine (Offline Mode)"
+        }
+
+    # 3. SPECIFIC MISTAKE TAGS GROUNDING
+    if "print_not_return" in mistake_tags:
+        hints = [
+            "In Python, print() only writes text to the console screen. Automated tests expect your function to return the answer using the return keyword.",
+            f"Look at Line {error_line} in your code: you are calling print(...) instead of returning the calculated value.",
+            "Because print() does not send data back, the test received None instead of the expected result.",
+            "Functions must pass their final result back with 'return' so that callers and automated test suites can verify it.",
+            f"Replace the print(...) statement on Line {error_line} with 'return' followed by the variable containing the answer."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "Dojo Smart Engine (Offline Mode)"
+        }
+
+    if "boundary_comparison" in mistake_tags:
+        hints = [
+            "Check your comparison conditions: make sure cutoff values that land exactly on the threshold are included or excluded properly.",
+            f"Look at Line {error_line} in your code: check if you used strict inequality ('>' or '<') when inclusive ('>=' or '<=') is required.",
+            "Strict comparisons (> and <) exclude the cutoff value itself, while inclusive comparisons (>= and <=) include it.",
+            "For example, if 40 is a passing score, a student with exactly 40 must pass. '>' skips 40, whereas '>=' includes it.",
+            f"Update your condition on Line {error_line} to use '>=' or '<=' so values right on the boundary are properly handled."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "Dojo Smart Engine (Offline Mode)"
+        }
+
+    if "unhandled_short_input" in mistake_tags:
+        hints = [
+            "Your function works on typical cases, but fails on empty or very short inputs.",
+            f"Look at Line {error_line} in your code: what does this line evaluate to if the input list is completely empty [] or size 0?",
+            "Trying to access items by index or slice without verifying length first can produce incorrect totals or empty slice issues.",
+            "Edge Case Check: Test what occurs when the list is empty [] or has fewer elements than requested. Does your code return 0 or the proper default?",
+            "Add a quick guard at the top of your function (e.g. 'if not items: return 0') to handle empty inputs right away."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "Dojo Smart Engine (Offline Mode)"
+        }
+
+    if "off_by_one" in mistake_tags:
+        hints = [
+            "Your loop or slice is off by one item. Remember that Python indexing starts at 0, and ranges stop before the end value.",
+            f"Look at Line {error_line} in your code: inspect your range(start, stop) numbers or slice [start:stop].",
+            "In Python, range(5) produces 0, 1, 2, 3, 4 (it excludes 5). If you need 1 to 5, use range(1, 6).",
+            "Stopping one step too early misses the last item; starting at 0 instead of 1 introduces an extra offset.",
+            f"Adjust your start or stop value on Line {error_line} by adding or subtracting 1 so the sequence covers the exact elements needed."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "Dojo Smart Engine (Offline Mode)"
+        }
+
+    if "mutates_input" in mistake_tags:
+        hints = [
+            "This problem requires calculating the result without altering the original input list.",
+            f"Look at Line {error_line} in your code: avoid in-place methods like .pop(), .remove(), or .sort() that modify the list in place.",
+            "When the input list is mutated, subsequent tests or callers find their original data destroyed.",
+            "Instead of modifying the input list, create a brand-new list to hold your results.",
+            "Build and return a fresh new list or use non-destructive operations like slicing, leaving the original input intact."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "Dojo Smart Engine (Offline Mode)"
+        }
+
+    # 4. CHALLENGE PRE-AUTHORED HINTS WITH DYNAMIC GROUNDING
+    ch_hints = challenge.get("hints", []) if challenge else []
+    if isinstance(ch_hints, list) and len(ch_hints) >= hint_level:
+        base_hint = ch_hints[hint_level - 1]
+        if hint_level == 2:
+            if not base_hint.startswith("Look at Line"):
+                base_hint = f"Look at Line {error_line} in your code: {base_hint}"
+            if failed_call:
+                base_hint += f" (On test {failed_call}, returned '{got}' instead of '{expected}')"
+        return {
+            "hint": leak_guard(base_hint),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "Dojo Smart Engine (Offline Mode)"
+        }
+
+    # 5. GENERAL FAILED TEST CASE GROUNDING
+    mismatch_detail = f" On test {failed_call}, returned '{got}' instead of '{expected}'." if failed_call else ""
     hints = [
-        # Hint 1: High-level conceptual invariant
-        "Review the core invariant governing this problem: what mathematical relationship or structure connects the inputs to the output?",
-        # Hint 2: Simpler, different, and directly pointing towards the fix
-        "Simpler Clue: Check your primary loop and calculation line. Ensure that your accumulator begins at the proper initial value and that your comparison condition handles values exactly on the boundary.",
-        # Hint 3: Algorithmic Approach Outline
-        "Algorithmic Approach: 1. Parse all inputs from stdin. 2. Initialize your state/table. 3. Traverse elements once while updating results. 4. Return or print the final answer outside the loop.",
-        # Hint 4: Edge case protection
-        "Edge Case Check: Test what occurs when the input has 0 or 1 elements, negative numbers, or duplicates."
+        f"Review the core invariant of {challenge.get('title', 'this challenge')}: verify what the function should return for basic cases and boundaries.",
+        f"Look at Line {error_line} in your code: inspect the calculation or condition on this line.{mismatch_detail}",
+        "Algorithmic Logic: 1. Validate inputs first. 2. Traverse or slice the elements. 3. Return the result outside the loop.",
+        "Boundary & Edge Case Analysis: Test what happens on empty inputs, single-element collections, and size 0. In Python, marks[-0:] selects the entire list instead of an empty slice!",
+        "Structural Guidance: Make sure to clamp boundary parameters using min() and guard with an if condition before slicing or summing."
     ]
-    idx = max(0, min(hint_index - 1, len(hints) - 1))
-    hint_text = hints[idx]
+    return {
+        "hint": leak_guard(hints[hint_level - 1]),
+        "hint_type": hint_title,
+        "hint_level": hint_level,
+        "model_used": "Dojo Smart Engine (Offline Mode)"
+    }
 
-    safe_hint = leak_guard(hint_text)
 
-    # Rule 7: Log every prompt and response to backend/logs/llm.jsonl
-    log_llm_call(
-        prompt=f"Generate hint level {hint_index} for submission {submission.get('id', 'unknown')}",
-        response=safe_hint,
-        context=f"submission_id={submission.get('id', 'unknown')}, challenge_id={submission.get('challenge_id', 'unknown')}"
+async def generate_ai_progressive_hint(
+    challenge: Optional[Dict[str, Any]],
+    code: str,
+    hint_level: int,
+    total_hints: int = 5,
+    mistake_tags: Optional[List[str]] = None,
+    test_run_data: Optional[Dict[str, Any]] = None,
+    error_type: Optional[str] = None,
+    error_line: Optional[int] = None,
+    error_msg: Optional[str] = None,
+    failed_call: Optional[str] = None,
+    expected: Optional[str] = None,
+    got: Optional[str] = None,
+    learner_level: str = "beginner",
+    api_key: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Calls Google Gemini AI Free-Tier API (gemini-2.5-flash for standard, gemini-2.5-pro for complex)
+    to generate pedagogical progressive hints strictly adhering to Rule 4 Leak Guard.
+    
+    If Gemini API key is missing, invalid, or offline, seamlessly falls back to
+    synthesize_grounded_hint with 100% unique, error-grounded progressive hints.
+    """
+    hint_level = max(1, min(hint_level, total_hints))
+    key = get_gemini_api_key(api_key)
+
+    # Determine optimal model dynamically according to problem complexity
+    challenge_desc = ""
+    challenge_title = "Python Challenge"
+    sig = ""
+    if challenge:
+        challenge_title = challenge.get("title", "Python Challenge")
+        challenge_desc = challenge.get("description", "") or challenge.get("desc", "")
+        sig = challenge.get("sig", "") or challenge.get("function_name", "")
+
+    optimal_model = get_optimal_gemini_model(challenge_desc, challenge)
+    ordered_models = (
+        [optimal_model] + [m for m in PRO_FALLBACKS if m != optimal_model]
+        if optimal_model in PRO_FALLBACKS
+        else [optimal_model] + [m for m in FLASH_FALLBACKS if m != optimal_model]
     )
 
-    return safe_hint
+    title_idx = min(hint_level - 1, len(HINT_TITLES) - 1)
+    hint_title = HINT_TITLES[title_idx]
+
+    # If key is available, call Gemini API
+    if key:
+        prompt_content = f"""
+You are an expert AI Python Debug Coach for students in Debug Dojo.
+The learner is working on this challenge and needs guidance to fix their bug.
+
+CHALLENGE: {challenge_title}
+DESCRIPTION: {challenge_desc}
+SIGNATURE: {sig}
+
+STUDENT'S CODE:
+```python
+{code}
+```
+
+TEST EXECUTION RESULTS:
+Outcome / Status: {error_type or 'Wrong Output'}
+Failing Line in Code: {error_line or 'Inspect active line'}
+Error Details: {error_msg or ''}
+Failed Test Call: {failed_call or ''}
+Expected Output: {expected or ''}
+Actual Got Output: {got or ''}
+Identified Mistake Tags: {json.dumps(mistake_tags or [])}
+
+HINT REQUEST:
+Requested Hint Level: {hint_level} of {total_hints} ({hint_title})
+Learner Experience Level: {learner_level}
+
+PROGRESSIVE PEDAGOGICAL HINT RULES:
+- Level 1 (Concept/Invariant): Ask a guiding conceptual question or highlight the invariant principle without mentioning code syntax.
+- Level 2 (Targeted Clue): SIMPLER and DIFFERENT. Must pinpoint the exact line in student's code (Line {error_line or 2}) and explain why that calculation or condition goes off track.
+- Level 3 (Logic Steps): Step-by-step plain English algorithmic recipe (1. Handle boundary, 2. Iterate, 3. Return).
+- Level 4 (Boundary/Edge Case): Deep-dive into edge cases (empty input, 0, negative index, or large size).
+- Level 5 (Near-Solution Nudge): Suggest the structural construct (e.g. min() or guard condition), but strictly DO NOT write the complete working function code.
+
+STRICT RULE 4 LEAK GUARD:
+NEVER give the full working code solution or complete function.
+Do NOT output code blocks with full implementations.
+Respond with ONLY valid JSON:
+{{
+  "hint": "Your clear, pedagogical hint text here",
+  "hint_type": "{hint_title}"
+}}
+"""
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": prompt_content}]}],
+            "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
+        }
+
+        for model_name in ordered_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                            clean_text = re.sub(r"^```json\s*", "", text.strip())
+                            clean_text = re.sub(r"\s*```$", "", clean_text.strip())
+                            parsed = json.loads(clean_text)
+                            hint_val = parsed.get("hint", "").strip()
+                            if hint_val:
+                                safe_hint = leak_guard(hint_val)
+                                log_llm_call(
+                                    prompt=f"Gemini hint level {hint_level} for {challenge_title}",
+                                    response=safe_hint,
+                                    context=f"model={model_name}, level={hint_level}, challenge={challenge_title}"
+                                )
+                                return {
+                                    "hint": safe_hint,
+                                    "hint_type": parsed.get("hint_type", hint_title),
+                                    "hint_level": hint_level,
+                                    "model_used": f"✨ Google Gemini ({model_name})"
+                                }
+                    elif resp.status_code in (429, 404, 503):
+                        continue
+            except Exception:
+                continue
+
+    # Offline / Smart Engine Fallback
+    fallback_res = synthesize_grounded_hint(
+        challenge=challenge,
+        code=code,
+        hint_level=hint_level,
+        mistake_tags=mistake_tags,
+        test_run_data=test_run_data,
+        error_type=error_type,
+        error_line=error_line,
+        error_msg=error_msg,
+        failed_call=failed_call,
+        expected=expected,
+        got=got,
+        learner_level=learner_level
+    )
+    log_llm_call(
+        prompt=f"Dojo Smart Engine hint level {hint_level} for {challenge_title}",
+        response=fallback_res["hint"],
+        context=f"model=offline_engine, level={hint_level}, challenge={challenge_title}"
+    )
+    return fallback_res
+
+
+def generate_hint(submission: Dict[str, Any], hint_index: int) -> str:
+    """
+    Backward compatible synchronous hint generator.
+    Calls synthesize_grounded_hint for non-repeating progressive hints.
+    """
+    res = synthesize_grounded_hint(
+        challenge=submission.get("challenge"),
+        code=submission.get("code", ""),
+        hint_level=hint_index
+    )
+    return res["hint"]

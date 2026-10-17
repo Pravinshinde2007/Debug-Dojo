@@ -61,7 +61,17 @@ export const PracticePage: React.FC = () => {
     if (!submission) return;
     setIsHintLoading(true);
     try {
-      const res = await api.requestHint(submission.submission_id);
+      const failedTest = submission.visible?.find((t: any) => t.outcome !== 'passed');
+      const res = await api.requestHint(submission.submission_id, {
+        challenge_id: challenge?.id,
+        code,
+        hint_level: (hintData?.level || 0) + 1,
+        error_type: failedTest?.outcome === 'runtime_error' ? 'RuntimeError' : 'Wrong Output',
+        error_msg: submission.explanation || '',
+        failed_call: failedTest?.call,
+        expected: failedTest?.expected,
+        got: failedTest?.got
+      });
       setHintData(res);
       // Light up hint lanterns in 3D Dojo
       setHintsLit(res.level);

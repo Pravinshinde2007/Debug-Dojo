@@ -277,12 +277,32 @@ export const api = {
     };
   },
 
-  async requestHint(submission_id: string): Promise<HintResponse> {
+  async requestHint(submission_id: string, options?: {
+    challenge_id?: string;
+    code?: string;
+    hint_level?: number;
+    error_type?: string;
+    error_line?: number;
+    error_msg?: string;
+    failed_call?: string;
+    expected?: string;
+    got?: string;
+    learner_level?: string;
+    api_key?: string;
+  }): Promise<HintResponse> {
     try {
+      const apiKey = options?.api_key || localStorage.getItem('gemini_api_key') || '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['X-Gemini-Key'] = apiKey;
+
       const res = await fetch(resolveApiUrl('/api/hint'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submission_id }),
+        headers,
+        body: JSON.stringify({
+          submission_id,
+          ...options,
+          api_key: apiKey
+        }),
       });
       if (res.ok) {
         return await res.json();

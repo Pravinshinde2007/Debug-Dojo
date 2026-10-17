@@ -28,7 +28,7 @@ from .runner import run_submission, run_custom_code
 from .tagger import detect_mistakes
 from .explain import explain_failure, get_progressive_hints, explain_custom_code_error
 from .learner import get_learner_profile
-from .llm import generate_hint, leak_guard
+from .llm import generate_hint, leak_guard, generate_ai_progressive_hint, get_gemini_api_key
 from .sandbox import execute_test_suite, STARTER_TEMPLATES
 from .analyzer import analyze_problem
 from .feedback import generate_feedback
@@ -129,6 +129,17 @@ class SubmitResponse(BaseModel):
 
 class HintRequest(BaseModel):
     submission_id: str
+    challenge_id: Optional[str] = None
+    code: Optional[str] = None
+    hint_level: Optional[int] = None
+    error_type: Optional[str] = None
+    error_line: Optional[int] = None
+    error_msg: Optional[str] = None
+    failed_call: Optional[str] = None
+    expected: Optional[str] = None
+    got: Optional[str] = None
+    learner_level: Optional[str] = "beginner"
+    api_key: Optional[str] = None
 
 
 class HintResponse(BaseModel):
@@ -140,6 +151,7 @@ class HintResponse(BaseModel):
     total_hints: Optional[int] = None
     hint_level: Optional[int] = None
     hint_type: Optional[str] = None
+    model_used: Optional[str] = None
 
 
 class LearnerProfileResponse(BaseModel):
@@ -439,46 +451,56 @@ def submit_code(req: SubmitRequest, authorization: Optional[str] = Header(None))
 
 
 @router.post("/hint", response_model=HintResponse)
-def request_hint(req: HintRequest):
-    hint_index = 1
+async def request_hint(req: HintRequest, request: Request):
+    hint_index = req.hint_level or 1
     challenge = None
     mistake_tags = []
-    sub_code = ""
+    sub_code = req.code or ""
     visible_res = []
+    sub_learner_id = "anonymous_learner"
 
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*) as count FROM hints_given WHERE submission_id = ?",
-            (req.submission_id,)
-        )
-        row = cursor.fetchone()
-        if row and row["count"] is not None:
-            hint_index = row["count"] + 1
+    # Try to load existing submission from DB if available
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            if not req.hint_level:
+                cursor.execute(
+                    "SELECT COUNT(*) as count FROM hints_given WHERE submission_id = ?",
+                    (req.submission_id,)
+                )
+                row = cursor.fetchone()
+                if row and row["count"] is not None:
+                    hint_index = row["count"] + 1
 
-        cursor.execute(
-            "SELECT learner_id, challenge_id, code, visible_results, mistake_tags FROM submissions WHERE id = ?",
-            (req.submission_id,)
-        )
-        sub_row = cursor.fetchone()
-        sub_learner_id = "anonymous_learner"
-        if sub_row:
-            sub_learner_id = sub_row["learner_id"] or "anonymous_learner"
-            sub_code = sub_row["code"] or ""
-            challenge = find_challenge(sub_row["challenge_id"])
-            try:
-                mistake_tags = json.loads(sub_row["mistake_tags"])
-            except Exception:
-                pass
-            try:
-                visible_res = json.loads(sub_row["visible_results"])
-            except Exception:
-                pass
+            cursor.execute(
+                "SELECT learner_id, challenge_id, code, visible_results, mistake_tags FROM submissions WHERE id = ?",
+                (req.submission_id,)
+            )
+            sub_row = cursor.fetchone()
+            if sub_row:
+                sub_learner_id = sub_row["learner_id"] or "anonymous_learner"
+                sub_code = sub_row["code"] or sub_code
+                challenge = find_challenge(sub_row["challenge_id"])
+                try:
+                    mistake_tags = json.loads(sub_row["mistake_tags"])
+                except Exception:
+                    pass
+                try:
+                    visible_res = json.loads(sub_row["visible_results"])
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # If challenge was not found in DB, find by req.challenge_id
+    if not challenge and req.challenge_id:
+        challenge = find_challenge(req.challenge_id)
 
     diff = str(challenge.get("difficulty") or "Easy").lower() if challenge else "easy"
-    total_hints = 5 if diff == "easy" else 4 if diff == "medium" else 3
+    total_hints = 5 if diff in ("easy", "beginner") else 4 if diff in ("medium", "intermediate") else 3
     hint_level = min(hint_index, total_hints)
 
+    # Extract test run data
     test_run_data = {}
     if visible_res:
         for vr in visible_res:
@@ -498,61 +520,61 @@ def request_hint(req: HintRequest):
                     }
                 break
 
-    if challenge:
-        hints_ladder = get_progressive_hints(challenge, mistake_tags, test_run_data, code=sub_code)
-        hint_text = hints_ladder[min(hint_level - 1, len(hints_ladder) - 1)]
-    else:
-        hint_text = generate_hint({"id": req.submission_id}, hint_level)
+    # Resolve API Key from request payload, header, or environment
+    api_key = req.api_key or request.headers.get("x-gemini-key") or get_gemini_api_key()
 
-    hint_text = leak_guard(hint_text)
+    # Call AI progressive hint engine (Gemini Flash/Pro with smart grounded fallback)
+    ai_result = await generate_ai_progressive_hint(
+        challenge=challenge,
+        code=sub_code,
+        hint_level=hint_level,
+        total_hints=total_hints,
+        mistake_tags=mistake_tags,
+        test_run_data=test_run_data,
+        error_type=req.error_type,
+        error_line=req.error_line,
+        error_msg=req.error_msg,
+        failed_call=req.failed_call,
+        expected=req.expected,
+        got=req.got,
+        learner_level=req.learner_level or "beginner",
+        api_key=api_key
+    )
 
-    # Persist hint in hints_given and log learner event
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO hints_given (submission_id, learner_id, hint_index, hint_text)
-            VALUES (?, ?, ?, ?)
-            """,
-            (req.submission_id, sub_learner_id, hint_level, hint_text)
-        )
-        cursor.execute(
-            """
-            INSERT INTO learner_events (learner_id, event_type, payload)
-            VALUES (?, ?, ?)
-            """,
-            (
-                sub_learner_id,
-                "hint_requested",
-                json.dumps({
-                    "submission_id": req.submission_id,
-                    "hint_level": hint_level
-                })
+    hint_text = ai_result.get("hint", "")
+    hint_type = ai_result.get("hint_type", f"Level {hint_level} Hint")
+    model_used = ai_result.get("model_used", "AI Coach")
+
+    # Persist hint in hints_given and log learner event safely
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO hints_given (submission_id, learner_id, hint_index, hint_text)
+                VALUES (?, ?, ?, ?)
+                """,
+                (req.submission_id, sub_learner_id, hint_level, hint_text)
             )
-        )
-        conn.commit()
-
-    if total_hints == 5:
-        HINT_TYPES = {
-            1: "General concept",
-            2: "Line of error & where to look",
-            3: "Input boundary trap",
-            4: "Underlying cause",
-            5: "Debugging strategy"
-        }
-    elif total_hints == 4:
-        HINT_TYPES = {
-            1: "Core invariant & concept",
-            2: "Line & variable inspection",
-            3: "Underlying mechanism",
-            4: "Debugging strategy"
-        }
-    else:
-        HINT_TYPES = {
-            1: "Algorithmic invariant",
-            2: "Line of state transition",
-            3: "Correction strategy"
-        }
+            cursor.execute(
+                """
+                INSERT INTO learner_events (learner_id, event_type, payload)
+                VALUES (?, ?, ?)
+                """,
+                (
+                    sub_learner_id,
+                    "hint_requested",
+                    json.dumps({
+                        "submission_id": req.submission_id,
+                        "hint_level": hint_level,
+                        "challenge_id": challenge.get("id") if challenge else req.challenge_id,
+                        "model_used": model_used
+                    })
+                )
+            )
+            conn.commit()
+    except Exception:
+        pass
 
     return HintResponse(
         submission_id=req.submission_id,
@@ -562,7 +584,8 @@ def request_hint(req: HintRequest):
         hint_index=hint_level,
         total_hints=total_hints,
         hint_level=hint_level,
-        hint_type=HINT_TYPES.get(hint_level, "Guidance")
+        hint_type=hint_type,
+        model_used=model_used
     )
 
 
