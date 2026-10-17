@@ -12,19 +12,27 @@ import httpx
 
 logger = logging.getLogger("supabase_db")
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
+def get_supabase_url() -> str:
+    return (os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
 
+def get_supabase_key() -> str:
+    return (
+        os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or
+        os.environ.get("SUPABASE_KEY") or
+        os.environ.get("SUPABASE_ANON_KEY") or
+        os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or
+        ""
+    ).strip()
 
 def is_supabase_configured() -> bool:
     """Returns True if Supabase URL and key are present in environment."""
-    url = os.environ.get("SUPABASE_URL", "").strip()
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "").strip()
+    url = get_supabase_url()
+    key = get_supabase_key()
     return bool(url and key and "supabase.co" in url)
 
 
 def _get_headers() -> Dict[str, str]:
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
+    key = get_supabase_key()
     return {
         "apikey": key,
         "Authorization": f"Bearer {key}",
@@ -34,8 +42,9 @@ def _get_headers() -> Dict[str, str]:
 
 
 def _get_rest_url(table: str) -> str:
-    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    url = get_supabase_url()
     return f"{url}/rest/v1/{table}"
+
 
 
 # --- Users ---
