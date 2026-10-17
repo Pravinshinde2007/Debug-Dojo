@@ -13,7 +13,13 @@ import httpx
 logger = logging.getLogger("supabase_db")
 
 def get_supabase_url() -> str:
-    return (os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
+    return (
+        os.environ.get("SUPABASE_URL") or
+        os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or
+        os.environ.get("STORAGE_URL") or
+        os.environ.get("NEXT_PUBLIC_STORAGE_URL") or
+        ""
+    ).rstrip("/")
 
 def get_supabase_key() -> str:
     return (
@@ -21,8 +27,12 @@ def get_supabase_key() -> str:
         os.environ.get("SUPABASE_KEY") or
         os.environ.get("SUPABASE_ANON_KEY") or
         os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or
+        os.environ.get("STORAGE_ANON_KEY") or
+        os.environ.get("STORAGE_SERVICE_ROLE_KEY") or
+        os.environ.get("NEXT_PUBLIC_STORAGE_ANON_KEY") or
         ""
     ).strip()
+
 
 def is_supabase_configured() -> bool:
     """Returns True if Supabase URL and key are present in environment."""
