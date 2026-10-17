@@ -5,13 +5,11 @@ import { Button } from '../components/Button';
 import { OutcomePill } from '../components/OutcomePill';
 import { Tag } from '../components/Tag';
 import { Badge } from '../components/Badge';
-import { ProblemAnalyzerSandbox } from '../components/ProblemAnalyzerSandbox';
 import { useAppStore } from '../state/useAppStore';
 import { api } from '../api/mockApi';
 import type { Challenge, SubmitResponse, HintResponse } from '../api/mockApi';
 
 export const PracticePage: React.FC = () => {
-  const [activeMode, setActiveMode] = useState<'curated' | 'analyzer'>('curated');
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [code, setCode] = useState('');
   const [isRunning, setIsRunning] = useState(false);
@@ -95,48 +93,8 @@ export const PracticePage: React.FC = () => {
         minHeight: 'calc(100vh - 96px)',
       }}
     >
-      {/* Top Practice Mode Switcher */}
-      <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={() => setActiveMode('curated')}
-          style={{
-            background: activeMode === 'curated' ? 'rgba(45, 212, 191, 0.15)' : 'transparent',
-            border: activeMode === 'curated' ? '1px solid var(--color-secondary)' : '1px solid transparent',
-            color: activeMode === 'curated' ? '#fff' : 'var(--color-text-muted)',
-            padding: '6px 14px',
-            borderRadius: 'var(--radius-sm)',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          🥋 Curated Dojo Challenges
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveMode('analyzer')}
-          style={{
-            background: activeMode === 'analyzer' ? 'rgba(168, 140, 255, 0.15)' : 'transparent',
-            border: activeMode === 'analyzer' ? '1px solid var(--color-primary)' : '1px solid transparent',
-            color: activeMode === 'analyzer' ? '#fff' : 'var(--color-text-muted)',
-            padding: '6px 14px',
-            borderRadius: 'var(--radius-sm)',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          ✨ AI Problem Analyzer &amp; Sandbox
-        </button>
-      </div>
-
-      {activeMode === 'analyzer' ? (
-        <div style={{ gridColumn: '1 / -1' }}>
-          <ProblemAnalyzerSandbox />
-        </div>
-      ) : (
-        <>
-          {/* Left Column: Challenge Description, Instructions, Hints */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Left Column: Challenge Description, Instructions, Hints */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <GlassPanel style={{ padding: '24px' }}>
           {challenge ? (
             <>
@@ -418,8 +376,6 @@ export const PracticePage: React.FC = () => {
           </GlassPanel>
         )}
       </div>
-     </>
-    )}
-  </div>
+    </div>
   );
 };
