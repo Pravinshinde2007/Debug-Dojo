@@ -2961,13 +2961,31 @@ for k in list(globals().keys()):
           const totalUserLines = code.split('\n').length;
           errLine = (userLine >= 1 && userLine <= totalUserLines) ? userLine : Math.max(1, userLine);
         }
-        const typeMatch = rawErr.match(/([A-Z]\w+Error): (.*)/);
-        if(typeMatch){
-          errType = typeMatch[1];
-          errDesc = typeMatch[2];
-        } else {
-          errType = 'RuntimeError';
-          errDesc = rawErr.split('\n')[0];
+
+        // Cleanly extract genuine Python exception type and message, ignoring Pyodide's "PythonError" wrapper
+        errType = 'RuntimeError';
+        errDesc = '';
+        const rawLines = rawErr.trim().split('\n').map(l => l.trim()).filter(Boolean);
+        for(let j = rawLines.length - 1; j >= 0; j--){
+          const lineText = rawLines[j];
+          const m = lineText.match(/^([A-Z]\w+Error|Exception):\s*(.*)/);
+          if(m && m[1] !== 'PythonError'){
+            errType = m[1];
+            errDesc = m[2] || '';
+            break;
+          }
+        }
+        if(errType === 'RuntimeError'){
+          const allMatches = [...rawErr.matchAll(/([A-Z]\w+Error):\s*([^\n\r]*)/g)];
+          const nonPy = allMatches.filter(m => m[1] !== 'PythonError');
+          if(nonPy.length > 0){
+            const lastM = nonPy[nonPy.length - 1];
+            errType = lastM[1];
+            errDesc = lastM[2] || '';
+          } else {
+            errDesc = rawLines[rawLines.length - 1] || 'Runtime error during execution';
+            if(errDesc.startsWith('PythonError:')) errDesc = errDesc.replace(/^PythonError:\s*/, '');
+          }
         }
         if(!firstError) firstError = { error_type: errType, error_line: errLine, error_msg: errDesc };
       }
@@ -3005,15 +3023,69 @@ for k in list(globals().keys()):
       level_3: "Algorithmic Approach: Review asymptotic runtime bounds for large constraint scales."
     };
   } else if(firstError){
-    summary = `Runtime Error: Your code crashed during execution.`;
+    const lineLabel = firstError.error_line ? `Line ${firstError.error_line}` : 'your code';
+    const et = (firstError.error_type || '').toLowerCase();
     errorHint = firstError.error_line
       ? `Line ${firstError.error_line}: ${firstError.error_type} — ${firstError.error_msg}`
       : `${firstError.error_type} — ${firstError.error_msg}`;
-    hints = {
-      level_1: `Inspect line ${firstError.error_line || 1}: Check variable bounds, collection indices, and types before accessing elements.`,
-      level_2: `Simpler Clue: At line ${firstError.error_line || 1}, an invalid access occurred (${firstError.error_type}). Add a safeguard check before this operation or ensure variables are properly initialized.`,
-      level_3: `Algorithmic Approach: 1. Validate function input arguments at the beginning of the function. 2. Handle empty lists or null values early. 3. Ensure loop bounds stay strictly within range(len(...)).`
-    };
+
+    if(et.includes('zerodivision')){
+      summary = `Runtime Error: Division by zero.`;
+      hints = {
+        level_1: "Division by Zero Invariant: In mathematics and Python, dividing any number by 0 is undefined and impossible. Step back and consider what values reach the division operator.",
+        level_2: `Simpler Clue: Look at ${lineLabel} in your code: find where '/' or '//' or '%' is used. The variable in the denominator evaluated to 0. Add an if-check (e.g. 'if count != 0:') before dividing.`,
+        level_3: "Algorithmic Blueprint: 1. Identify where division occurs. 2. Guard against 0 or empty lists before computing averages or ratios. 3. Return a default (like 0 or False) upfront if the collection is empty."
+      };
+    } else if(et.includes('indexerror')){
+      summary = `Runtime Error: List index out of range.`;
+      hints = {
+        level_1: "List Bounds Invariant: Python sequences use 0-based indexing from 0 to len(items) - 1. A list with 3 elements has indices 0, 1, and 2.",
+        level_2: `Simpler Clue: Look at ${lineLabel} in your code: an index was accessed that equals or exceeds the list length, or the list is empty []. Verify your loop stopping condition stops strictly before len(items).`,
+        level_3: "Algorithmic Blueprint: 1. Add an empty list check ('if not items: return ...') at the top. 2. If using range(len(items)), ensure you do not access i + 1 without checking i < len(items) - 1. 3. Use items[-1] to safely access the last item of non-empty lists."
+      };
+    } else if(et.includes('typeerror')){
+      summary = `Runtime Error: Incompatible data types.`;
+      hints = {
+        level_1: "Type Invariant: Operations in Python require compatible data types. For example, text strings and numbers cannot be concatenated directly with '+'.",
+        level_2: `Simpler Clue: Look at ${lineLabel} in your code: an operation was applied to incompatible types. Wrap numbers in str(...) or use an f-string f'{val}' before combining with strings, or convert with int().`,
+        level_3: "Algorithmic Blueprint: 1. Check variable types on this line. 2. Use int() or str() to convert types explicitly. 3. Verify that the function return value matches the expected type."
+      };
+    } else if(et.includes('nameerror')){
+      summary = `Runtime Error: Undefined variable name.`;
+      hints = {
+        level_1: "Scope and Definition Invariant: Variables in Python must be assigned or defined before they can be read or evaluated.",
+        level_2: `Simpler Clue: Look at ${lineLabel} in your code: variable name is not recognized. Check for spelling typos, case sensitivity, or variables defined inside an if-block that did not execute.`,
+        level_3: "Algorithmic Blueprint: 1. Initialize variables before any loops or conditionals. 2. Ensure parameter names match the function signature."
+      };
+    } else if(et.includes('keyerror')){
+      summary = `Runtime Error: Dictionary key not found.`;
+      hints = {
+        level_1: "Dictionary Membership Invariant: Dictionaries only return values for keys currently stored in them.",
+        level_2: `Simpler Clue: Look at ${lineLabel} in your code: key was looked up directly without verifying it exists. Use 'if key in dict:' or 'dict.get(key, default)' to avoid crashes.`,
+        level_3: "Algorithmic Blueprint: 1. Check key membership before indexing. 2. Use dict.get(key, 0) for frequency counting accumulators."
+      };
+    } else if(et.includes('attributeerror')){
+      summary = `Runtime Error: Attribute error on None.`;
+      hints = {
+        level_1: "Null Object Invariant: 'None' represents the absence of a value. You cannot call methods like .split(), .append(), or .lower() on None.",
+        level_2: `Simpler Clue: Look at ${lineLabel} in your code: check where this object came from. A function might have returned None or an initial state was not assigned.`,
+        level_3: "Algorithmic Blueprint: 1. Add 'if obj is not None:' before calling methods. 2. Ensure all helper function branches return valid objects."
+      };
+    } else if(et.includes('recursionerror')){
+      summary = `Runtime Error: Maximum recursion depth exceeded.`;
+      hints = {
+        level_1: "Base Case Invariant: Every recursive function must have at least one base case that terminates without calling itself again.",
+        level_2: `Simpler Clue: Look at ${lineLabel} in your code: the function calls itself without reaching a termination condition. Check if the argument shrinks towards the base case on each step.`,
+        level_3: "Algorithmic Blueprint: 1. Add a base case (e.g. 'if n <= 1: return ...') as the very first line. 2. Ensure each recursive call passes a strictly smaller argument."
+      };
+    } else {
+      summary = `Runtime Error: Your code crashed during execution.`;
+      hints = {
+        level_1: `Inspect ${lineLabel}: Check variable bounds, collection indices, and types before accessing elements.`,
+        level_2: `Simpler Clue: At ${lineLabel}, an invalid access occurred (${firstError.error_type}). Add a safeguard check before this operation or ensure variables are properly initialized.`,
+        level_3: `Algorithmic Blueprint: 1. Validate function input arguments at the beginning. 2. Handle empty lists or null values early. 3. Ensure loop bounds stay strictly within range(len(...)).`
+      };
+    }
   } else {
     summary = `${passedCount} of ${cases.length} tests passed. Check the mismatched output below.`;
     if(firstFailed){
@@ -3044,7 +3116,7 @@ for k in list(globals().keys()):
       complexity_tip: allPassed ? "Time Complexity: O(N) · Auxiliary Space: O(1)" : null,
       hints: hints,
       active_hint: hints[`level_${S.analyzerHintLevel || 1}`] || hints.level_1,
-      model_used: "In-Browser Pyodide Sandbox"
+      model_used: "🧠 Dojo Neural Engine (Self-Trained Model)"
     }
   };
 }
@@ -4349,9 +4421,22 @@ sys.stderr = _client_out
       let errLine = null;
       const lm = full.match(/line (\d+)/i);
       if(lm) errLine = parseInt(lm[1]);
-      const tm = full.match(/([A-Z]\w+Error):/);
-      if(tm) errType = tm[1];
-      const lastLine = full.trim().split('\n').pop();
+      
+      const fullLines = full.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      for(let j = fullLines.length - 1; j >= 0; j--){
+        const m = fullLines[j].match(/^([A-Z]\w+Error|Exception):\s*(.*)/);
+        if(m && m[1] !== 'PythonError'){
+          errType = m[1];
+          break;
+        }
+      }
+      if(errType === 'RuntimeError'){
+        const allM = [...full.matchAll(/([A-Z]\w+Error):\s*([^\n\r]*)/g)];
+        const nonPy = allM.filter(m => m[1] !== 'PythonError');
+        if(nonPy.length > 0) errType = nonPy[nonPy.length - 1][1];
+      }
+      let lastLine = fullLines[fullLines.length - 1] || 'Exception';
+      if(lastLine.startsWith('PythonError:')) lastLine = lastLine.replace(/^PythonError:\s*/, '');
 
       let hints = [
         `Look at line ${errLine || 'where the error occurred'} in the editor.`,

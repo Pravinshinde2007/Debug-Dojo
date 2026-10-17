@@ -434,9 +434,16 @@ def execute_via_isolated_subprocess(
                     else:
                         err_line = max(1, user_l)
 
-                err_type_m = re.search(r'([A-Z]\w+Error): (.*)', stderr)
-                err_type = err_type_m.group(1) if err_type_m else "RuntimeError"
-                err_msg = err_type_m.group(2) if err_type_m else "Process terminated with error"
+                all_err_matches = re.findall(r'([A-Z]\w+Error|Exception):\s*([^\n\r]*)', stderr)
+                non_py_matches = [m for m in all_err_matches if m[0] != "PythonError"]
+                if non_py_matches:
+                    err_type = non_py_matches[-1][0]
+                    err_msg = non_py_matches[-1][1] or "Exception raised"
+                else:
+                    err_type = "RuntimeError"
+                    err_msg = stderr.strip().split("\n")[-1] if stderr.strip() else "Process terminated with error"
+                    if err_msg.startswith("PythonError:"):
+                        err_msg = re.sub(r"^PythonError:\s*", "", err_msg)
 
                 status_desc = f"Runtime Error ({err_type} at line {err_line})" if err_line else f"Runtime Error ({err_type})"
                 clean_stderr = f"Line {err_line}: {err_type} — {err_msg}\n{stderr}" if err_line else stderr

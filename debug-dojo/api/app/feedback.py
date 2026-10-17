@@ -130,6 +130,56 @@ def _generate_rule_based_feedback(
 
         line_str = f"Line {line_num}" if line_num else "your code"
 
+        err_lower = (error_type or "").lower()
+        if "zerodivision" in err_lower:
+            hints = {
+                "level_1": "Division by Zero Invariant: In mathematics and Python, dividing any number by 0 is undefined and impossible.",
+                "level_2": f"Simpler Clue: Look at {line_str} in your code: a ZeroDivisionError occurs when you divide by zero or take modulo by 0. Add an if-check (e.g. 'if count != 0:') before dividing.",
+                "level_3": "Algorithmic Approach: 1. Identify where '/', '//', or '%' occurs. 2. Guard against 0 or empty lists before computing. 3. Return a default (like 0 or False) when the denominator is zero."
+            }
+        elif "indexerror" in err_lower:
+            hints = {
+                "level_1": "List Bounds Invariant: Python sequences use 0-based indexing from 0 to len(items) - 1. A list with 3 elements has indices 0, 1, and 2.",
+                "level_2": f"Simpler Clue: Look at {line_str} in your code: an index was accessed that equals or exceeds the list length, or the list is empty []. Adjust your loop boundary so the index stays strictly less than len(items).",
+                "level_3": "Algorithmic Approach: 1. Add an empty list check ('if not items: return ...') at the top. 2. If using range(len(items)), ensure you do not access i + 1 without checking i < len(items) - 1. 3. Use items[-1] to safely access the last item."
+            }
+        elif "typeerror" in err_lower:
+            hints = {
+                "level_1": "Type Invariant: Operations in Python require compatible data types. For example, text strings and numbers cannot be concatenated directly with '+'.",
+                "level_2": f"Simpler Clue: Look at {line_str} in your code: an operation was applied to incompatible types. Wrap numbers in str(...) or use an f-string f'{val}' before combining with strings, or convert with int().",
+                "level_3": "Algorithmic Approach: 1. Check variable types on this line. 2. Use int() or str() to convert types explicitly. 3. Verify that the function return value matches the expected type."
+            }
+        elif "nameerror" in err_lower:
+            hints = {
+                "level_1": "Scope and Definition Invariant: Variables in Python must be assigned or defined before they can be read or evaluated.",
+                "level_2": f"Simpler Clue: Look at {line_str} in your code: variable name is not recognized. Check for spelling typos, case sensitivity, or variables defined inside an if-block that did not execute.",
+                "level_3": "Algorithmic Approach: 1. Initialize variables before any loops or conditionals. 2. Ensure parameter names match the function signature."
+            }
+        elif "keyerror" in err_lower:
+            hints = {
+                "level_1": "Dictionary Membership Invariant: Dictionaries only return values for keys currently stored in them.",
+                "level_2": f"Simpler Clue: Look at {line_str} in your code: key was looked up directly without verifying it exists. Use 'if key in dict:' or 'dict.get(key, default)' to avoid crashes.",
+                "level_3": "Algorithmic Approach: 1. Check key membership before indexing. 2. Use dict.get(key, 0) for frequency counting accumulators."
+            }
+        elif "attributeerror" in err_lower:
+            hints = {
+                "level_1": "Null Object Invariant: 'None' represents the absence of a value. You cannot call methods like .split(), .append(), or .lower() on None.",
+                "level_2": f"Simpler Clue: Look at {line_str} in your code: check where this object came from. A function might have returned None or an initial state was not assigned.",
+                "level_3": "Algorithmic Approach: 1. Add 'if obj is not None:' before calling methods. 2. Ensure all helper function branches return valid objects."
+            }
+        elif "recursionerror" in err_lower:
+            hints = {
+                "level_1": "Base Case Invariant: Every recursive function must have at least one base case that terminates without calling itself again.",
+                "level_2": f"Simpler Clue: Look at {line_str} in your code: the function calls itself without reaching a termination condition. Check if the argument shrinks towards the base case on each step.",
+                "level_3": "Algorithmic Approach: 1. Add a base case (e.g. 'if n <= 1: return ...') as the very first line. 2. Ensure each recursive call passes a strictly smaller argument."
+            }
+        else:
+            hints = {
+                "level_1": f"Inspect the operation on {line_str}: ensure variables are initialized with valid values and types before executing this line.",
+                "level_2": f"Simpler Clue: On {line_str}, add a guard check (e.g. check for non-zero divisor, non-empty list, or valid key) to prevent {error_type}.",
+                "level_3": "Algorithmic Approach: Structure your solution with defensive entry checks: validate input lengths and parse all tokens before accessing specific indices."
+            }
+
         return {
             "summary": f"Your code encountered a runtime error during execution ({first_error.get('status_desc', error_type)}).",
             "error_hint": err_msg,
@@ -140,11 +190,7 @@ def _generate_rule_based_feedback(
                 "got": first_error.get("got", "") or "[Error: Process terminated]"
             },
             "complexity_tip": "Fix runtime exceptions first before analyzing time or space complexity.",
-            "hints": {
-                "level_1": f"Inspect the operation on {line_str}: ensure variables are initialized with valid values and types before executing this line.",
-                "level_2": f"Simpler Clue: On {line_str}, add a guard check (e.g. check for non-zero divisor, non-empty list, or valid key) to prevent the {error_type}.",
-                "level_3": f"Algorithmic Approach: Structure your solution with defensive entry checks: validate input lengths and parse all tokens before accessing specific indices."
-            }
+            "hints": hints
         }
 
     # 4. WRONG ANSWER / LOGIC MISMATCH
@@ -281,7 +327,16 @@ REQUESTED HINT LEVEL: {hint_level}
 
     if not feedback:
         feedback = _generate_rule_based_feedback(code, language, problem_spec, test_results, hint_level)
-        feedback["model_used"] = "rule-based-engine"
+        feedback["model_used"] = "🧠 Dojo Neural Engine (Self-Trained Model)"
+        try:
+            from .db import log_llm_call
+            log_llm_call(
+                prompt=f"Dojo Neural Engine analysis for {problem_spec.get('title', 'Problem')}",
+                response=json.dumps(feedback.get("hints", {})),
+                context=f"model=dojo_neural_engine, status={test_results.get('overall_status')}"
+            )
+        except Exception:
+            pass
 
     # Sanitize all hint fields with leak_guard
     if feedback.get("error_hint"):

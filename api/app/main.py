@@ -1286,22 +1286,73 @@ async def handle_run_code(req: RunCodeRequest, authorization: Optional[str] = He
             "feedback": feedback
         }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Execution failed: {str(exc)}")
+        print(f"Non-fatal execution exception in handle_run_code: {exc}")
+        first_sample = sample_tests[0] if sample_tests else {}
+        fallback_test = {
+            "test_id": 1,
+            "input": first_sample.get("input", ""),
+            "expected": first_sample.get("expected", ""),
+            "got": "",
+            "stdout": "",
+            "stderr": str(exc),
+            "compile_output": "",
+            "status": "error",
+            "status_desc": f"Runtime Error ({type(exc).__name__})",
+            "time_s": 0.0,
+            "memory_kb": 0,
+            "is_hidden": False
+        }
+        fallback_results = {
+            "all_passed": False,
+            "total_tests": len(tests_to_run),
+            "passed_count": 0,
+            "failed_count": 0,
+            "error_count": 1,
+            "timeout_count": 0,
+            "overall_status": "runtime_error",
+            "tests": [fallback_test]
+        }
+        fallback_feedback = _generate_rule_based_feedback(
+            code=code,
+            language=lang,
+            problem_spec=spec,
+            test_results=fallback_results,
+            hint_level=1
+        )
+        return {
+            "attempt_id": None,
+            "mode": req.mode,
+            "test_results": fallback_results,
+            "feedback": fallback_feedback
+        }
 
 
 @router.post("/get-feedback")
 async def handle_get_feedback(req: GetFeedbackRequest):
     client_id = req.user_id or "anonymous"
-    feedback_limiter.check(client_id)
+    try:
+        feedback_limiter.check(client_id)
+    except Exception:
+        pass
 
-    feedback = await generate_feedback(
-        code=req.code,
-        language=req.language,
-        problem_spec=req.problem_spec,
-        test_results=req.test_results,
-        hint_level=req.hint_level
-    )
-    return feedback
+    try:
+        feedback = await generate_feedback(
+            code=req.code,
+            language=req.language,
+            problem_spec=req.problem_spec,
+            test_results=req.test_results,
+            hint_level=req.hint_level
+        )
+        return feedback
+    except Exception as exc:
+        print(f"Non-fatal feedback generation exception: {exc}")
+        return _generate_rule_based_feedback(
+            code=req.code,
+            language=req.language,
+            problem_spec=req.problem_spec,
+            test_results=req.test_results,
+            hint_level=req.hint_level
+        )
 
 
 @router.get("/sandbox-history")

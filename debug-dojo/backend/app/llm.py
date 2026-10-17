@@ -161,16 +161,36 @@ def explain_runtime_error(stderr: str, language: str = "python", code: str = "")
         if line_matches:
             line_number = int(line_matches[0])
 
-    # 2. Extract Error Type & Message
+    # 2. Extract Error Type & Message (skipping Pyodide's PythonError wrapper)
     error_lines = [l.strip() for l in clean_stderr.split("\n") if l.strip()]
-    raw_error = error_lines[-1] if error_lines else "Exception"
-
-    # Identify standard Python/Common exceptions
+    raw_error = "Exception"
     error_type = "RuntimeError"
-    if ":" in raw_error:
-        error_type = raw_error.split(":")[0].strip()
-    elif len(raw_error.split()) == 1:
-        error_type = raw_error.strip()
+
+    # Search from bottom up for genuine Python exception
+    for l in reversed(error_lines):
+        m = re.match(r"^([A-Z]\w+Error|Exception):\s*(.*)", l)
+        if m and m.group(1) != "PythonError":
+            error_type = m.group(1)
+            raw_error = m.group(2) or l
+            break
+
+    if error_type == "RuntimeError":
+        # Search anywhere in text for standard exception
+        all_matches = re.findall(r"([A-Z]\w+Error|Exception):\s*([^\n\r]*)", clean_stderr)
+        non_py = [m for m in all_matches if m[0] != "PythonError"]
+        if non_py:
+            error_type = non_py[-1][0]
+            raw_error = non_py[-1][1] or error_lines[-1]
+        elif error_lines:
+            last_l = error_lines[-1]
+            if last_l.startswith("PythonError:"):
+                last_l = re.sub(r"^PythonError:\s*", "", last_l)
+            if ":" in last_l:
+                parts = last_l.split(":", 1)
+                error_type = parts[0].strip() or "RuntimeError"
+                raw_error = parts[1].strip()
+            else:
+                raw_error = last_l
 
     line_prefix = f"Line {line_number}: " if line_number else ""
 
@@ -313,22 +333,120 @@ def synthesize_grounded_hint(
     err_str = str(error_type or error_msg or "").lower()
 
     # 1. RUNTIME ERROR GROUNDING (IndexError, ZeroDivisionError, etc.)
-    if (
-        "error" in err_str or
-        "zerodivision" in err_str or
-        "indexerror" in err_str or
-        "typeerror" in err_str or
-        "keyerror" in err_str or
-        "nameerror" in err_str
-    ):
+    if "zerodivision" in err_str:
+        hints = [
+            "Division by Zero Invariant: In mathematics and Python, dividing any number by 0 is undefined and impossible.",
+            f"Look at Line {error_line} in your code: a ZeroDivisionError occurs when you divide by zero or take modulo by 0. Add an if-check (e.g. 'if count != 0:') before dividing.",
+            "Algorithmic Logic: 1. Identify where '/', '//', or '%' occurs. 2. Guard against 0 or empty lists before computing. 3. Return a default (like 0 or False) when the denominator is zero.",
+            "Edge Case Analysis: Check what happens on empty input [] or when all numbers are 0. len([]) is 0, so dividing by length will crash unless guarded upfront.",
+            "Structural Guard: At the very top of your function, return early if the collection is empty (e.g. 'if not items: return 0')."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+        }
+
+    if "indexerror" in err_str:
+        hints = [
+            "List Bounds Invariant: Python sequences use 0-based indexing from 0 to len(items) - 1. A list with 3 elements has indices 0, 1, and 2.",
+            f"Look at Line {error_line} in your code: an index was requested that equals or exceeds the list length, or the list is empty []. Adjust your loop boundary so the index stays strictly less than len(items).",
+            "Algorithmic Logic: 1. Verify loop range: range(len(items)) visits 0 through len-1. 2. Guard against empty lists. 3. Use items[-1] to safely access the last item.",
+            "Edge Case Analysis: What happens when the input has 0 or 1 element? Accessing items[1] immediately crashes with IndexError.",
+            "Structural Guard: Place 'if not items: return ...' at the top of the function to prevent out-of-range indexing."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+        }
+
+    if "typeerror" in err_str:
+        hints = [
+            "Type Invariant: Operations in Python require compatible data types. For example, text strings and numbers cannot be concatenated directly with '+'.",
+            f"Look at Line {error_line} in your code: an operation was applied to incompatible types. Wrap numbers in str(...) or use an f-string f'{val}' before combining with strings, or convert with int().",
+            "Algorithmic Logic: 1. Check variable types on this line. 2. Convert where necessary using int() or str(). 3. Verify the return value matches the expected return type.",
+            "Edge Case Analysis: Check for None values. If a helper function returns None, performing arithmetic on it will trigger a TypeError.",
+            "Structural Guard: Verify variable types before operations, or ensure all code paths return valid non-None values."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+        }
+
+    if "nameerror" in err_str:
+        hints = [
+            "Scope and Definition Invariant: Variables in Python must be assigned or defined before they can be read or evaluated.",
+            f"Look at Line {error_line} in your code: variable name is not recognized. Check for spelling typos, case sensitivity, or variables defined inside an if-block that did not execute.",
+            "Algorithmic Logic: 1. Initialize variables before any loops or conditionals. 2. Ensure parameter names match the function signature.",
+            "Edge Case Analysis: What happens when a conditional branch is skipped? The variable may not exist when returned at the end.",
+            "Structural Guard: Set a default value (e.g. total = 0 or res = []) at the start of the function body."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+        }
+
+    if "keyerror" in err_str:
+        hints = [
+            "Dictionary Membership Invariant: Dictionaries only return values for keys currently stored in them.",
+            f"Look at Line {error_line} in your code: key was looked up directly without verifying it exists. Use 'if key in dict:' or 'dict.get(key, default)' to avoid crashes.",
+            "Algorithmic Logic: 1. Check key membership before indexing. 2. Use dict.get(key, 0) for frequency counting accumulators.",
+            "Edge Case Analysis: Check what happens on unseen words or characters that haven't been added to the dictionary yet.",
+            "Structural Guard: Use collections.defaultdict(int) or dict.get(key, 0) so missing keys return 0 instead of crashing."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+        }
+
+    if "attributeerror" in err_str:
+        hints = [
+            "Null Object Invariant: 'None' represents the absence of a value. You cannot call methods like .split(), .append(), or .lower() on None.",
+            f"Look at Line {error_line} in your code: check where this object came from. A function might have returned None or an initial state was not assigned.",
+            "Algorithmic Logic: 1. Add 'if obj is not None:' before calling methods. 2. Ensure all helper function branches return valid objects.",
+            "Edge Case Analysis: What happens when input is empty or optional? Methods like .find() return None on failure.",
+            "Structural Guard: Check for None at the beginning of the function and return a default value."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+        }
+
+    if "recursionerror" in err_str:
+        hints = [
+            "Base Case Invariant: Every recursive function must have at least one base case that terminates without calling itself again.",
+            f"Look at Line {error_line} in your code: the function calls itself without reaching a termination condition. Check if the argument shrinks towards the base case on each step.",
+            "Algorithmic Logic: 1. Add a base case (e.g. 'if n <= 1: return ...') as the very first line. 2. Ensure each recursive call passes a strictly smaller argument.",
+            "Edge Case Analysis: Check what happens for n = 0, negative numbers, or empty lists.",
+            "Structural Guard: Guard against non-positive inputs or base cases right at function entry."
+        ]
+        return {
+            "hint": leak_guard(hints[hint_level - 1]),
+            "hint_type": hint_title,
+            "hint_level": hint_level,
+            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+        }
+
+    if "error" in err_str or "exception" in err_str:
         raw_err = f"{error_type or 'RuntimeError'}: {error_msg or 'Execution error'}"
         analyzed = explain_runtime_error(raw_err, code=code)
         explanation = analyzed.get("message", "")
 
         hints = [
-            f"Your code stopped due to a {error_type or 'runtime exception'}. Step back and check what values and collection sizes reach that line during testing.",
+            f"Your code stopped due to {error_type or 'a runtime exception'}. Step back and check what values reach that line during testing.",
             f"Look at Line {error_line} in your code: {explanation}",
-            f"Algorithmic Logic: Add a validation or boundary condition right before Line {error_line} runs to prevent indexing out of bounds or dividing by zero.",
+            f"Algorithmic Logic: Add a validation or boundary condition right before Line {error_line} runs to prevent invalid operations.",
             "Edge Case Analysis: What happens when the input sequence is completely empty [] or size 0? Directly slicing or indexing without checking length triggers this error.",
             f"Structural Guard: Place an early return at the very start of your function (e.g. 'if not items: return 0') to safely exit before Line {error_line} is reached."
         ]
@@ -336,7 +454,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "Dojo Smart Engine (Offline Mode)"
+            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
         }
 
     # 2. TIME LIMIT EXCEEDED (TLE) / TIMEOUT GROUNDING
