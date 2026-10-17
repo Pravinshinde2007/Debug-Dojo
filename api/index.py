@@ -7,6 +7,8 @@ PROJECT_ROOT = CURRENT_DIR.parent
 
 # Check potential locations for backend across various deployment layouts
 backend_candidates = [
+    CURRENT_DIR,
+    CURRENT_DIR / "app",
     PROJECT_ROOT / "debug-dojo" / "backend",
     PROJECT_ROOT / "backend",
     CURRENT_DIR.parent / "backend",
@@ -18,7 +20,6 @@ backend_candidates = [
 for candidate in backend_candidates:
     if candidate.exists() and str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
-        break
 
 import tempfile
 

@@ -6,6 +6,8 @@ CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parent
 
 backend_candidates = [
+    CURRENT_DIR,
+    CURRENT_DIR / "app",
     PROJECT_ROOT / "backend",
     PROJECT_ROOT / "debug-dojo" / "backend",
     CURRENT_DIR.parent / "backend",
@@ -16,7 +18,6 @@ backend_candidates = [
 for candidate in backend_candidates:
     if candidate.exists() and str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
-        break
 
 import tempfile
 

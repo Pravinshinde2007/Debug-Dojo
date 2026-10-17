@@ -6,7 +6,7 @@ import ast
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Header
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -63,6 +63,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def resolve_vercel_rewrite_path(request: Request, call_next):
+    # When Vercel rewrites incoming requests to /api/index, inspect Vercel headers for original path
+    vercel_path = (
+        request.headers.get("x-matched-path") or 
+        request.headers.get("x-invoke-path") or
+        request.headers.get("x-forwarded-uri")
+    )
+    if vercel_path and request.scope.get("path") in ("/api/index", "/api", "/index", "/"):
+        clean_path = vercel_path.split("?")[0]
+        if clean_path and clean_path not in ("/api/index", "/api", "/index", "/"):
+            request.scope["path"] = clean_path
+    response = await call_next(request)
+    return response
 
 
 # --- Request & Response Models ---
