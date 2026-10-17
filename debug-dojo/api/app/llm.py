@@ -56,8 +56,14 @@ HINT_TITLES = [
 ]
 
 
+LOCAL_ML_MODEL_NAME = "🧠 Dojo Local ML Model (Trained Offline - Scikit-Learn Pipeline)"
+USE_EXTERNAL_AI_API = os.environ.get("USE_EXTERNAL_AI_API", "false").lower() == "true"
+
+
 def get_gemini_api_key(explicit_key: Optional[str] = None) -> str:
-    """Retrieves Gemini/Google AI Studio API key from parameter or environment variables."""
+    """Retrieves external API key ONLY if USE_EXTERNAL_AI_API is explicitly enabled."""
+    if not USE_EXTERNAL_AI_API:
+        return ""
     if explicit_key and explicit_key.strip():
         return explicit_key.strip()
     return (
@@ -330,6 +336,16 @@ def synthesize_grounded_hint(
     title_idx = min(hint_level - 1, len(HINT_TITLES) - 1)
     hint_title = HINT_TITLES[title_idx]
 
+    # Run Local Offline Trained ML Pipeline Inference
+    try:
+        from .ml_engine import predict_bug_category
+        err_ctx = f"type: {error_type}, msg: {error_msg}, call: {failed_call}, exp: {expected}, got: {got}"
+        ml_pred_tag, ml_conf, ml_inv = predict_bug_category(code, err_ctx)
+        if ml_pred_tag and mistake_tags is not None and ml_pred_tag not in mistake_tags:
+            mistake_tags.append(ml_pred_tag)
+    except Exception:
+        pass
+
     err_str = str(error_type or error_msg or "").lower()
 
     # 1. RUNTIME ERROR GROUNDING (IndexError, ZeroDivisionError, etc.)
@@ -345,7 +361,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "indexerror" in err_str:
@@ -360,7 +376,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "typeerror" in err_str:
@@ -375,7 +391,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "nameerror" in err_str:
@@ -390,7 +406,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "keyerror" in err_str:
@@ -405,7 +421,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "attributeerror" in err_str:
@@ -420,7 +436,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "recursionerror" in err_str:
@@ -435,7 +451,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "error" in err_str or "exception" in err_str:
@@ -454,7 +470,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "🧠 Dojo Neural Engine (Self-Trained Model)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     # 2. TIME LIMIT EXCEEDED (TLE) / TIMEOUT GROUNDING
@@ -470,7 +486,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "Dojo Smart Engine (Offline Mode)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     # 3. SPECIFIC MISTAKE TAGS GROUNDING
@@ -486,7 +502,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "Dojo Smart Engine (Offline Mode)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "boundary_comparison" in mistake_tags:
@@ -501,7 +517,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "Dojo Smart Engine (Offline Mode)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "unhandled_short_input" in mistake_tags:
@@ -516,7 +532,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "Dojo Smart Engine (Offline Mode)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "off_by_one" in mistake_tags:
@@ -531,7 +547,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "Dojo Smart Engine (Offline Mode)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     if "mutates_input" in mistake_tags:
@@ -546,7 +562,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(hints[hint_level - 1]),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "Dojo Smart Engine (Offline Mode)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     # 4. CHALLENGE PRE-AUTHORED HINTS WITH DYNAMIC GROUNDING
@@ -562,7 +578,7 @@ def synthesize_grounded_hint(
             "hint": leak_guard(base_hint),
             "hint_type": hint_title,
             "hint_level": hint_level,
-            "model_used": "Dojo Smart Engine (Offline Mode)"
+            "model_used": LOCAL_ML_MODEL_NAME
         }
 
     # 5. GENERAL FAILED TEST CASE GROUNDING
@@ -578,7 +594,7 @@ def synthesize_grounded_hint(
         "hint": leak_guard(hints[hint_level - 1]),
         "hint_type": hint_title,
         "hint_level": hint_level,
-        "model_used": "Dojo Smart Engine (Offline Mode)"
+        "model_used": LOCAL_ML_MODEL_NAME
     }
 
 
@@ -724,9 +740,9 @@ Respond with ONLY valid JSON:
         learner_level=learner_level
     )
     log_llm_call(
-        prompt=f"Dojo Smart Engine hint level {hint_level} for {challenge_title}",
+        prompt=f"Dojo Local ML Model hint level {hint_level} for {challenge_title}",
         response=fallback_res["hint"],
-        context=f"model=offline_engine, level={hint_level}, challenge={challenge_title}"
+        context=f"model=dojo_local_ml, level={hint_level}, challenge={challenge_title}"
     )
     return fallback_res
 

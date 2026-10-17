@@ -262,7 +262,8 @@ async def generate_feedback(
     Applies strict leak guards so no raw solutions are exposed.
     """
     feedback = None
-    api_key = get_gemini_api_key()
+    use_external = os.environ.get("USE_EXTERNAL_AI_API", "false").lower() == "true"
+    api_key = get_gemini_api_key() if use_external else ""
 
     if api_key:
         # Determine optimal model based on problem complexity
@@ -327,13 +328,13 @@ REQUESTED HINT LEVEL: {hint_level}
 
     if not feedback:
         feedback = _generate_rule_based_feedback(code, language, problem_spec, test_results, hint_level)
-        feedback["model_used"] = "🧠 Dojo Neural Engine (Self-Trained Model)"
+        feedback["model_used"] = "🧠 Dojo Local ML Model (Trained Offline - Scikit-Learn Pipeline)"
         try:
             from .db import log_llm_call
             log_llm_call(
-                prompt=f"Dojo Neural Engine analysis for {problem_spec.get('title', 'Problem')}",
+                prompt=f"Dojo Local ML Model analysis for {problem_spec.get('title', 'Problem')}",
                 response=json.dumps(feedback.get("hints", {})),
-                context=f"model=dojo_neural_engine, status={test_results.get('overall_status')}"
+                context=f"model=dojo_local_ml, status={test_results.get('overall_status')}"
             )
         except Exception:
             pass
