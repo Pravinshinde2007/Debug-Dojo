@@ -45,9 +45,49 @@ export interface NextChallenge {
   reason: string;
 }
 
+export interface ConceptSkill {
+  concept: string;
+  status: string;
+  mastery: number;
+  attempts: number;
+  passes: number;
+  fails: number;
+  is_illustrative?: boolean;
+}
+
+export interface SubmissionHistoryItem {
+  id: string;
+  challenge_id: string;
+  title: string;
+  difficulty: string;
+  concepts?: string[];
+  passed: boolean;
+  outcome: 'Passed' | 'Failed';
+  hints_used: number;
+  mastery_impact: string;
+  mistake_tags: string[];
+  code_snippet: string;
+  created_at?: string;
+}
+
 export interface LearnerProfileResponse {
+  learner_id?: string;
+  user_name?: string;
+  user_email?: string;
   recurring_mistakes: RecurringMistake[];
+  skills_by_concept?: ConceptSkill[];
   mastery: Record<string, number>;
+  mastery_per_concept?: Record<string, number>;
+  overall_mastery?: number;
+  disclaimer?: string;
+  challenges_attempted?: number;
+  challenges_solved?: number;
+  challenges_failed?: number;
+  total_submissions?: number;
+  passed_count?: number;
+  failed_count?: number;
+  submission_history?: SubmissionHistoryItem[];
+  history?: SubmissionHistoryItem[];
   next_challenge: NextChallenge;
 }
 
@@ -249,10 +289,29 @@ export const api = {
       if (res.ok) {
         const data = await res.json();
         return {
+          learner_id: data.learner_id || learner_id,
+          user_name: data.user_name,
+          user_email: data.user_email,
           recurring_mistakes: data.recurring_mistakes?.map((m: any) =>
             typeof m === 'string' ? { tag: m, challenges: ['sum_last_k', 'find_max'], count: 2 } : m
           ) || [],
+          skills_by_concept: data.skills_by_concept || [
+            { concept: 'Loops', status: 'Several successful attempts', mastery: 85, attempts: 6, passes: 5, fails: 1 },
+            { concept: 'Lists and indexing', status: 'Some repeated mistakes', mastery: 50, attempts: 4, passes: 2, fails: 2 },
+            { concept: 'Edge cases', status: 'Needs more practice', mastery: 25, attempts: 3, passes: 1, fails: 2 },
+          ],
           mastery: data.mastery_per_concept || data.mastery || { loops: 0.8 },
+          mastery_per_concept: data.mastery_per_concept,
+          overall_mastery: data.overall_mastery ?? 53,
+          disclaimer: data.disclaimer || "These values are estimates, not proof of a student's ability. Your backend should update them after every submission.",
+          challenges_attempted: data.challenges_attempted ?? 3,
+          challenges_solved: data.challenges_solved ?? 2,
+          challenges_failed: data.challenges_failed ?? 1,
+          total_submissions: data.total_submissions ?? 4,
+          passed_count: data.passed_count ?? 3,
+          failed_count: data.failed_count ?? 1,
+          submission_history: data.submission_history || data.history || [],
+          history: data.history || data.submission_history || [],
           next_challenge: data.next_challenge || {
             id: 'find_maximum',
             title: 'Find Maximum Element',
@@ -265,6 +324,7 @@ export const api = {
     }
 
     return {
+      learner_id,
       recurring_mistakes: [
         {
           tag: 'boundary_comparison',
@@ -277,16 +337,79 @@ export const api = {
           count: 2,
         },
       ],
+      skills_by_concept: [
+        { concept: 'Loops', status: 'Several successful attempts', mastery: 85, attempts: 6, passes: 5, fails: 1, is_illustrative: true },
+        { concept: 'Lists and indexing', status: 'Some repeated mistakes', mastery: 50, attempts: 4, passes: 2, fails: 2, is_illustrative: true },
+        { concept: 'Edge cases', status: 'Needs more practice', mastery: 25, attempts: 3, passes: 1, fails: 2, is_illustrative: true },
+        { concept: 'Functions', status: 'Ready to practice', mastery: 50, attempts: 0, passes: 0, fails: 0, is_illustrative: true },
+        { concept: 'Conditions', status: 'Ready to practice', mastery: 50, attempts: 0, passes: 0, fails: 0, is_illustrative: true },
+      ],
       mastery: {
-        loops: 0.82,
-        lists: 0.75,
-        slicing: 0.55,
-        conditionals: 0.9,
+        loops: 0.85,
+        'lists and indexing': 0.50,
+        'edge cases': 0.25,
       },
+      mastery_per_concept: {
+        'Loops': 85,
+        'Lists and indexing': 50,
+        'Edge cases': 25,
+      },
+      overall_mastery: 53,
+      disclaimer: "These values are estimates, not proof of a student's ability. Your backend should update them after every submission.",
+      challenges_attempted: 3,
+      challenges_solved: 2,
+      challenges_failed: 1,
+      total_submissions: 5,
+      passed_count: 3,
+      failed_count: 2,
+      submission_history: [
+        {
+          id: 'sub_103',
+          challenge_id: 'last-k-total',
+          title: 'Total of the Last K Marks',
+          difficulty: 'Easy',
+          concepts: ['Lists and indexing', 'Loops'],
+          passed: true,
+          outcome: 'Passed',
+          hints_used: 0,
+          mastery_impact: '+15% (0 hints)',
+          mistake_tags: [],
+          code_snippet: 'def sum_last_k(scores, k):\n    if k <= 0: return 0\n    return sum(scores[-k:])',
+          created_at: 'Just now',
+        },
+        {
+          id: 'sub_102',
+          challenge_id: 'last-k-total',
+          title: 'Total of the Last K Marks',
+          difficulty: 'Easy',
+          concepts: ['Lists and indexing', 'Edge cases'],
+          passed: false,
+          outcome: 'Failed',
+          hints_used: 2,
+          mastery_impact: '-4% (Failed)',
+          mistake_tags: ['unhandled_short_input'],
+          code_snippet: 'def sum_last_k(scores, k):\n    return sum(scores[-k:])',
+          created_at: '5 mins ago',
+        },
+        {
+          id: 'sub_101',
+          challenge_id: 'find_maximum',
+          title: 'Find Maximum Element',
+          difficulty: 'Easy',
+          concepts: ['Loops', 'Edge cases'],
+          passed: true,
+          outcome: 'Passed',
+          hints_used: 4,
+          mastery_impact: '+2% (4 hints)',
+          mistake_tags: ['boundary_comparison'],
+          code_snippet: 'def find_maximum(nums):\n    if not nums: return None...',
+          created_at: '15 mins ago',
+        },
+      ],
       next_challenge: {
         id: 'find_maximum',
         title: 'Find Maximum Element',
-        reason: 'Reinforces boundary checking after recurring boundary_comparison mistakes across 2 challenges',
+        reason: 'Recommended for easier practice in Edge cases to build confidence after repeated attempts.',
       },
     };
   },

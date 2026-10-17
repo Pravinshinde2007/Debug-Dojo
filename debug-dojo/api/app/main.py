@@ -147,9 +147,11 @@ class LearnerProfileResponse(BaseModel):
     user_name: Optional[str] = None
     user_email: Optional[str] = None
     recurring_mistakes: List[Dict[str, Any]]
+    skills_by_concept: Optional[List[Dict[str, Any]]] = None
     mastery_per_concept: Dict[str, float]
     mastery: Optional[Dict[str, float]] = None
     overall_mastery: Optional[int] = None
+    disclaimer: Optional[str] = "These values are estimates, not proof of a student's ability. Updated after every submission."
     challenges_attempted: Optional[int] = None
     challenges_solved: Optional[int] = None
     challenges_failed: Optional[int] = None
@@ -159,6 +161,7 @@ class LearnerProfileResponse(BaseModel):
     passed_count: Optional[int] = None
     failed_count: Optional[int] = None
     history: Optional[List[Dict[str, Any]]] = None
+    submission_history: Optional[List[Dict[str, Any]]] = None
     next_challenge: Dict[str, Any]
     recommended_next_challenge: Optional[Dict[str, Any]] = None
     recommendation_reason: Optional[str] = None
@@ -579,9 +582,11 @@ def get_learner(learner_id: str = "demo-learner", authorization: Optional[str] =
             user_name=profile.get("user_name"),
             user_email=profile.get("user_email"),
             recurring_mistakes=profile["recurring_mistakes"],
+            skills_by_concept=profile.get("skills_by_concept"),
             mastery_per_concept=profile["mastery_per_concept"],
             mastery=profile.get("mastery"),
             overall_mastery=profile.get("overall_mastery"),
+            disclaimer=profile.get("disclaimer"),
             challenges_attempted=profile.get("challenges_attempted"),
             challenges_solved=profile.get("challenges_solved"),
             challenges_failed=profile.get("challenges_failed"),
@@ -591,6 +596,7 @@ def get_learner(learner_id: str = "demo-learner", authorization: Optional[str] =
             passed_count=profile.get("passed_count"),
             failed_count=profile.get("failed_count"),
             history=profile.get("history"),
+            submission_history=profile.get("submission_history"),
             next_challenge=profile["next_challenge"],
             recommended_next_challenge=profile.get("recommended_next_challenge"),
             recommendation_reason=profile.get("recommendation_reason"),

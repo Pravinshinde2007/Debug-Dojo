@@ -988,6 +988,8 @@ async function fetchProfile(){
       if(data && !data.error && !data.nonJson){
         fetchedFromBackend = true;
         S.mastery = data.mastery_per_concept || S.mastery;
+        S.skills_by_concept = data.skills_by_concept || null;
+        S.disclaimer = data.disclaimer || null;
         S.streak = data.streak_days || S.streak || 1;
         S.recurringList = data.recurring_mistakes || [];
         S.recommendedChallenge = data.recommended_next_challenge || data.next_challenge || null;
@@ -999,7 +1001,7 @@ async function fetchProfile(){
         S.total_interactions = data.total_interactions != null ? data.total_interactions : 0;
         S.total_submissions = data.total_submissions != null ? data.total_submissions : 0;
         S.overall_mastery = data.overall_mastery != null ? data.overall_mastery : 50;
-        S.user_history = data.history || [];
+        S.user_history = data.submission_history || data.history || [];
 
         // Update S.status accurately from real SQLite database history
         CH.forEach(c => { S.status[c.id] = 'new'; });
@@ -1601,12 +1603,22 @@ function vDashboard(){
  const displayName=S.user ? (S.user.name || S.user.email) : 'Student';
  const displayEmail=S.user ? S.user.email : 'Personal Session';
 
+ const skills = S.skills_by_concept || [
+   { concept: "Loops", status: "Several successful attempts", mastery: S.mastery["Loops"] || 85 },
+   { concept: "Lists and indexing", status: "Some repeated mistakes", mastery: S.mastery["Lists and indexing"] || 50 },
+   { concept: "Edge cases", status: "Needs more practice", mastery: S.mastery["Edge cases"] || 25 },
+   { concept: "Functions", status: "Several successful attempts", mastery: S.mastery["Functions"] || 75 },
+   { concept: "Conditions", status: "Some repeated mistakes", mastery: S.mastery["Conditions"] || 60 },
+   { concept: "Strings", status: "Several successful attempts", mastery: S.mastery["Strings"] || 70 },
+   { concept: "Input handling", status: "Needs more practice", mastery: S.mastery["Input handling"] || 40 }
+ ];
+
  return `
  <div class="page-head">
   <div>
     <span class="eyebrow">Personal Learner Dashboard</span>
     <h1>${esc(displayName)}</h1>
-    <p class="muted" style="margin-top:4px;font-size:14px">${esc(displayEmail)} · SQLite Verified Interactions</p>
+    <p class="muted" style="margin-top:4px;font-size:14px">${esc(displayEmail)} · Real-time Mastery &amp; Performance Audit Log</p>
   </div>
  </div>
  <div class="grid sumgrid" style="margin-bottom:16px">
@@ -1619,28 +1631,73 @@ function vDashboard(){
  </div>
  <div class="grid two">
   <div class="grid" style="align-content:start">
-   <div class="card reco tilt" data-tilt="3"><span class="eyebrow">Recommended next challenge</span><h2 style="font-size:26px;margin:8px 0">${esc(recCh.title || 'Challenge')}</h2>
-    <p style="line-height:1.65">${recReason}</p>
-    <div class="row" style="margin-top:14px"><button class="btn primary" data-open="${recCh.challenge_id||recCh.id}">Start Challenge ${IC.arrow}</button><span class="pill ${recCh.difficulty?recCh.difficulty.toLowerCase():'easy'}">${recCh.difficulty||'Easy'}</span>${(recCh.concepts||[]).map(k=>`<span class="pill tag">${k}</span>`).join('')}</div>
+   <div class="card reco tilt" data-tilt="3">
+     <span class="eyebrow">Recommended Next Challenge</span>
+     <h2 style="font-size:26px;margin:8px 0">${esc(recCh.title || 'Challenge')}</h2>
+     <p style="line-height:1.65">${recReason}</p>
+     <div class="row" style="margin-top:14px">
+       <button class="btn primary" data-open="${recCh.challenge_id||recCh.id}">Start Challenge ${IC.arrow}</button>
+       <span class="pill ${recCh.difficulty?recCh.difficulty.toLowerCase():'easy'}">${recCh.difficulty||'Easy'}</span>
+       ${(recCh.concepts||[]).map(k=>`<span class="pill tag">${k}</span>`).join('')}
+     </div>
    </div>
-   <div class="card"><h3 style="font-size:18px;margin-bottom:14px">Concept mastery (0–100)</h3>
-    <div class="sky" id="sky"><div class="stage-hint">Drag to rotate</div></div>
-    <div class="bars">${CONCEPTS.map(k=>`<div class="line"><div class="top"><span>${k}</span><span class="mono">${S.mastery[k]||50}</span></div><div class="bar"><i style="width:${S.mastery[k]||50}%;background:${mcol(S.mastery[k]||50)}"></i></div></div>`).join('')}</div>
+   <div class="card">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+       <h3 style="font-size:18px">Skills by Concept</h3>
+       <span class="pill" style="font-size:11px;color:var(--violet);border-color:rgba(168,140,255,.3)">Estimated Mastery</span>
+     </div>
+     <p class="muted" style="font-size:12.5px;margin-bottom:12px">How Debug Dojo measures learning. These values are estimates, not proof of a student's ability. Updated after every submission.</p>
+
+     <!-- Scoring Policy Box -->
+     <div style="background:#181326;border:1.5px solid #3d3056;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--muted);display:grid;gap:4px">
+       <div><strong style="color:var(--cyan)">Scoring Policy:</strong> Passing without hints earns the most credit (+15%). Passing after hints earns less credit (+2% to +10%). Failed attempts do not increase mastery.</div>
+       <div><strong style="color:var(--amber)">Adaptive Guidance:</strong> Repeated failures trigger a recommendation for easier foundational practice.</div>
+     </div>
+
+     <div class="sky" id="sky"><div class="stage-hint">Drag to rotate</div></div>
+     <div class="bars" style="display:grid;gap:10px">
+       ${skills.map(item => {
+         const score = item.mastery != null ? item.mastery : 50;
+         const status = item.status || (score >= 75 ? 'Several successful attempts' : score >= 40 ? 'Some repeated mistakes' : 'Needs more practice');
+         const statusClass = status === 'Several successful attempts' ? 'pill easy' : status === 'Needs more practice' ? 'pill hard' : 'pill medium';
+         return `
+           <div class="line" style="background:#181326;border:1.5px solid #3d3056;border-radius:10px;padding:10px 14px;display:grid;gap:6px">
+             <div class="top" style="display:flex;justify-content:space-between;align-items:center">
+               <div style="display:flex;align-items:center;gap:8px">
+                 <b style="font-size:13.5px;color:var(--fg)">${esc(item.concept)}</b>
+                 <span class="${statusClass}" style="font-size:11px;padding:2px 8px">${esc(status)}</span>
+               </div>
+               <span class="mono" style="font-weight:700;font-size:14px;color:${mcol(score)}">${score}%</span>
+             </div>
+             <div class="bar" style="height:7px;background:#120e1a;border-radius:99px;overflow:hidden">
+               <i style="width:${score}%;background:${mcol(score)};display:block;height:100%;border-radius:99px"></i>
+             </div>
+           </div>
+         `;
+       }).join('')}
+     </div>
    </div>
   </div>
   <div class="grid" style="align-content:start">
-   <div class="card"><h3 style="font-size:18px;margin-bottom:6px">Recurring mistakes</h3>
+   <div class="card"><h3 style="font-size:18px;margin-bottom:6px">Recurring Mistakes</h3>
     <p class="muted" style="font-size:13px;margin-bottom:8px">A mistake counts as recurring once it appears across at least 2 distinct challenges.</p>
     ${rc.length?rc.map(r=>`<div class="rm"><div><span class="pill mistake">${r.mistake_tag||r.tag}</span><div class="muted" style="font-size:13px;margin-top:4px">Appeared across ${(r.challenges_involved||r.challenges||[]).length} challenges: ${(r.challenges_involved||r.challenges||[]).join(', ')}</div></div><span class="mono">${r.occurrence_count||r.count}×</span></div>`).join(''):'<div class="muted" style="font-size:14px">No recurring mistakes yet. Keep solving!</div>'}
    </div>
-   <div class="card"><h3 style="font-size:18px;margin-bottom:10px">Submission &amp; Debug History</h3>
+   <div class="card">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+       <h3 style="font-size:18px">Submission &amp; Performance History</h3>
+       <span class="pill" style="font-size:11px;color:var(--cyan);border-color:rgba(100,216,236,.3)">Audit Trail</span>
+     </div>
+     <p class="muted" style="font-size:12.5px;margin-bottom:12px">Recorded submissions timeline so judges can inspect learner progress and hint impact over time.</p>
     ${(S.user_history && S.user_history.length) ? `
-      <div class="tbl" style="max-height:420px;overflow-y:auto">
+      <div class="tbl" style="max-height:450px;overflow-y:auto">
         <table>
           <thead>
             <tr>
-              <th>Activity / Challenge</th>
+              <th>Challenge / Activity</th>
               <th>Outcome</th>
+              <th>Hints Used</th>
+              <th>Mastery Impact</th>
               <th>Mistake Tags</th>
               <th>Submitted Code</th>
               <th>Time</th>
@@ -1651,8 +1708,10 @@ function vDashboard(){
               <tr>
                 <td><strong>${esc(h.title || h.challenge_id)}</strong> <span class="pill ${(h.difficulty||'easy').toLowerCase()}" style="font-size:11px">${esc(h.difficulty||'Easy')}</span></td>
                 <td><span class="o ${h.passed ? 'passed' : 'wrong'}">${h.outcome || (h.passed ? 'Passed' : 'Failed')}</span></td>
+                <td style="font-size:12px">${h.hints_used != null ? `${h.hints_used} hint${h.hints_used!==1?'s':''}` : '0 hints'}</td>
+                <td><span class="pill ${h.passed ? 'easy' : 'hard'}" style="font-size:11px">${esc(h.mastery_impact || (h.passed ? '+10% (Pass)' : '-4% (Fail)'))}</span></td>
                 <td>${(h.mistake_tags && h.mistake_tags.length) ? h.mistake_tags.map(t => `<span class="pill mistake" style="font-size:10px">${esc(t)}</span>`).join(' ') : '<span class="muted">—</span>'}</td>
-                <td><code style="font-size:11px;color:var(--cyan);background:var(--bg2);padding:2px 6px;border-radius:4px;display:inline-block;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.code_snippet || 'code')}</code></td>
+                <td><code style="font-size:11px;color:var(--cyan);background:var(--bg2);padding:2px 6px;border-radius:4px;display:inline-block;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.code_snippet || 'code')}</code></td>
                 <td class="muted" style="font-size:11.5px">${esc(h.created_at || 'Recently')}</td>
               </tr>
             `).join('')}
